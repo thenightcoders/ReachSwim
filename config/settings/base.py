@@ -1,44 +1,49 @@
 """
 Base settings for ReachSwim project.
+Shared by all environments. Do not put environment-specific overrides here.
 """
 import os
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
-from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
 # config/settings/base.py → config/settings → config → project root
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Load environment variables from the .env file
-dotenv_path = os.path.join(BASE_DIR, '.env')
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv(BASE_DIR / ".env")
 
-# Get environment variables with fallbacks
-debug_value = os.getenv('DEBUG_VALUE', 'False').strip().lower()
-allowed_hosts_str = os.getenv('LIST_OF_ALLOWED_HOSTS', default="")
-secret_key_value = os.getenv('SECRET_KEY_VALUE')
-
-# Core settings
+# ---------------------------------------------------------------------------
+# Core
+# ---------------------------------------------------------------------------
+secret_key_value = os.getenv("SECRET_KEY_VALUE")
 if not secret_key_value:
     raise ImproperlyConfigured("SECRET_KEY_VALUE environment variable is not set")
+
 SECRET_KEY = secret_key_value
-DEBUG = debug_value == 'true'
-LIST_OF_ALLOWED_HOSTS = allowed_hosts_str.split(',') if allowed_hosts_str else []
-ALLOWED_HOSTS = ["*"] if DEBUG else LIST_OF_ALLOWED_HOSTS
+DEBUG = os.getenv("DEBUG_VALUE", "False").strip().lower() == "true"
 
-# Admin configuration
-ADMIN_NAME = os.getenv('ADMIN_NAME', default="")
-ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', default="")
+_allowed_hosts_str = os.getenv("LIST_OF_ALLOWED_HOSTS", "")
+ALLOWED_HOSTS = ["*"] if DEBUG else [h.strip() for h in _allowed_hosts_str.split(",") if h.strip()]
 
-# Site configuration
+# ---------------------------------------------------------------------------
+# Site / admin
+# ---------------------------------------------------------------------------
 SITE_ID = 1
-SITE_NAME = os.getenv('SITE_NAME', 'Quirky Little Tour Company')
-SITE_DESCRIPTION = os.getenv('SITE_DESCRIPTION', 'Bible Tour Louvre Application')
-DEVELOPMENT_MODE = os.getenv('DEVELOPMENT_MODE', 'false').strip().lower() == 'true'
+SITE_NAME = os.getenv("SITE_NAME", "ReachSwim")
+SITE_DESCRIPTION = os.getenv("SITE_DESCRIPTION", "Adult swim coaching in London")
+DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "false").strip().lower() == "true"
 
-# --- Apps ---
+ADMIN_NAME = os.getenv("ADMIN_NAME", "")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")
+ADMINS = [(ADMIN_NAME, ADMIN_EMAIL)] if ADMIN_EMAIL else []
+MANAGERS = ADMINS
+
+# ---------------------------------------------------------------------------
+# Apps
+# ---------------------------------------------------------------------------
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -48,16 +53,16 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Local
     "apps.accounts",
-    "apps.pages",
-    "apps.legal",
     "apps.booking",
+    "apps.legal",
+    "apps.pages",
     "apps.payments",
     "apps.shop",
 ]
 
-AUTH_USER_MODEL = "accounts.User"
-
-# --- Middleware ---
+# ---------------------------------------------------------------------------
+# Middleware
+# ---------------------------------------------------------------------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -68,8 +73,16 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+# ---------------------------------------------------------------------------
+# URLs / WSGI
+# ---------------------------------------------------------------------------
 ROOT_URLCONF = "config.urls"
+WSGI_APPLICATION = "config.wsgi.application"
+APPEND_SLASH = True
 
+# ---------------------------------------------------------------------------
+# Templates
+# ---------------------------------------------------------------------------
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -82,16 +95,14 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.pages.context_processors.site_context",
-                "apps.payments.context_processors.cart_context",
-                "apps.shop.context_processors.shop_context",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = "config.wsgi.application"
-
-# --- Database ---
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -99,7 +110,9 @@ DATABASES = {
     }
 }
 
-# --- Auth ---
+# ---------------------------------------------------------------------------
+# Auth / passwords
+# ---------------------------------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -107,166 +120,89 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# User activity tracking
-USER_ONLINE_TIMEOUT = 300  # 5 minutes
-USER_LAST_SEEN_TIMEOUT = 60 * 60 * 24 * 7  # 1 week
-
-# Session configuration
+# ---------------------------------------------------------------------------
+# Sessions & messages
+# ---------------------------------------------------------------------------
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
+SESSION_COOKIE_AGE = 1800
 SESSION_SAVE_EVERY_REQUEST = True
+MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"
 
-# Message storage
-MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
-
-# Admin configuration
-ADMINS = [
-    (ADMIN_NAME, ADMIN_EMAIL),
-]
-MANAGERS = ADMINS
-
-# Security settings for production
-if not DEBUG:
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_PRELOAD = True
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    csrf_trusted_str = os.getenv("CSRF_TRUSTED_ORIGINS", "")
-    CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_trusted_str.split(",") if o.strip()]
-
-# Email configuration
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', default="")
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', default="")
-
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-EMAIL_HOST_USER = EMAIL_HOST_USER
-EMAIL_HOST_PASSWORD = EMAIL_HOST_PASSWORD
-
-# Conditional TLS/SSL based on port
+# ---------------------------------------------------------------------------
+# Email  (overridden per-environment)
+# ---------------------------------------------------------------------------
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = EMAIL_PORT != 465
 EMAIL_USE_SSL = EMAIL_PORT == 465
-
 EMAIL_SUBJECT_PREFIX = ""
 EMAIL_USE_LOCALTIME = True
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
 
-
-# Logging configuration
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose' if DEBUG else 'simple',
-            'level': 'DEBUG' if DEBUG else 'ERROR',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
-            'formatter': 'verbose',
-            'level': 'INFO',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'] if DEBUG else ['console', 'file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'homepage.views': {
-            'handlers': ['console'] if DEBUG else ['console', 'file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'bookings.views': {
-            'handlers': ['console'] if DEBUG else ['console', 'file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'django.core.mail': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'smtplib': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'administration.views': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'bookings.tasks': {
-            'handlers': ['console'] if DEBUG else ['console', 'file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'django_q': {
-            'handlers': ['console'],
-            'level': 'ERROR' if DEBUG else 'INFO',
-            'propagate': False,
-        },
-    },
-}
-
-# Create logs directory if it doesn't exist
-logs_dir = BASE_DIR / 'logs'
-if not logs_dir.exists():
-    logs_dir.mkdir(parents=True, exist_ok=True)
-
-# URL trailing slash behavior
-APPEND_SLASH = True
-
-# Canonical site URL used in outgoing emails (no trailing slash)
-SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000' if DEBUG else os.getenv('SITE_URL', 'https://reachswim.co.uk')).rstrip('/')
-
-# --- i18n ---
+# ---------------------------------------------------------------------------
+# i18n / timezone
+# ---------------------------------------------------------------------------
 LANGUAGE_CODE = "en-gb"
 TIME_ZONE = "Europe/London"
 USE_I18N = True
 USE_TZ = True
 
-# --- Static ---
+# ---------------------------------------------------------------------------
+# Static & media
+# ---------------------------------------------------------------------------
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-
-# --- Media ---
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# --- Default PK ---
+# ---------------------------------------------------------------------------
+# Misc
+# ---------------------------------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# --- Auth ---
-LOGIN_URL = "/account/login/"
-LOGIN_REDIRECT_URL = "/account/profile/"
-LOGOUT_REDIRECT_URL = "/"
+SITE_URL = os.getenv("SITE_URL", "").rstrip("/")
 
-# --- Stripe ---
-STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
-STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+_log_level = "DEBUG" if DEBUG else "INFO"
+_handlers = ["console"] if DEBUG else ["console", "file"]
+
+logs_dir = BASE_DIR / "logs"
+logs_dir.mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+        "simple": {"format": "{levelname} {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose" if DEBUG else "simple",
+            "level": _log_level,
+        },
+        "file": {
+            "class": "logging.FileHandler",
+            "filename": logs_dir / "django.log",
+            "formatter": "verbose",
+            "level": "INFO",
+        },
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "django": {"handlers": _handlers, "level": "INFO", "propagate": False},
+        "django.core.mail": {"handlers": ["console"], "level": _log_level, "propagate": False},
+        "apps.booking": {"handlers": _handlers, "level": _log_level, "propagate": False},
+    },
+}
+
