@@ -8,7 +8,8 @@ from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# config/settings/base.py → config/settings → config → project root
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Load environment variables from the .env file
 dotenv_path = os.path.join(BASE_DIR, '.env')
