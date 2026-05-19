@@ -1,0 +1,63 @@
+{% load payment_tags %}
+
+<section id="shop" class="section section--cream">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">{{ shop_settings.kicker }}</span>
+        <h2 class="h-display section-title">{{ shop_settings.heading }}<br><em>{{ shop_settings.heading_emphasis }}</em></h2>
+      </div>
+      <p class="section-head-right">{{ shop_settings.subheading }} {{ shop_settings.free_shipping_note }}</p>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="shop-filters" data-filter-group>
+      <button class="filter-tab active" data-filter="all">Everything</button>
+      {% for cat in categories %}
+      <button class="filter-tab" data-filter="{{ cat.slug }}">{{ cat.name }}</button>
+      {% endfor %}
+    </div>
+
+    <!-- Product grid -->
+    <div class="shop-grid">
+      {% for product in products %}
+      <article class="product-card reveal" style="--delay: {{ forloop.counter0 }}" data-category="{{ product.category.slug }}">
+        {% if product.image %}
+        <div class="product-photo">
+          <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy">
+        </div>
+        {% else %}
+        <div class="photo photo--grain {{ product.photo_class }} product-photo" data-label="// {{ product.category.name|lower }} · {{ product.color|lower }}"></div>
+        {% endif %}
+        <div class="product-body">
+          <div class="product-head">
+            <h4 class="h-display product-name">{{ product.name }}</h4>
+            <span class="mono product-price">{{ product.price_pence|pence_to_pounds }}</span>
+          </div>
+          {% if product.color %}
+          <div class="mono product-color">{{ product.color }}</div>
+          {% endif %}
+          {% if product.in_stock %}
+          <button
+            class="btn btn-cream btn-sm product-add"
+            onclick="addProductToCart(this)"
+            data-product-id="{{ product.pk }}"
+            data-name="{{ product.name }}"
+            data-color="{{ product.color }}"
+            data-price="{{ product.price_pence }}"
+            data-photo-class="{{ product.photo_class }}"
+            {% if product.image %}data-image="{{ product.image.url }}"{% endif %}
+          >
+            Add to cart
+          </button>
+          {% else %}
+          <button class="btn btn-cream btn-sm product-add" disabled>
+            Out of stock
+          </button>
+          {% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,37 @@
+<div class="booking-slots-grid">
+  {% for slot in slots %}
+  <div class="booking-slot{% if not slot.is_available %} booking-slot--full{% endif %}">
+    <div class="booking-slot-time">
+      {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
+    </div>
+    <div class="booking-slot-info">
+      <span class="booking-slot-price">{{ slot.price_display }}</span>
+      {% if slot.max_capacity > 1 %}
+      <span class="booking-slot-spots">
+        {{ slot.spots_remaining }}/{{ slot.max_capacity }} spots
+      </span>
+      {% endif %}
+    </div>
+    {% if slot.is_available %}
+    <button
+      type="button"
+      class="btn btn-primary btn-sm booking-slot-btn"
+      onclick="addToCart(this)"
+      data-session-type="{{ slot.session_type_id }}"
+      data-location="{{ slot.location_id }}"
+      data-date="{{ slot.date|date:'Y-m-d' }}"
+      data-start="{{ slot.start_time|time:'H:i' }}"
+      data-end="{{ slot.end_time|time:'H:i' }}"
+      data-price="{{ slot.price_pence }}"
+      data-label="{{ session_type.name }} @ {{ location.name }} — {{ slot.date|date:'D j M' }} {{ slot.start_time|time:'H:i' }}"
+    >
+      Add to cart
+    </button>
+    {% else %}
+    <span class="booking-slot-full-label">Full</span>
+    {% endif %}
+  </div>
+  {% empty %}
+  <p class="booking-empty">No time slots available on this date.</p>
+  {% endfor %}
+</div>

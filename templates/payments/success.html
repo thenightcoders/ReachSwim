@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load payment_tags %}
+
+{% block title %}Booking confirmed — {{ site_config.site_name }}{% endblock %}
+
+{% block content %}
+<section class="section success-section">
+  <div class="container container--narrow" style="text-align:center;">
+    <div class="success-icon">&#10003;</div>
+    <h1 class="h-display">You're booked in!</h1>
+
+    {% if order %}
+    <p class="success-lead">
+      A confirmation email will be sent to <strong>{{ order.client_email }}</strong>.
+    </p>
+
+    <div class="success-details">
+      <h2>Your sessions</h2>
+      {% for item in order.items.all %}
+      <div class="success-item">
+        <span>{{ item.label }}</span>
+        <span>{{ item.price_pence|pence_to_pounds }}</span>
+      </div>
+      {% endfor %}
+      <div class="success-total">
+        <span>Total paid</span>
+        <span>{{ order.total_pence|pence_to_pounds }}</span>
+      </div>
+    </div>
+    {% else %}
+    <p class="success-lead">
+      Your payment has been received. You'll get a confirmation email shortly.
+    </p>
+    {% endif %}
+
+    <a href="{% url 'pages:home' %}" class="btn btn-primary" style="margin-top:2rem;">
+      Back to home
+    </a>
+  </div>
+</section>
+{% endblock %}

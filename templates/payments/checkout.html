@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load payment_tags %}
+
+{% block title %}Checkout — {{ site_config.site_name }}{% endblock %}
+
+{% block content %}
+<section class="section checkout-section">
+  <div class="container container--narrow">
+    <h1 class="h-display">Checkout</h1>
+
+    {% if error %}
+    <div class="alert alert--error">{{ error }}</div>
+    {% endif %}
+
+    {% if cart %}
+    <div class="checkout-grid">
+
+      <!-- Order summary -->
+      <div class="checkout-summary">
+        <h2>Your sessions</h2>
+        <ul class="checkout-items">
+          {% for item in cart %}
+          <li class="checkout-item">
+            <span>{{ item.label }}</span>
+            <span>{{ item.price_pence|pence_to_pounds }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+
+        {% if voucher_code %}
+        <div class="checkout-row">
+          <span>Subtotal</span>
+          <span>{{ cart_subtotal|pence_to_pounds }}</span>
+        </div>
+        <div class="checkout-row checkout-discount">
+          <span>Voucher: {{ voucher_code }}</span>
+          <span>&minus;{{ voucher_discount|pence_to_pounds }}</span>
+        </div>
+        {% endif %}
+
+        <div class="checkout-row checkout-total">
+          <span>Total</span>
+          <span>{{ cart_total|pence_to_pounds }}</span>
+        </div>
+      </div>
+
+      <!-- Client details form -->
+      <div class="checkout-form-wrap">
+        <h2>Your details</h2>
+        <form method="post" action="{% url 'payments:checkout_pay' %}" class="checkout-form">
+          {% csrf_token %}
+          <div class="form-group">
+            <label for="client_name">Full name</label>
+            <input type="text" id="client_name" name="client_name" required class="form-input"
+                   placeholder="Jane Smith">
+          </div>
+          <div class="form-group">
+            <label for="client_email">Email</label>
+            <input type="email" id="client_email" name="client_email" required class="form-input"
+                   placeholder="jane@example.com">
+          </div>
+          <div class="form-group">
+            <label for="client_phone">Phone <span class="form-optional">(optional)</span></label>
+            <input type="tel" id="client_phone" name="client_phone" class="form-input"
+                   placeholder="07700 900000">
+          </div>
+          <button type="submit" class="btn btn-primary checkout-pay-btn">
+            Pay {{ cart_total|pence_to_pounds }}
+          </button>
+          <p class="checkout-secure-note">
+            You'll be redirected to Stripe's secure checkout.
+          </p>
+        </form>
+      </div>
+
+    </div>
+    {% else %}
+    <p>Your cart is empty. <a href="{% url 'booking:page' %}">Book a session</a></p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

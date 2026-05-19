@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Payment cancelled — {{ site_config.site_name }}{% endblock %}
+
+{% block content %}
+<section class="section cancel-section">
+  <div class="container container--narrow" style="text-align:center;">
+    <h1 class="h-display">Payment cancelled</h1>
+    <p>No worries — nothing has been charged. Your slot reservations will expire shortly.</p>
+    <a href="{% url 'booking:page' %}" class="btn btn-primary" style="margin-top:2rem;">
+      Back to booking
+    </a>
+  </div>
+</section>
+{% endblock %}

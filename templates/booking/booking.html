@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Book a session — {{ site_config.site_name }}{% endblock %}
+
+{% block content %}
+<section class="section booking-section">
+  <div class="container">
+    <div class="reveal">
+      <span class="eyebrow">Booking</span>
+      <h1 class="h-display booking-headline">{{ settings.booking_page_heading }}</h1>
+      <p class="booking-sub">{{ settings.booking_page_subheading }}</p>
+    </div>
+
+    <div class="booking-flow reveal" style="--delay: 1">
+      <div class="booking-step" id="step-session">
+        <h2 class="booking-step-title">
+          <span class="booking-step-num">1</span>
+          Choose your session
+        </h2>
+        <div class="booking-options">
+          {% for st in session_types %}
+          <button
+            type="button"
+            class="booking-option-card"
+            hx-get="{% url 'booking:htmx_locations' st.pk %}"
+            hx-target="#locations-target"
+            hx-swap="innerHTML"
+            data-session-type-id="{{ st.pk }}"
+            onclick="selectOption(this, 'session')"
+          >
+            <div class="booking-option-name">{{ st.name }}</div>
+            <div class="booking-option-meta">
+              <span>{{ st.duration_minutes }} min</span>
+              {% if st.max_participants > 1 %}
+              <span>Up to {{ st.max_participants }} people</span>
+              {% else %}
+              <span>Private</span>
+              {% endif %}
+            </div>
+            {% if st.description %}
+            <div class="booking-option-desc">{{ st.description }}</div>
+            {% endif %}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="booking-step booking-step--hidden" id="step-location">
+        <h2 class="booking-step-title">
+          <span class="booking-step-num">2</span>
+          Pick a location
+        </h2>
+        <div id="locations-target"></div>
+      </div>
+
+      <div class="booking-step booking-step--hidden" id="step-date">
+        <h2 class="booking-step-title">
+          <span class="booking-step-num">3</span>
+          Select a date
+        </h2>
+        <div id="dates-target"></div>
+      </div>
+
+      <div class="booking-step booking-step--hidden" id="step-time">
+        <h2 class="booking-step-title">
+          <span class="booking-step-num">4</span>
+          Choose a time
+        </h2>
+        <div id="slots-target"></div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  const steps = ['session', 'location', 'date', 'time'];
+
+  function showStep(name) {
+    const el = document.getElementById('step-' + name);
+    if (el) el.classList.remove('booking-step--hidden');
+  }
+
+  function hideStepsAfter(name) {
+    const idx = steps.indexOf(name);
+    for (let i = idx + 1; i < steps.length; i++) {
+      const el = document.getElementById('step-' + steps[i]);
+      if (el) el.classList.add('booking-step--hidden');
+    }
+    // Clear targets for hidden steps
+    const targets = {
+      location: 'locations-target',
+      date: 'dates-target',
+      time: 'slots-target',
+    };
+    for (let i = idx + 1; i < steps.length; i++) {
+      const t = document.getElementById(targets[steps[i]]);
+      if (t) t.innerHTML = '';
+    }
+  }
+
+  window.selectOption = function(btn, stepName) {
+    // Deselect siblings
+    btn.closest('.booking-options, #locations-target, #dates-target')
+      .querySelectorAll('.booking-option-card, .booking-date-btn, .booking-location-card')
+      .forEach(el => el.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    // Show next step, hide everything after
+    const idx = steps.indexOf(stepName);
+    if (idx < steps.length - 1) {
+      hideStepsAfter(steps[idx + 1]);
+      showStep(steps[idx + 1]);
+    }
+  };
+
+  // Add to cart — stub until payments app is built
+  window.addToCart = function(btn) {
+    const data = btn.dataset;
+    // TODO: POST to payments:cart_add via HTMX when payments app exists
+    btn.textContent = 'Added ✓';
+    btn.disabled = true;
+    btn.classList.add('btn-outline');
+    btn.classList.remove('btn-primary');
+  };
+
+  // Listen for HTMX responses to show steps
+  document.body.addEventListener('htmx:afterSwap', function(e) {
+    const target = e.detail.target.id;
+    if (target === 'locations-target') showStep('location');
+    if (target === 'dates-target') showStep('date');
+    if (target === 'slots-target') showStep('time');
+  });
+})();
+</script>
+{% endblock %}

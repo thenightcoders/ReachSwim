@@ -1,0 +1,18 @@
+<div class="booking-dates-grid">
+  {% for d in dates %}
+  <button
+    type="button"
+    class="booking-date-btn"
+    hx-get="{% url 'booking:htmx_slots' session_type.pk location.pk %}?date={{ d|date:'Y-m-d' }}"
+    hx-target="#slots-target"
+    hx-swap="innerHTML"
+    onclick="selectOption(this, 'date')"
+  >
+    <span class="booking-date-day">{{ d|date:'D' }}</span>
+    <span class="booking-date-num">{{ d|date:'j' }}</span>
+    <span class="booking-date-month">{{ d|date:'M' }}</span>
+  </button>
+  {% empty %}
+  <p class="booking-empty">No available dates in the next {{ settings.max_advance_days }} days.</p>
+  {% endfor %}
+</div>

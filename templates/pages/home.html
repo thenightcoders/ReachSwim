@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-bg">
+    {% if hero.background_image %}
+    <img src="{{ hero.background_image.url }}" alt="Swimming pool" class="hero-img">
+    {% else %}
+    <img src="{% static 'img/pool-hero.jpg' %}" alt="Swimming pool" class="hero-img">
+    {% endif %}
+  </div>
+  <div class="hero-overlay"></div>
+
+  <div class="container hero-content">
+    <div class="hero-top">
+      <span class="hero-line"></span>
+      <span class="eyebrow hero-eyebrow">{{ site_config.tagline }} · {{ site_config.location_text }} · est. {{ site_config.established_year }}</span>
+    </div>
+
+    <div class="hero-bottom">
+      <h1 class="h-display hero-headline">{{ hero.headline }}</h1>
+
+      <div class="hero-footer">
+        <p class="hero-sub">{{ hero.subheadline }}</p>
+        <div class="hero-ctas">
+          <a href="{% url 'booking:page' %}" class="btn btn-lg hero-cta-primary">
+            {{ hero.cta_primary_text }}
+            <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a href="#shop" class="btn btn-lg btn-ghost hero-cta-secondary">
+            {{ hero.cta_secondary_text }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom strip -->
+  <div class="hero-strip">
+    <div class="container marquee-row">
+      {% for item in hero.strip_items_list %}
+      <span>{{ item }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section id="offerings" class="section">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">What we do</span>
+        <h2 class="h-display section-title">Three ways<br><em>to get in.</em></h2>
+      </div>
+      <p class="section-head-right">No stress, no judgement. Pick the format that fits this week — switch next week.</p>
+    </div>
+
+    <div class="offering-grid">
+      {% for offering in offerings %}
+      <article class="card offering-card reveal" style="--delay: {{ forloop.counter0 }}">
+        {% if offering.image %}
+        <div class="offering-photo">
+          <img src="{{ offering.image.url }}" alt="{{ offering.title }}">
+        </div>
+        {% else %}
+        <div class="photo photo--grain {{ offering.photo_class }} offering-photo" data-label="{{ offering.photo_label }}"></div>
+        {% endif %}
+        <div class="offering-body">
+          <span class="eyebrow">{{ offering.tag }}</span>
+          <h3 class="h-display offering-title">{{ offering.title }}</h3>
+          <p class="offering-desc">{{ offering.description }}</p>
+          <div class="offering-meta">
+            {% for meta in offering.meta_list %}
+            <span class="meta-badge">{{ meta }}</span>
+            {% endfor %}
+          </div>
+          <div class="offering-spacer"></div>
+          <a href="{% url 'booking:page' %}" class="btn btn-ghost btn-sm offering-cta">
+            Book this
+            <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section id="approach" class="section section--alt">
+  <div class="container">
+    <div class="approach-grid">
+      <div class="reveal">
+        <span class="eyebrow">{{ approach.kicker }}</span>
+        <h2 class="h-display approach-headline">{{ approach.headline }}</h2>
+        <p class="approach-body">{{ approach.body }}</p>
+        <div class="stats-row">
+          {% for stat in stats %}
+          <div class="stat">
+            <div class="h-display stat-value">{{ stat.value }}</div>
+            <div class="mono stat-label">{{ stat.label }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="reveal" style="--delay: 1">
+        <div class="pillar-list">
+          {% for pillar in pillars %}
+          <div class="pillar{% if not forloop.last %} pillar--border{% endif %}">
+            <span class="mono pillar-num">{{ pillar.number }}</span>
+            <div class="pillar-content">
+              <h4 class="h-display pillar-title">{{ pillar.title }}</h4>
+              <p class="pillar-desc">{{ pillar.description }}</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% include "shop/partials/shop_section.html" %}
+
+<section class="section">
+  <div class="container">
+    <span class="eyebrow">What adults say</span>
+    <div class="quote-grid">
+      {% for t in testimonials %}
+      <blockquote class="quote-card reveal" style="--delay: {{ forloop.counter0 }}">
+        <div class="quote-mark">"</div>
+        <p class="quote-text">{{ t.quote }}</p>
+        <footer class="quote-footer">
+          <div class="quote-author">{{ t.author_name }}</div>
+          <div class="quote-role">{{ t.author_role }}</div>
+        </footer>
+      </blockquote>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section section--alt">
+  <div class="container">
+    <div class="faq-grid">
+      <div class="reveal">
+        <span class="eyebrow">Questions</span>
+        <h2 class="h-display faq-headline">Asked &amp;<br><em>answered.</em></h2>
+        <p class="faq-sub">Still curious? Reach out — a real person reads every message.</p>
+        <a href="mailto:{{ site_config.email }}" class="btn btn-ghost btn-sm">{{ site_config.email }}</a>
+      </div>
+
+      <div class="reveal" style="--delay: 1">
+        <div class="faq-list">
+          {% for item in faq_items %}
+          <div class="faq-item{% if forloop.first %} faq-item--first{% endif %}">
+            <button class="faq-trigger" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="faq-{{ item.pk }}">
+              <span class="faq-question">{{ item.question }}</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer{% if forloop.first %} faq-answer--open{% endif %}" id="faq-{{ item.pk }}">
+              <p>{{ item.answer }}</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

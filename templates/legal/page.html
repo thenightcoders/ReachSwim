@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} — {{ site_config.site_name }}{% endblock %}
+
+{% block content %}
+<section class="section legal-page">
+  <div class="container">
+    <div class="legal-header reveal">
+      <span class="eyebrow">Legal</span>
+      <h1 class="h-display legal-title">{{ page.title }}</h1>
+      <p class="legal-updated mono">Last updated {{ page.updated_at|date:"j F Y" }}</p>
+    </div>
+    <div class="legal-content reveal" style="--delay: 1">
+      {{ page.content|safe }}
+    </div>
+  </div>
+</section>
+{% endblock %}

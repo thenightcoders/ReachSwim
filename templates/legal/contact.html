@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Contact — {{ site_config.site_name }}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="contact-grid">
+      <div class="reveal">
+        <span class="eyebrow">Contact</span>
+        <h1 class="h-display contact-headline">{{ config.heading }}</h1>
+        <p class="contact-sub">{{ config.subheading }}</p>
+
+        <div class="contact-info">
+          {% if config.email %}
+          <div class="contact-row">
+            <span class="mono contact-label">Email</span>
+            <a href="mailto:{{ config.email }}">{{ config.email }}</a>
+          </div>
+          {% endif %}
+          {% if config.phone %}
+          <div class="contact-row">
+            <span class="mono contact-label">Phone</span>
+            <a href="tel:{{ config.phone }}">{{ config.phone }}</a>
+          </div>
+          {% endif %}
+          {% if config.address %}
+          <div class="contact-row">
+            <span class="mono contact-label">Address</span>
+            <span>{{ config.address|linebreaksbr }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="reveal" style="--delay: 1">
+        {% if messages %}
+        {% for msg in messages %}
+        <div class="contact-success">
+          <div class="contact-success-icon">✓</div>
+          <p>{{ msg }}</p>
+        </div>
+        {% endfor %}
+        {% else %}
+        <form method="post" class="contact-form">
+          {% csrf_token %}
+          {% for field in form %}
+          <div class="form-field{% if field.errors %} form-field--error{% endif %}{% if field.name == 'subject' or field.name == 'name' %} form-field--half{% endif %}">
+            <label class="mono form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+            <span class="form-error">{{ field.errors.0 }}</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+          <button type="submit" class="btn btn-primary btn-lg contact-submit">
+            Send message
+            <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

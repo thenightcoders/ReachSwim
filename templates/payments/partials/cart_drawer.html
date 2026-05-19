@@ -1,0 +1,119 @@
+{% load payment_tags %}
+<div id="cart-drawer-content">
+  {% if cart %}
+  <ul class="cart-items">
+    {% for item in cart %}
+    <li class="cart-item">
+      <!-- Thumbnail -->
+      {% if item.item_type == "product" %}
+        {% if item.image_url %}
+        <div class="cart-item-thumb">
+          <img src="{{ item.image_url }}" alt="{{ item.name }}" loading="lazy">
+        </div>
+        {% elif item.photo_class %}
+        <div class="photo {{ item.photo_class }} cart-item-thumb" data-label=""></div>
+        {% endif %}
+      {% else %}
+        <div class="photo photo--surface cart-item-thumb" data-label=""></div>
+      {% endif %}
+
+      <div class="cart-item-details">
+        <span class="cart-item-label">{{ item.label }}</span>
+        {% if item.item_type == "product" and item.qty > 1 %}
+        <span class="cart-item-meta">Qty: {{ item.qty }}</span>
+        {% endif %}
+      </div>
+
+      <div class="cart-item-actions">
+        {% if item.item_type == "product" %}
+        <!-- Quantity controls for products -->
+        <div class="cart-qty-controls">
+          <button class="cart-qty-btn"
+            onclick="updateCartQty({{ item.product_id }}, {{ item.qty|add:'-1' }})"
+            {% if item.qty <= 1 %}disabled{% endif %}>−</button>
+          <span class="cart-qty-value">{{ item.qty }}</span>
+          <button class="cart-qty-btn"
+            onclick="updateCartQty({{ item.product_id }}, {{ item.qty|add:'1' }})">+</button>
+        </div>
+        {% endif %}
+
+        <span class="cart-item-price">
+          {% widthratio item.price_pence item.qty item.price_pence as line_total %}
+          {% if item.qty > 1 %}
+            {{ item.price_pence|pence_to_pounds }} ea.
+          {% else %}
+            {{ item.price_pence|pence_to_pounds }}
+          {% endif %}
+        </span>
+
+        <form hx-post="{% url 'payments:cart_remove' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
+          {% csrf_token %}
+          <input type="hidden" name="index" value="{{ forloop.counter0 }}">
+          <button type="submit" class="cart-item-remove" title="Remove">&times;</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <div class="cart-summary">
+    {% if voucher_code or show_shipping %}
+    <div class="cart-summary-row">
+      <span>Subtotal</span>
+      <span>{{ cart_subtotal|pence_to_pounds }}</span>
+    </div>
+    {% endif %}
+
+    {% if show_shipping %}
+    <div class="cart-summary-row">
+      <span>Shipping</span>
+      <span>{% if shipping_pence == 0 %}Free{% else %}{{ shipping_pence|pence_to_pounds }}{% endif %}</span>
+    </div>
+    {% endif %}
+
+    {% if voucher_code %}
+    <div class="cart-summary-row cart-discount">
+      <span>
+        Voucher: {{ voucher_code }}
+        <form hx-post="{% url 'payments:cart_remove_voucher' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="cart-voucher-remove" title="Remove voucher">&times;</button>
+        </form>
+      </span>
+      <span>&minus;{{ voucher_discount|pence_to_pounds }}</span>
+    </div>
+    {% endif %}
+
+    <div class="cart-summary-row cart-total">
+      <span>Total</span>
+      <span>{{ cart_total|pence_to_pounds }}</span>
+    </div>
+  </div>
+
+  {% if not voucher_code %}
+  <form class="cart-voucher-form" hx-post="{% url 'payments:cart_apply_voucher' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
+    {% csrf_token %}
+    <input type="text" name="code" placeholder="Voucher code" class="cart-voucher-input">
+    <button type="submit" class="btn btn-sm">Apply</button>
+  </form>
+  {% if voucher_error %}
+  <p class="cart-voucher-error">{{ voucher_error }}</p>
+  {% endif %}
+  {% endif %}
+
+  <a href="{% url 'payments:checkout' %}" class="btn btn-primary cart-checkout-btn">
+    Checkout — {{ cart_total|pence_to_pounds }}
+  </a>
+
+  <form hx-post="{% url 'payments:cart_clear' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
+    {% csrf_token %}
+    <button type="submit" class="cart-clear-btn">Clear cart</button>
+  </form>
+
+  {% else %}
+  <div class="cart-empty">
+    <div class="h-display cart-empty-title">Bag's dry.</div>
+    <p class="cart-empty-sub">Book a session or grab a cap to get started.</p>
+  </div>
+  {% endif %}
+</div>
