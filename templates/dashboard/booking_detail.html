@@ -1,0 +1,95 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load pages_tags %}
+
+{% block title %}Booking #{{ booking.pk }}{% endblock %}
+{% block topbar_title %}Booking #{{ booking.pk }}{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <a href="{% url 'dashboard:bookings' %}" class="dash-back">&larr; All bookings</a>
+  <h1 class="dash-heading">Booking #{{ booking.pk }}</h1>
+  <span class="dash-badge dash-badge--{{ booking.status }} dash-badge--lg">{{ booking.get_status_display }}</span>
+</div>
+
+<div class="dash-detail-grid">
+  <!-- Info card -->
+  <div class="dash-card">
+    <h3 class="dash-card__title">Details</h3>
+    <dl class="dash-dl">
+      <dt>Session type</dt>
+      <dd>{{ booking.session_type.name }}</dd>
+      <dt>Location</dt>
+      <dd>{{ booking.location.name }}</dd>
+      <dt>Date</dt>
+      <dd>{{ booking.date|date:"l j F Y" }}</dd>
+      <dt>Time</dt>
+      <dd>{{ booking.start_time|time:"H:i" }} &ndash; {{ booking.end_time|time:"H:i" }}</dd>
+      <dt>Price</dt>
+      <dd>&pound;{{ booking.price_pence|pence_to_pounds }}</dd>
+    </dl>
+  </div>
+
+  <!-- Client card -->
+  <div class="dash-card">
+    <h3 class="dash-card__title">Client</h3>
+    <dl class="dash-dl">
+      <dt>Name</dt>
+      <dd>{{ booking.client_name }}</dd>
+      <dt>Email</dt>
+      <dd><a href="mailto:{{ booking.client_email }}">{{ booking.client_email }}</a></dd>
+      <dt>Phone</dt>
+      <dd>{{ booking.client_phone|default:"—" }}</dd>
+    </dl>
+  </div>
+
+  <!-- Actions card -->
+  <div class="dash-card">
+    <h3 class="dash-card__title">Actions</h3>
+    <div class="dash-actions">
+      {% if booking.status == "pending" %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="confirm">
+        <button class="dash-btn dash-btn--primary">Confirm booking</button>
+      </form>
+      <form method="post" onsubmit="return confirm('Cancel this booking?')">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="cancel">
+        <input type="text" name="reason" placeholder="Cancellation reason (optional)" class="dash-input">
+        <button class="dash-btn dash-btn--danger">Cancel booking</button>
+      </form>
+      {% elif booking.status == "confirmed" %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="complete">
+        <button class="dash-btn dash-btn--primary">Mark completed</button>
+      </form>
+      <form method="post" onsubmit="return confirm('Cancel this booking?')">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="cancel">
+        <input type="text" name="reason" placeholder="Cancellation reason (optional)" class="dash-input">
+        <button class="dash-btn dash-btn--danger">Cancel booking</button>
+      </form>
+      {% elif booking.status == "cancelled" %}
+      <p class="dash-text--muted">
+        Cancelled {{ booking.cancelled_at|date:"j M Y H:i" }}<br>
+        {% if booking.cancellation_reason %}Reason: {{ booking.cancellation_reason }}{% endif %}
+      </p>
+      {% elif booking.status == "completed" %}
+      <p class="dash-text--muted">Session completed.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Notes card -->
+  <div class="dash-card">
+    <h3 class="dash-card__title">Notes</h3>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_notes">
+      <textarea name="notes" class="dash-textarea" rows="4" placeholder="Internal notes…">{{ booking.notes }}</textarea>
+      <button class="dash-btn dash-btn--sm" style="margin-top:.5rem">Save notes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

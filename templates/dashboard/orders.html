@@ -1,0 +1,61 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load pages_tags %}
+
+{% block title %}Orders{% endblock %}
+{% block topbar_title %}Orders{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <h1 class="dash-heading">Orders</h1>
+</div>
+
+<form class="dash-filters" method="get">
+  <select name="status" class="dash-input dash-input--select" onchange="this.form.submit()">
+    <option value="">All statuses</option>
+    <option value="pending" {% if current_status == "pending" %}selected{% endif %}>Pending</option>
+    <option value="paid" {% if current_status == "paid" %}selected{% endif %}>Paid</option>
+    <option value="failed" {% if current_status == "failed" %}selected{% endif %}>Failed</option>
+    <option value="refunded" {% if current_status == "refunded" %}selected{% endif %}>Refunded</option>
+  </select>
+  {% if current_status %}
+  <a href="{% url 'dashboard:orders' %}" class="dash-btn dash-btn--sm dash-btn--ghost">Clear</a>
+  {% endif %}
+</form>
+
+{% if orders %}
+<div class="dash-table-wrap">
+  <table class="dash-table">
+    <thead>
+      <tr>
+        <th>Order #</th>
+        <th>Date</th>
+        <th>Client</th>
+        <th>Items</th>
+        <th>Total</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in orders %}
+      <tr>
+        <td>{{ o.order_number }}</td>
+        <td>{{ o.created_at|date:"j M Y H:i" }}</td>
+        <td>{{ o.client_name }}<br><small class="dash-text--muted">{{ o.client_email }}</small></td>
+        <td>
+          {% for item in o.items.all %}
+            <span class="dash-tag">
+              {{ item.label }}{% if item.is_product and item.quantity > 1 %} &times;{{ item.quantity }}{% endif %}
+            </span>
+          {% endfor %}
+        </td>
+        <td>&pound;{{ o.total_pence|pence_to_pounds }}</td>
+        <td><span class="dash-badge dash-badge--{{ o.status }}">{{ o.get_status_display }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="dash-empty">No orders found.</p>
+{% endif %}
+{% endblock %}

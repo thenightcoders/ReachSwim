@@ -1,0 +1,67 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load pages_tags %}
+
+{% block title %}Overview{% endblock %}
+{% block topbar_title %}Overview{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <h1 class="dash-heading">Welcome back, {{ request.user.first_name|default:"Boss" }}</h1>
+  <p class="dash-subheading">Here's what's happening today.</p>
+</div>
+
+<!-- Stat cards -->
+<div class="dash-stats">
+  <div class="dash-stat-card">
+    <span class="dash-stat-card__label">Today's sessions</span>
+    <span class="dash-stat-card__value">{{ today_count }}</span>
+  </div>
+  <div class="dash-stat-card">
+    <span class="dash-stat-card__label">Week revenue</span>
+    <span class="dash-stat-card__value">&pound;{{ week_revenue|pence_to_pounds }}</span>
+  </div>
+  <div class="dash-stat-card">
+    <span class="dash-stat-card__label">Pending orders</span>
+    <span class="dash-stat-card__value">{{ pending_orders }}</span>
+  </div>
+</div>
+
+<!-- Upcoming bookings -->
+<section class="dash-section">
+  <div class="dash-section__header">
+    <h2 class="dash-section__title">Upcoming bookings</h2>
+    <a href="{% url 'dashboard:bookings' %}" class="dash-link">View all &rarr;</a>
+  </div>
+
+  {% if upcoming_bookings %}
+  <div class="dash-table-wrap">
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Type</th>
+          <th>Location</th>
+          <th>Client</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in upcoming_bookings %}
+        <tr class="dash-table__row--clickable" onclick="location.href='{% url 'dashboard:booking_detail' b.pk %}'">
+          <td>{{ b.date|date:"D j M" }}</td>
+          <td>{{ b.start_time|time:"H:i" }}&ndash;{{ b.end_time|time:"H:i" }}</td>
+          <td>{{ b.session_type.name }}</td>
+          <td>{{ b.location.name }}</td>
+          <td>{{ b.client_name }}</td>
+          <td><span class="dash-badge dash-badge--{{ b.status }}">{{ b.get_status_display }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="dash-empty">No upcoming bookings.</p>
+  {% endif %}
+</section>
+{% endblock %}

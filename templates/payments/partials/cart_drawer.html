@@ -46,7 +46,7 @@
           {% endif %}
         </span>
 
-        <form hx-post="{% url 'payments:cart_remove' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
+        <form method="post" hx-post="{% url 'payments:cart_remove' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
           {% csrf_token %}
           <input type="hidden" name="index" value="{{ forloop.counter0 }}">
           <button type="submit" class="cart-item-remove" title="Remove">&times;</button>
@@ -75,7 +75,7 @@
     <div class="cart-summary-row cart-discount">
       <span>
         Voucher: {{ voucher_code }}
-        <form hx-post="{% url 'payments:cart_remove_voucher' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML" style="display:inline;">
+        <form method="post" hx-post="{% url 'payments:cart_remove_voucher' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML" style="display:inline;">
           {% csrf_token %}
           <button type="submit" class="cart-voucher-remove" title="Remove voucher">&times;</button>
         </form>
@@ -91,7 +91,7 @@
   </div>
 
   {% if not voucher_code %}
-  <form class="cart-voucher-form" hx-post="{% url 'payments:cart_apply_voucher' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
+  <form class="cart-voucher-form" method="post" hx-post="{% url 'payments:cart_apply_voucher' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
     {% csrf_token %}
     <input type="text" name="code" placeholder="Voucher code" class="cart-voucher-input">
     <button type="submit" class="btn btn-sm">Apply</button>
@@ -105,7 +105,7 @@
     Checkout — {{ cart_total|pence_to_pounds }}
   </a>
 
-  <form hx-post="{% url 'payments:cart_clear' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
+  <form method="post" hx-post="{% url 'payments:cart_clear' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
     {% csrf_token %}
     <button type="submit" class="cart-clear-btn">Clear cart</button>
   </form>

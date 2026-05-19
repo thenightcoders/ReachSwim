@@ -1,0 +1,61 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load pages_tags %}
+
+{% block title %}Products{% endblock %}
+{% block topbar_title %}Products{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <h1 class="dash-heading">Products</h1>
+</div>
+
+{% if products %}
+<div class="dash-table-wrap">
+  <table class="dash-table">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Category</th>
+        <th>Price</th>
+        <th>Stock</th>
+        <th>Active</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+      <tr>
+        <td>
+          <strong>{{ p.name }}</strong>
+          {% if p.color %}<br><small class="dash-text--muted">{{ p.color }}</small>{% endif %}
+        </td>
+        <td>{{ p.category.name|default:"—" }}</td>
+        <td>&pound;{{ p.price_pence|pence_to_pounds }}</td>
+        <td>
+          <form method="post" action="{% url 'dashboard:product_update_stock' p.pk %}" class="dash-inline-form">
+            {% csrf_token %}
+            <input type="number" name="stock" value="{{ p.stock }}" min="0"
+                   class="dash-input dash-input--tiny">
+            <button class="dash-btn dash-btn--sm">Update</button>
+          </form>
+        </td>
+        <td>
+          <form method="post" action="{% url 'dashboard:product_toggle_active' p.pk %}">
+            {% csrf_token %}
+            <button class="dash-btn dash-btn--sm {% if p.is_active %}dash-btn--success{% else %}dash-btn--ghost{% endif %}">
+              {{ p.is_active|yesno:"Active,Inactive" }}
+            </button>
+          </form>
+        </td>
+        <td>
+          <a href="{% url 'admin:shop_product_change' p.pk %}" class="dash-link dash-link--sm">Edit in admin</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="dash-empty">No products yet. Add them in the Django admin.</p>
+{% endif %}
+{% endblock %}

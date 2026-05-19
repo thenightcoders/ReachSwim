@@ -1,0 +1,60 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Bookings{% endblock %}
+{% block topbar_title %}Bookings{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <h1 class="dash-heading">Bookings</h1>
+</div>
+
+<!-- Filters -->
+<form class="dash-filters" method="get">
+  <select name="status" class="dash-input dash-input--select" onchange="this.form.submit()">
+    <option value="">All statuses</option>
+    <option value="pending" {% if current_status == "pending" %}selected{% endif %}>Pending</option>
+    <option value="confirmed" {% if current_status == "confirmed" %}selected{% endif %}>Confirmed</option>
+    <option value="completed" {% if current_status == "completed" %}selected{% endif %}>Completed</option>
+    <option value="cancelled" {% if current_status == "cancelled" %}selected{% endif %}>Cancelled</option>
+  </select>
+  <input type="date" name="from" value="{{ date_from }}" class="dash-input" placeholder="From">
+  <input type="date" name="to" value="{{ date_to }}" class="dash-input" placeholder="To">
+  <button type="submit" class="dash-btn dash-btn--sm">Filter</button>
+  {% if current_status or date_from or date_to %}
+  <a href="{% url 'dashboard:bookings' %}" class="dash-btn dash-btn--sm dash-btn--ghost">Clear</a>
+  {% endif %}
+</form>
+
+{% if bookings %}
+<div class="dash-table-wrap">
+  <table class="dash-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Date</th>
+        <th>Time</th>
+        <th>Type</th>
+        <th>Location</th>
+        <th>Client</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in bookings %}
+      <tr class="dash-table__row--clickable" onclick="location.href='{% url 'dashboard:booking_detail' b.pk %}'">
+        <td>{{ b.pk }}</td>
+        <td>{{ b.date|date:"D j M Y" }}</td>
+        <td>{{ b.start_time|time:"H:i" }}&ndash;{{ b.end_time|time:"H:i" }}</td>
+        <td>{{ b.session_type.name }}</td>
+        <td>{{ b.location.name }}</td>
+        <td>{{ b.client_name }}</td>
+        <td><span class="dash-badge dash-badge--{{ b.status }}">{{ b.get_status_display }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="dash-empty">No bookings found matching your filters.</p>
+{% endif %}
+{% endblock %}

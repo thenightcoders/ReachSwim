@@ -1,21 +1,20 @@
-<div class="booking-slots-grid">
+<div class="cal-slots">
+  <h3 class="cal-slots-date">{{ date|date:"l, j F" }}</h3>
+
   {% for slot in slots %}
-  <div class="booking-slot{% if not slot.is_available %} booking-slot--full{% endif %}">
-    <div class="booking-slot-time">
-      {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
+  <div class="cal-slot{% if not slot.is_available %} cal-slot--full{% endif %}">
+    <div class="cal-slot-time">
+      {{ slot.start_time|time:"H:i" }} &ndash; {{ slot.end_time|time:"H:i" }}
     </div>
-    <div class="booking-slot-info">
-      <span class="booking-slot-price">{{ slot.price_display }}</span>
-      {% if slot.max_capacity > 1 %}
-      <span class="booking-slot-spots">
-        {{ slot.spots_remaining }}/{{ slot.max_capacity }} spots
-      </span>
-      {% endif %}
+    {% if slot.max_capacity > 1 %}
+    <div class="cal-slot-spots">
+      {{ slot.spots_remaining }}/{{ slot.max_capacity }} spots
     </div>
+    {% endif %}
     {% if slot.is_available %}
     <button
       type="button"
-      class="btn btn-primary btn-sm booking-slot-btn"
+      class="btn btn-primary btn-sm cal-slot-btn"
       onclick="addToCart(this)"
       data-session-type="{{ slot.session_type_id }}"
       data-location="{{ slot.location_id }}"
@@ -25,13 +24,13 @@
       data-price="{{ slot.price_pence }}"
       data-label="{{ session_type.name }} @ {{ location.name }} — {{ slot.date|date:'D j M' }} {{ slot.start_time|time:'H:i' }}"
     >
-      Add to cart
+      Book
     </button>
     {% else %}
-    <span class="booking-slot-full-label">Full</span>
+    <span class="cal-slot-full">Full</span>
     {% endif %}
   </div>
   {% empty %}
-  <p class="booking-empty">No time slots available on this date.</p>
+  <p class="cal-slots-empty">No slots available on this date.</p>
   {% endfor %}
 </div>

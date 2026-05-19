@@ -1,0 +1,50 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Messages{% endblock %}
+{% block topbar_title %}Messages{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <h1 class="dash-heading">Contact messages</h1>
+</div>
+
+{% if messages_list %}
+<div class="dash-table-wrap">
+  <table class="dash-table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Date</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Message</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for msg in messages_list %}
+      <tr class="{% if not msg.is_read %}dash-table__row--unread{% endif %}">
+        <td>
+          {% if not msg.is_read %}<span class="dash-dot"></span>{% endif %}
+        </td>
+        <td>{{ msg.created_at|date:"j M Y H:i" }}</td>
+        <td>{{ msg.name }}</td>
+        <td><a href="mailto:{{ msg.email }}">{{ msg.email }}</a></td>
+        <td class="dash-table__cell--wrap">{{ msg.message|truncatewords:30 }}</td>
+        <td>
+          {% if not msg.is_read %}
+          <form method="post" action="{% url 'dashboard:message_mark_read' msg.pk %}">
+            {% csrf_token %}
+            <button class="dash-btn dash-btn--sm dash-btn--ghost">Mark read</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="dash-empty">No messages yet.</p>
+{% endif %}
+{% endblock %}

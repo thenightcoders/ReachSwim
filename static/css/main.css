@@ -205,6 +205,18 @@ body[data-has-hero="False"] .site-nav {
 
 .nav-actions { display: flex; gap: 10px; align-items: center; }
 
+.nav-account-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  color: #fff;
+  transition: color .2s;
+}
+.nav-account-link:hover { color: var(--ink); }
+.scrolled .nav-account-link { color: var(--ink); }
+.scrolled .nav-account-link:hover { opacity: .7; }
+
 .nav-cta {
   background: var(--paper);
   color: var(--ink);
@@ -741,16 +753,20 @@ body[data-has-hero="False"] .site-nav {
 .footer-wordmark-wrap {
   overflow: hidden;
   border-top: 1px solid rgba(255,255,255,0.12);
+  display: flex;
+  justify-content: center;
 }
 
 .footer-wordmark {
-  font-size: clamp(120px, 22vw, 320px);
+  font-size: clamp(48px, 13vw, 160px);
   line-height: 0.95;
   text-align: center;
   margin: 0;
   padding-top: 40px;
   color: var(--paper);
   letter-spacing: -0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .footer-wordmark em { color: var(--pool); font-style: italic; }
@@ -996,8 +1012,34 @@ body[data-has-hero="False"] .site-nav {
 }
 
 @media (max-width: 720px) {
-  .container { padding: 0 20px; }
+  /* Use longhand so we don't accidentally reset padding-top/bottom on
+     elements that also carry a layout class (e.g. .hero-content.container) */
+  .container { padding-left: 20px; padding-right: 20px; }
   .nav-links { display: none; }
+
+  /* Hero — restore vertical padding and tighten layout */
+  .hero-content {
+    padding-top: 90px;
+    padding-bottom: 64px;
+  }
+
+  .hero-headline {
+    font-size: clamp(36px, 12vw, 56px);
+  }
+
+  .hero-sub {
+    font-size: 16px;
+    max-width: 100%;
+  }
+
+  .hero-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .hero-ctas { flex-wrap: wrap; }
 
   .offering-grid,
   .quote-grid {
@@ -1007,6 +1049,26 @@ body[data-has-hero="False"] .site-nav {
   .marquee-row > *:nth-child(n+3) { display: none; }
 
   .stats-row { gap: 24px; flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  /* Hide the nav "Book a session" button at very small screens —
+     the hero already has a prominent CTA */
+  .nav-cta { display: none; }
+
+  .hero-content {
+    padding-top: 80px;
+    padding-bottom: 60px;
+  }
+
+  .hero-headline {
+    font-size: clamp(32px, 11vw, 48px);
+  }
+
+  .btn-lg {
+    padding: 14px 20px;
+    font-size: 15px;
+  }
 }
 
 
@@ -1028,41 +1090,13 @@ body[data-has-hero="False"] .site-nav {
   margin-bottom: 48px;
 }
 
-/* Flow container */
-.booking-flow {
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
-}
-
 /* Steps */
 .booking-step-title {
   font-family: var(--font-sans);
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--ink);
-  display: flex;
-  align-items: center;
-  gap: 12px;
   margin-bottom: 20px;
-}
-
-.booking-step-num {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--pool);
-  color: var(--paper);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.booking-step--hidden {
-  display: none;
 }
 
 /* Option cards (session types + locations) */
@@ -1119,130 +1153,6 @@ body[data-has-hero="False"] .site-nav {
   line-height: 1.5;
 }
 
-/* Date grid */
-.booking-dates-grid {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.booking-date-btn {
-  background: var(--paper);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  min-width: 72px;
-  font-family: var(--font-sans);
-}
-
-.booking-date-btn:hover {
-  border-color: var(--pool);
-}
-
-.booking-date-btn.selected {
-  border-color: var(--pool);
-  box-shadow: 0 0 0 3px rgba(86, 178, 193, 0.25);
-  background: var(--pool);
-  color: var(--paper);
-}
-
-.booking-date-btn.selected .booking-date-day,
-.booking-date-btn.selected .booking-date-month {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.booking-date-day {
-  display: block;
-  font-size: 0.72rem;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-muted);
-  margin-bottom: 2px;
-}
-
-.booking-date-num {
-  display: block;
-  font-size: 1.3rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.booking-date-month {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--ink-muted);
-}
-
-/* Time slots */
-.booking-slots-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-width: 480px;
-}
-
-.booking-slot {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: var(--paper);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px 20px;
-  transition: border-color 0.2s;
-}
-
-.booking-slot:hover {
-  border-color: var(--pool);
-}
-
-.booking-slot--full {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.booking-slot-time {
-  font-family: var(--font-mono);
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--ink);
-  white-space: nowrap;
-}
-
-.booking-slot-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.booking-slot-price {
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.booking-slot-spots {
-  font-size: 0.82rem;
-  color: var(--ink-muted);
-  font-family: var(--font-mono);
-}
-
-.booking-slot-btn {
-  flex-shrink: 0;
-}
-
-.booking-slot-full-label {
-  font-size: 0.82rem;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-muted);
-}
-
 /* Empty state */
 .booking-empty {
   color: var(--ink-muted);
@@ -1250,18 +1160,290 @@ body[data-has-hero="False"] .site-nav {
   padding: 20px 0;
 }
 
-/* Responsive */
+/* ---- Calendly-style calendar panel ---- */
+
+.cal-panel {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 0;
+  background: var(--paper);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-top: 32px;
+  max-width: 740px;
+}
+
+.cal-left {
+  padding: 24px 24px;
+}
+
+.cal-right {
+  border-left: 2px solid var(--border);
+  padding: 24px 20px;
+  min-height: 380px;
+}
+
+/* Location bar */
+.cal-location-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.cal-location-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+}
+
+.cal-location-select {
+  padding: 6px 12px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color .2s;
+}
+.cal-location-select:focus {
+  outline: none;
+  border-color: var(--pool);
+}
+
+.cal-price {
+  margin-left: auto;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Month navigation */
+.cal-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cal-month-label {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.cal-nav-btn {
+  background: none;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--ink);
+  transition: border-color .2s, background .2s;
+  font-family: inherit;
+}
+.cal-nav-btn:hover { border-color: var(--pool); background: rgba(86,178,193,.06); }
+.cal-nav-btn--disabled {
+  opacity: .25;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Calendar grid */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-header {
+  text-align: center;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+  padding: 8px 0;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: none;
+  background: none;
+  font-family: var(--font-sans);
+  padding: 0;
+  line-height: 1;
+}
+
+/* Available — clickable */
+.cal-day--available {
+  color: var(--ink);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  font-weight: 600;
+}
+.cal-day--available:hover {
+  background: var(--pool);
+  color: var(--paper);
+}
+.cal-day--available.cal-day--selected {
+  background: var(--pool);
+  color: var(--paper);
+}
+
+/* Disabled — greyed out (in month but no availability or past) */
+.cal-day--disabled {
+  color: var(--ink-muted);
+  opacity: .35;
+  cursor: default;
+}
+
+.cal-day--past {
+  opacity: .2;
+}
+
+/* Outside current month — blank */
+.cal-day--outside {
+  visibility: hidden;
+}
+
+/* Today ring */
+.cal-day--today {
+  box-shadow: inset 0 0 0 2px var(--pool);
+}
+
+/* ---- Slots (right panel) ---- */
+
+.cal-slots-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 260px;
+  text-align: center;
+  color: var(--ink-muted);
+  gap: 12px;
+  font-size: 0.85rem;
+  hyphens: none;
+}
+
+.cal-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cal-slots-date {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.cal-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  transition: border-color .2s;
+}
+.cal-slot:hover { border-color: var(--pool); }
+
+.cal-slot--full {
+  opacity: .45;
+  pointer-events: none;
+}
+
+.cal-slot-time {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  flex: 1;
+}
+
+.cal-slot-spots {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+}
+
+.cal-slot-btn { flex-shrink: 0; }
+
+.cal-slot-full {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.cal-slots-empty {
+  color: var(--ink-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+  padding: 16px 0;
+}
+
+/* ---- Calendar / booking responsive ---- */
 @media (max-width: 720px) {
+  .booking-section { padding-top: 100px; }
+
   .booking-options {
     grid-template-columns: 1fr;
   }
-  .booking-dates-grid {
-    gap: 8px;
+
+  .cal-panel {
+    grid-template-columns: 1fr;
+    max-width: 100%;
   }
-  .booking-date-btn {
-    min-width: 60px;
+  .cal-right {
+    border-left: none;
+    border-top: 2px solid var(--border);
+    min-height: auto;
+  }
+  .cal-left { padding: 20px 16px; }
+  .cal-right { padding: 20px 16px; }
+
+  .cal-location-bar { flex-wrap: wrap; gap: 8px; }
+  .cal-price { margin-left: 0; width: 100%; margin-top: 0; }
+
+  .cal-slot {
+    gap: 8px;
     padding: 10px 12px;
   }
+}
+
+@media (max-width: 480px) {
+  .booking-section { padding-top: 88px; }
+  .nav-cta { display: none; }
+
+  .cal-grid { gap: 2px; }
+  .cal-header { font-size: 0.65rem; padding: 6px 0; }
+  .cal-day { font-size: 0.82rem; }
+
+  .cal-slot-time { font-size: 0.82rem; }
 }
 
 
@@ -1273,11 +1455,15 @@ body[data-has-hero="False"] .site-nav {
   position: relative;
   background: none;
   border: none;
-  color: var(--ink);
+  color: #fff;
   cursor: pointer;
   padding: 6px;
   line-height: 1;
+  transition: color .2s;
 }
+.cart-toggle:hover { color: var(--ink); }
+.scrolled .cart-toggle { color: var(--ink); }
+.scrolled .cart-toggle:hover { opacity: .7; }
 
 .cart-badge {
   position: absolute;
@@ -1294,6 +1480,33 @@ body[data-has-hero="False"] .site-nav {
   align-items: center;
   justify-content: center;
   line-height: 1;
+}
+
+/* Cart add toast */
+#cart-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 11px 18px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  z-index: 9999;
+  transform: translateY(14px);
+  opacity: 0;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(12,34,51,.18);
+}
+#cart-toast.cart-toast--visible {
+  transform: translateY(0);
+  opacity: 1;
 }
 
 .cart-drawer-overlay {

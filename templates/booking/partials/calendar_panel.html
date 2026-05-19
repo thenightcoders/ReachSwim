@@ -1,0 +1,99 @@
+{% load pages_tags %}
+
+<div class="cal-panel">
+
+  <!-- Left: location + calendar -->
+  <div class="cal-left">
+
+    <!-- Location dropdown -->
+    <div class="cal-location-bar">
+      <label class="cal-location-label" for="loc-select">Location</label>
+      <select
+        id="loc-select"
+        class="cal-location-select"
+        hx-get="{% url 'booking:htmx_calendar' session_type.pk %}"
+        hx-target="#calendar-panel"
+        hx-swap="innerHTML"
+        hx-include="this"
+        name="location_id"
+      >
+        {% for loc in locations %}
+        <option value="{{ loc.pk }}" {% if loc.pk == location.pk %}selected{% endif %}>
+          {{ loc.name }}
+        </option>
+        {% endfor %}
+      </select>
+      <span class="cal-price">&pound;{{ price_pence|pence_to_pounds }} per session</span>
+    </div>
+
+    <!-- Month navigation -->
+    <div class="cal-month-nav">
+      {% if show_prev %}
+      <button
+        type="button"
+        class="cal-nav-btn"
+        hx-get="{% url 'booking:htmx_calendar' session_type.pk %}?location_id={{ location.pk }}&year={{ prev_year }}&month={{ prev_month }}"
+        hx-target="#calendar-panel"
+        hx-swap="innerHTML"
+      >&larr;</button>
+      {% else %}
+      <span class="cal-nav-btn cal-nav-btn--disabled">&larr;</span>
+      {% endif %}
+
+      <span class="cal-month-label">{{ month_label }}</span>
+
+      {% if show_next %}
+      <button
+        type="button"
+        class="cal-nav-btn"
+        hx-get="{% url 'booking:htmx_calendar' session_type.pk %}?location_id={{ location.pk }}&year={{ next_year }}&month={{ next_month }}"
+        hx-target="#calendar-panel"
+        hx-swap="innerHTML"
+      >&rarr;</button>
+      {% else %}
+      <span class="cal-nav-btn cal-nav-btn--disabled">&rarr;</span>
+      {% endif %}
+    </div>
+
+    <!-- Calendar grid -->
+    <div class="cal-grid">
+      <!-- Day-of-week headers -->
+      {% for dn in day_names %}
+      <div class="cal-header">{{ dn }}</div>
+      {% endfor %}
+
+      <!-- Day cells -->
+      {% for week in weeks %}
+        {% for day in week %}
+        {% if day.is_available %}
+        <button
+          type="button"
+          class="cal-day cal-day--available{% if day.is_today %} cal-day--today{% endif %}"
+          hx-get="{% url 'booking:htmx_slots' session_type.pk location.pk %}?date={{ day.date|date:'Y-m-d' }}"
+          hx-target="#slots-panel"
+          hx-swap="innerHTML"
+          onclick="selectDay(this)"
+        >{{ day.date.day }}</button>
+        {% elif day.in_month %}
+        <span class="cal-day cal-day--disabled{% if day.is_today %} cal-day--today{% endif %}{% if day.is_past %} cal-day--past{% endif %}">{{ day.date.day }}</span>
+        {% else %}
+        <span class="cal-day cal-day--outside"></span>
+        {% endif %}
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right: time slots (loaded when a day is clicked) -->
+  <div class="cal-right">
+    <div id="slots-panel">
+      <div class="cal-slots-placeholder">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <p>Select a date to see available times</p>
+      </div>
+    </div>
+  </div>
+
+</div>

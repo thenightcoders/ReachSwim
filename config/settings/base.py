@@ -58,9 +58,13 @@ INSTALLED_APPS = [
     "apps.pages",
     "apps.payments",
     "apps.shop",
+    "apps.dashboard",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
+LOGIN_URL = "/account/login/"
+LOGIN_REDIRECT_URL = "/account/profile/"
+LOGOUT_REDIRECT_URL = "/"
 
 # ---------------------------------------------------------------------------
 # Middleware

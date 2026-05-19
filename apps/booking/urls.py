@@ -9,14 +9,9 @@ urlpatterns = [
 
     # HTMX partials
     path(
-        "book/locations/<int:session_type_id>/",
-        views.htmx_locations,
-        name="htmx_locations",
-    ),
-    path(
-        "book/dates/<int:session_type_id>/<int:location_id>/",
-        views.htmx_dates,
-        name="htmx_dates",
+        "book/calendar/<int:session_type_id>/",
+        views.htmx_calendar_panel,
+        name="htmx_calendar",
     ),
     path(
         "book/slots/<int:session_type_id>/<int:location_id>/",

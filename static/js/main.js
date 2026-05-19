@@ -121,7 +121,10 @@
         .then((r) => r.text())
         .then((html) => {
           const content = document.getElementById("cart-drawer-content");
-          if (content) content.innerHTML = html;
+          if (content) {
+            content.innerHTML = html;
+            if (window.htmx) htmx.process(content);
+          }
         })
         .catch(() => {});
     }
@@ -141,7 +144,10 @@
   // --- Open cart drawer + update its contents ---
   function openDrawerWithHTML(html) {
     const drawer = document.getElementById("cart-drawer-content");
-    if (drawer) drawer.innerHTML = html;
+    if (drawer) {
+      drawer.innerHTML = html;
+      if (window.htmx) htmx.process(drawer);
+    }
 
     const drawerEl = document.getElementById("cart-drawer");
     const overlayEl = document.getElementById("cart-overlay");
@@ -152,6 +158,22 @@
     }
 
     document.body.dispatchEvent(new Event("cartUpdated"));
+  }
+
+  // --- Cart add toast ---
+  function showCartToast() {
+    const old = document.getElementById("cart-toast");
+    if (old) old.remove();
+    const toast = document.createElement("div");
+    toast.id = "cart-toast";
+    toast.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Added to cart</span>';
+    document.body.appendChild(toast);
+    toast.offsetHeight; // force reflow
+    toast.classList.add("cart-toast--visible");
+    setTimeout(function () {
+      toast.classList.remove("cart-toast--visible");
+      setTimeout(function () { toast.remove(); }, 260);
+    }, 2200);
   }
 
   // --- Add booking to cart (called from slot buttons) ---
@@ -172,11 +194,12 @@
       body: JSON.stringify(payload),
     })
       .then((r) => r.text())
-      .then((html) => {
-        openDrawerWithHTML(html);
+      .then(function () {
+        document.body.dispatchEvent(new Event("cartUpdated"));
+        showCartToast();
         btn.textContent = "Added ✓";
         btn.disabled = true;
-        setTimeout(() => { btn.textContent = "Add to cart"; btn.disabled = false; }, 1500);
+        setTimeout(function () { btn.textContent = "Book"; btn.disabled = false; }, 2200);
       })
       .catch((err) => console.error("Cart add failed:", err));
   };
@@ -223,6 +246,13 @@
       })
       .catch((err) => console.error("Cart qty update failed:", err));
   };
+
+  // --- Sync badge after any HTMX swap on the cart drawer ---
+  document.body.addEventListener("htmx:afterSwap", function (e) {
+    if (e.detail.target && e.detail.target.id === "cart-drawer-content") {
+      document.body.dispatchEvent(new Event("cartUpdated"));
+    }
+  });
 
   // --- Shop filter tabs ---
   document.querySelectorAll("[data-filter-group]").forEach(function (group) {
