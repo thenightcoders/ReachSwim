@@ -1,0 +1,38 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}{{ action }} Location — Admin{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <div>
+    <a href="{% url 'dashboard:location_list' %}" class="dash-back" style="display: inline-block; color: var(--dash-accent); text-decoration: none; margin-bottom: 0.5rem; font-size: 0.85rem;">&larr; Back to Locations</a>
+    <h1 class="dash-heading">{{ action }} Location</h1>
+  </div>
+</div>
+
+<div class="dash-section" style="max-width: 600px;">
+  <form method="post" class="dash-dl" style="gap: 1.5rem;">
+    {% csrf_token %}
+    
+    {% for field in form %}
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <label class="dash-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}
+          <small style="color: var(--dash-text-muted); font-size: 0.75rem;">{{ field.help_text }}</small>
+        {% endif %}
+        {% if field.errors %}
+          <div style="color: var(--dash-danger); font-size: 0.75rem; font-weight: 500;">
+            {% for error in field.errors %}{{ error }}{% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+    
+    <div style="padding-top: 1rem; border-top: 1px solid var(--dash-border); display: flex; justify-content: flex-end; gap: 1rem;">
+      <a href="{% url 'dashboard:location_list' %}" class="dash-btn dash-btn--ghost">Cancel</a>
+      <button type="submit" class="dash-btn dash-btn--primary">Save Location</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

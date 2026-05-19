@@ -6,7 +6,9 @@ app_name = "dashboard"
 urlpatterns = [
     path("", views.home, name="home"),
     path("bookings/", views.bookings, name="bookings"),
+    path("bookings/create/", views.booking_create, name="booking_create"),
     path("bookings/<int:pk>/", views.booking_detail, name="booking_detail"),
+    path("bookings/<int:pk>/edit/", views.booking_edit, name="booking_edit"),
     path("orders/", views.orders, name="orders"),
     path("products/", views.products, name="products"),
     path("products/<int:pk>/stock/", views.product_update_stock, name="product_update_stock"),
@@ -14,4 +16,28 @@ urlpatterns = [
     path("settings/", views.settings_view, name="settings"),
     path("messages/", views.messages_view, name="messages"),
     path("messages/<int:pk>/read/", views.message_mark_read, name="message_mark_read"),
+
+    # Locations
+    path("locations/", views.location_list, name="location_list"),
+    path("locations/create/", views.location_create, name="location_create"),
+    path("locations/<int:pk>/edit/", views.location_edit, name="location_edit"),
+    path("locations/<int:pk>/delete/", views.location_delete, name="location_delete"),
+
+    # Session Types
+    path("sessiontypes/", views.sessiontype_list, name="sessiontype_list"),
+    path("sessiontypes/create/", views.sessiontype_create, name="sessiontype_create"),
+    path("sessiontypes/<int:pk>/edit/", views.sessiontype_edit, name="sessiontype_edit"),
+    path("sessiontypes/<int:pk>/delete/", views.sessiontype_delete, name="sessiontype_delete"),
+
+    # Schedules
+    path("schedules/", views.schedule_list, name="schedule_list"),
+    path("schedules/create/", views.schedule_create, name="schedule_create"),
+    path("schedules/<int:pk>/edit/", views.schedule_edit, name="schedule_edit"),
+    path("schedules/<int:pk>/delete/", views.schedule_delete, name="schedule_delete"),
+
+    # Users
+    path("users/", views.user_list, name="user_list"),
+    path("users/create/", views.user_create, name="user_create"),
+    path("users/<int:pk>/edit/", views.user_edit, name="user_edit"),
+    path("users/<int:pk>/delete/", views.user_delete, name="user_delete"),
 ]

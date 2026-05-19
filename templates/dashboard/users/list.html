@@ -1,0 +1,76 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Users — Admin{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <div>
+    <h1 class="dash-heading">Users</h1>
+    <p class="dash-subheading">Manage clients, staff, and owners.</p>
+  </div>
+  <div>
+    <a href="{% url 'dashboard:user_create' %}" class="dash-btn dash-btn--primary">
+      <svg class="dash-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M12 14c-6.1 0-8 4-8 4v2h16v-2s-1.9-4-8-4z"></path></svg>
+      Add User
+    </a>
+  </div>
+</div>
+
+<div class="dash-section">
+  {% if users %}
+  <div class="dash-table-wrap">
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th>Name / Email</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Joined</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <div style="font-weight: 600;">{{ u.full_name|default:"-" }}</div>
+            <div style="color: var(--dash-text-muted); font-size: 0.8rem;">{{ u.email }}</div>
+          </td>
+          <td>
+            {% if u.is_owner %}
+            <span class="dash-badge dash-badge--completed" style="background: rgba(139, 92, 246, 0.15); color: #7c3aed;">Owner</span>
+            {% elif u.is_staff %}
+            <span class="dash-badge dash-badge--completed" style="background: rgba(59, 130, 246, 0.15); color: #2563eb;">Staff</span>
+            {% else %}
+            <span class="dash-badge dash-badge--completed" style="background: rgba(100, 116, 139, 0.15); color: #475569;">Client</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.is_active %}
+            <span class="dash-badge dash-badge--completed">Active</span>
+            {% else %}
+            <span class="dash-badge dash-badge--cancelled">Inactive</span>
+            {% endif %}
+          </td>
+          <td style="color: var(--dash-text-muted); font-size: 0.85rem;">{{ u.date_joined|date:"M j, Y" }}</td>
+          <td>
+            <a href="{% url 'dashboard:user_edit' u.pk %}" class="dash-btn dash-btn--sm dash-btn--ghost">Edit</a>
+            {% if request.user.pk != u.pk %}
+            <form action="{% url 'dashboard:user_delete' u.pk %}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this user?');">
+              {% csrf_token %}
+              <button type="submit" class="dash-btn dash-btn--sm dash-btn--ghost" style="color: var(--dash-danger);">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="dash-empty">
+    <p>No users found.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

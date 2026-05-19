@@ -117,6 +117,44 @@ def booking_detail(request, pk):
         "section": "bookings",
     })
 
+@owner_required
+def booking_create(request):
+    """Create a new booking manually."""
+    from apps.booking.models import Booking
+    from .forms import BookingForm
+    if request.method == "POST":
+        form = BookingForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:bookings")
+    else:
+        form = BookingForm()
+    return render(request, "dashboard/booking_form.html", {
+        "form": form,
+        "section": "bookings",
+        "action": "Create"
+    })
+
+@owner_required
+def booking_edit(request, pk):
+    """Edit an existing booking fully."""
+    from apps.booking.models import Booking
+    from .forms import BookingForm
+    booking = get_object_or_404(Booking, pk=pk)
+    if request.method == "POST":
+        form = BookingForm(request.POST, instance=booking)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:booking_detail", pk=pk)
+    else:
+        form = BookingForm(instance=booking)
+    return render(request, "dashboard/booking_form.html", {
+        "form": form,
+        "booking": booking,
+        "section": "bookings",
+        "action": "Edit"
+    })
+
 
 # ---------------------------------------------------------------------------
 # Orders
@@ -289,3 +327,251 @@ def message_mark_read(request, pk):
     msg.is_read = True
     msg.save(update_fields=["is_read"])
     return redirect("dashboard:messages")
+
+
+# ---------------------------------------------------------------------------
+# Locations
+# ---------------------------------------------------------------------------
+
+@owner_required
+def location_list(request):
+    """List all locations."""
+    from apps.booking.models import Location
+    locations = Location.objects.all()
+    return render(request, "dashboard/locations/list.html", {
+        "locations": locations, 
+        "section": "locations"
+    })
+
+@owner_required
+def location_create(request):
+    """Create a new location."""
+    from .forms import LocationForm
+    if request.method == "POST":
+        form = LocationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:location_list")
+    else:
+        form = LocationForm()
+    return render(request, "dashboard/locations/form.html", {
+        "form": form, 
+        "section": "locations", 
+        "action": "Create"
+    })
+
+@owner_required
+def location_edit(request, pk):
+    """Edit an existing location."""
+    from apps.booking.models import Location
+    from .forms import LocationForm
+    location = get_object_or_404(Location, pk=pk)
+    if request.method == "POST":
+        form = LocationForm(request.POST, instance=location)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:location_list")
+    else:
+        form = LocationForm(instance=location)
+    return render(request, "dashboard/locations/form.html", {
+        "form": form, 
+        "location": location, 
+        "section": "locations", 
+        "action": "Edit"
+    })
+
+@owner_required
+@require_POST
+def location_delete(request, pk):
+    """Delete a location."""
+    from apps.booking.models import Location
+    location = get_object_or_404(Location, pk=pk)
+    location.delete()
+    return redirect("dashboard:location_list")
+
+
+# ---------------------------------------------------------------------------
+# Session Types
+# ---------------------------------------------------------------------------
+
+@owner_required
+def sessiontype_list(request):
+    """List all session types."""
+    from apps.booking.models import SessionType
+    session_types = SessionType.objects.all()
+    return render(request, "dashboard/sessiontypes/list.html", {
+        "session_types": session_types, 
+        "section": "sessiontypes"
+    })
+
+@owner_required
+def sessiontype_create(request):
+    """Create a new session type."""
+    from .forms import SessionTypeForm
+    if request.method == "POST":
+        form = SessionTypeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:sessiontype_list")
+    else:
+        form = SessionTypeForm()
+    return render(request, "dashboard/sessiontypes/form.html", {
+        "form": form, 
+        "section": "sessiontypes", 
+        "action": "Create"
+    })
+
+@owner_required
+def sessiontype_edit(request, pk):
+    """Edit an existing session type."""
+    from apps.booking.models import SessionType
+    from .forms import SessionTypeForm
+    session_type = get_object_or_404(SessionType, pk=pk)
+    if request.method == "POST":
+        form = SessionTypeForm(request.POST, instance=session_type)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:sessiontype_list")
+    else:
+        form = SessionTypeForm(instance=session_type)
+    return render(request, "dashboard/sessiontypes/form.html", {
+        "form": form, 
+        "session_type": session_type, 
+        "section": "sessiontypes", 
+        "action": "Edit"
+    })
+
+@owner_required
+@require_POST
+def sessiontype_delete(request, pk):
+    """Delete a session type."""
+    from apps.booking.models import SessionType
+    session_type = get_object_or_404(SessionType, pk=pk)
+    session_type.delete()
+    return redirect("dashboard:sessiontype_list")
+
+
+# ---------------------------------------------------------------------------
+# Recurring Schedules
+# ---------------------------------------------------------------------------
+
+@owner_required
+def schedule_list(request):
+    """List all recurring schedules."""
+    from apps.booking.models import RecurringSchedule
+    schedules = RecurringSchedule.objects.select_related("session_type", "location").all()
+    return render(request, "dashboard/schedules/list.html", {
+        "schedules": schedules, 
+        "section": "schedules"
+    })
+
+@owner_required
+def schedule_create(request):
+    """Create a new recurring schedule."""
+    from .forms import RecurringScheduleForm
+    if request.method == "POST":
+        form = RecurringScheduleForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:schedule_list")
+    else:
+        form = RecurringScheduleForm()
+    return render(request, "dashboard/schedules/form.html", {
+        "form": form, 
+        "section": "schedules", 
+        "action": "Create"
+    })
+
+@owner_required
+def schedule_edit(request, pk):
+    """Edit an existing recurring schedule."""
+    from apps.booking.models import RecurringSchedule
+    from .forms import RecurringScheduleForm
+    schedule = get_object_or_404(RecurringSchedule, pk=pk)
+    if request.method == "POST":
+        form = RecurringScheduleForm(request.POST, instance=schedule)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:schedule_list")
+    else:
+        form = RecurringScheduleForm(instance=schedule)
+    return render(request, "dashboard/schedules/form.html", {
+        "form": form, 
+        "schedule": schedule, 
+        "section": "schedules", 
+        "action": "Edit"
+    })
+
+@owner_required
+@require_POST
+def schedule_delete(request, pk):
+    """Delete a recurring schedule."""
+    from apps.booking.models import RecurringSchedule
+    schedule = get_object_or_404(RecurringSchedule, pk=pk)
+    schedule.delete()
+    return redirect("dashboard:schedule_list")
+
+
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
+
+from django.contrib.auth import get_user_model
+from .forms import UserForm
+User = get_user_model()
+
+@owner_required
+def user_list(request):
+    """List all users (staff, clients, etc)."""
+    users = User.objects.all()
+    return render(request, "dashboard/users/list.html", {
+        "users": users, 
+        "section": "users"
+    })
+
+@owner_required
+def user_create(request):
+    """Create a new user."""
+    if request.method == "POST":
+        form = UserForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            # Assign a random unuseable password so the user can be saved
+            user.set_unusable_password()
+            user.save()
+            return redirect("dashboard:user_list")
+    else:
+        form = UserForm()
+    return render(request, "dashboard/users/form.html", {
+        "form": form, 
+        "section": "users", 
+        "action": "Create"
+    })
+
+@owner_required
+def user_edit(request, pk):
+    """Edit an existing user."""
+    user_obj = get_object_or_404(User, pk=pk)
+    if request.method == "POST":
+        form = UserForm(request.POST, instance=user_obj)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:user_list")
+    else:
+        form = UserForm(instance=user_obj)
+    return render(request, "dashboard/users/form.html", {
+        "form": form, 
+        "user_obj": user_obj, 
+        "section": "users", 
+        "action": "Edit"
+    })
+
+@owner_required
+@require_POST
+def user_delete(request, pk):
+    """Delete a user."""
+    user_obj = get_object_or_404(User, pk=pk)
+    # Don't delete the current logged in user
+    if user_obj.pk != request.user.pk:
+        user_obj.delete()
+    return redirect("dashboard:user_list")

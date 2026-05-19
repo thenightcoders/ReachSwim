@@ -183,21 +183,23 @@ body.dash-body {
   gap: 0.25rem;
 }
 
-/* --- Topbar (Mobile) --- */
+/* --- Topbar (Mobile & Desktop Header) --- */
 .dash-topbar {
-  display: none;
+  display: none; /* Only show on mobile for now, or we can show a sleek topbar everywhere */
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   height: 64px;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--dash-border);
   align-items: center;
-  padding: 0 1rem;
+  justify-content: space-between;
+  padding: 0 1.5rem;
   z-index: 99;
+  box-shadow: var(--dash-shadow-sm);
 }
 
 .dash-topbar__left {
@@ -216,7 +218,11 @@ body.dash-body {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: var(--dash-bg);
+  transition: background 0.2s;
+}
+
+.dash-topbar__toggle:hover {
+  background: var(--dash-sidebar-active-bg);
 }
 
 .dash-topbar__title {
@@ -224,8 +230,49 @@ body.dash-body {
   font-weight: 600;
   font-size: 1.1rem;
   color: var(--dash-text);
+  letter-spacing: -0.01em;
 }
 
+.dash-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dash-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--dash-accent), #60a5fa);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  font-family: var(--font-display);
+}
+
+/* --- Mobile Overlay --- */
+.dash-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 99; /* Below sidebar, above everything else */
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.dash-overlay.open {
+  display: block;
+  opacity: 1;
+}
 /* --- Main Layout --- */
 .dash-main {
   margin-left: var(--dash-sidebar-w);
@@ -607,6 +654,10 @@ body.dash-body {
 @media (max-width: 768px) {
   .dash-sidebar {
     transform: translateX(-100%);
+    width: 280px; /* Slightly wider on mobile for touch */
+    border-right: none;
+    box-shadow: var(--dash-shadow-lg);
+    background: rgba(255, 255, 255, 0.95);
   }
   
   .dash-sidebar.open {
@@ -634,4 +685,105 @@ body.dash-body {
   .dash-filters .dash-input {
     width: 100%;
   }
+
+  .dash-settings-row {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
 }
+
+/* --- Submenu Styles --- */
+.dash-nav__submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-left: 2.25rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.dash-nav__sublink {
+  padding: 0.4rem 0.75rem;
+  color: var(--dash-sidebar-text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: block;
+}
+
+.dash-nav__sublink:hover {
+  background: var(--dash-sidebar-active-bg);
+  color: var(--dash-sidebar-active);
+  transform: translateX(4px);
+}
+
+.dash-nav__sublink.active {
+  color: var(--dash-accent);
+  font-weight: 600;
+}
+
+/* --- Premium Settings Layout (No Sidebar Menu) --- */
+.dash-settings-layout {
+  display: block;
+  max-width: 800px;
+}
+
+.dash-tab-content {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.dash-tab-content.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dash-settings-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.dash-settings-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--dash-text);
+  margin: 0;
+}
+
+.dash-settings-desc {
+  font-size: 0.95rem;
+  color: var(--dash-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.dash-settings-card {
+  background: var(--dash-card-bg);
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-lg);
+  box-shadow: var(--dash-shadow-sm);
+  padding: 2rem;
+}
+
+.dash-settings-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dash-settings-footer {
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--dash-border);
+  display: flex;
+  justify-content: flex-end;
+}
+

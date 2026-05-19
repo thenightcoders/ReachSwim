@@ -6,158 +6,268 @@
 {% block content %}
 <div class="dash-header">
   <h1 class="dash-heading">Site settings</h1>
-  <p class="dash-subheading">Edit your site copy, hero, booking rules, and shop config.</p>
+  <p class="dash-subheading">Manage your site content, booking rules, and shop configurations.</p>
 </div>
 
-<div class="dash-settings-grid">
+<div class="dash-settings-layout">
 
-  <!-- Site info -->
-  <div class="dash-card">
-    <h3 class="dash-card__title">Site info</h3>
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="_section" value="site">
-      <label class="dash-label">
-        Site name
-        <input type="text" name="site_name" value="{{ site.site_name }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Tagline
-        <input type="text" name="tagline" value="{{ site.tagline }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Email
-        <input type="email" name="email" value="{{ site.email }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Phone
-        <input type="text" name="phone" value="{{ site.phone }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Location text
-        <input type="text" name="location_text" value="{{ site.location_text }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Meta description
-        <textarea name="meta_description" rows="2" class="dash-textarea">{{ site.meta_description }}</textarea>
-      </label>
-      <label class="dash-label">
-        Established year
-        <input type="number" name="established_year" value="{{ site.established_year }}" class="dash-input dash-input--sm">
-      </label>
-      <label class="dash-label">
-        WhatsApp URL
-        <input type="url" name="whatsapp_url" value="{{ site.whatsapp_url }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Instagram URL
-        <input type="url" name="instagram_url" value="{{ site.instagram_url }}" class="dash-input">
-      </label>
-      <button class="dash-btn dash-btn--primary">Save site info</button>
-    </form>
-  </div>
+  <!-- Right Content Area -->
+  <div class="dash-settings-content">
 
-  <!-- Hero -->
-  <div class="dash-card">
-    <h3 class="dash-card__title">Hero section</h3>
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="_section" value="hero">
-      <label class="dash-label">
-        Headline
-        <input type="text" name="headline" value="{{ hero.headline }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Sub-headline
-        <textarea name="subheadline" rows="2" class="dash-textarea">{{ hero.subheadline }}</textarea>
-      </label>
-      <label class="dash-label">
-        Primary CTA text
-        <input type="text" name="cta_primary_text" value="{{ hero.cta_primary_text }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Secondary CTA text
-        <input type="text" name="cta_secondary_text" value="{{ hero.cta_secondary_text }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Strip items <small class="dash-text--muted">(comma-separated)</small>
-        <input type="text" name="strip_items" value="{{ hero.strip_items }}" class="dash-input">
-      </label>
-      <button class="dash-btn dash-btn--primary">Save hero</button>
-    </form>
-  </div>
+    <!-- TAB 1: Site Info -->
+    <div id="tab-site" class="dash-tab-content active">
+      <div class="dash-settings-info">
+        <h3 class="dash-settings-title">General Information</h3>
+        <p class="dash-settings-desc">Update your site name, contact details, and core identity used across the platform and metadata.</p>
+      </div>
+      
+      <div class="dash-settings-card">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="_section" value="site">
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <label class="dash-label">
+              Site name
+              <input type="text" name="site_name" value="{{ site.site_name }}" class="dash-input">
+            </label>
+            <label class="dash-label">
+              Established year
+              <input type="number" name="established_year" value="{{ site.established_year }}" class="dash-input">
+            </label>
+          </div>
+          
+          <label class="dash-label">
+            Tagline
+            <input type="text" name="tagline" value="{{ site.tagline }}" class="dash-input">
+          </label>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <label class="dash-label">
+              Email
+              <input type="email" name="email" value="{{ site.email }}" class="dash-input">
+            </label>
+            <label class="dash-label">
+              Phone
+              <input type="text" name="phone" value="{{ site.phone }}" class="dash-input">
+            </label>
+          </div>
+          
+          <label class="dash-label">
+            Location text
+            <input type="text" name="location_text" value="{{ site.location_text }}" class="dash-input">
+          </label>
+          
+          <label class="dash-label">
+            Meta description
+            <textarea name="meta_description" rows="3" class="dash-textarea">{{ site.meta_description }}</textarea>
+          </label>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <label class="dash-label">
+              WhatsApp URL
+              <input type="url" name="whatsapp_url" value="{{ site.whatsapp_url }}" class="dash-input">
+            </label>
+            <label class="dash-label">
+              Instagram URL
+              <input type="url" name="instagram_url" value="{{ site.instagram_url }}" class="dash-input">
+            </label>
+          </div>
+          
+          <div class="dash-settings-footer">
+            <button class="dash-btn dash-btn--primary">Save Information</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-  <!-- Booking settings -->
-  <div class="dash-card">
-    <h3 class="dash-card__title">Booking settings</h3>
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="_section" value="booking">
-      <label class="dash-label">
-        Page heading
-        <input type="text" name="booking_page_heading" value="{{ booking_settings.booking_page_heading }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Page subheading
-        <input type="text" name="booking_page_subheading" value="{{ booking_settings.booking_page_subheading }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Max advance days
-        <input type="number" name="max_advance_days" value="{{ booking_settings.max_advance_days }}" class="dash-input dash-input--sm">
-      </label>
-      <label class="dash-label">
-        Min advance hours
-        <input type="number" name="min_advance_hours" value="{{ booking_settings.min_advance_hours }}" class="dash-input dash-input--sm">
-      </label>
-      <label class="dash-label">
-        Cancellation hours
-        <input type="number" name="cancellation_hours" value="{{ booking_settings.cancellation_hours }}" class="dash-input dash-input--sm">
-      </label>
-      <label class="dash-label">
-        Slot duration (minutes)
-        <input type="number" name="slot_duration_minutes" value="{{ booking_settings.slot_duration_minutes }}" class="dash-input dash-input--sm">
-      </label>
-      <button class="dash-btn dash-btn--primary">Save booking settings</button>
-    </form>
-  </div>
+    <!-- TAB 2: Hero -->
+    <div id="tab-hero" class="dash-tab-content">
+      <div class="dash-settings-info">
+        <h3 class="dash-settings-title">Hero Section</h3>
+        <p class="dash-settings-desc">Customize the massive headline, subheadline, and call-to-actions visitors see when they first arrive.</p>
+      </div>
+      
+      <div class="dash-settings-card">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="_section" value="hero">
+          
+          <label class="dash-label">
+            Headline
+            <input type="text" name="headline" value="{{ hero.headline }}" class="dash-input">
+          </label>
+          
+          <label class="dash-label">
+            Sub-headline
+            <textarea name="subheadline" rows="3" class="dash-textarea">{{ hero.subheadline }}</textarea>
+          </label>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <label class="dash-label">
+              Primary CTA text
+              <input type="text" name="cta_primary_text" value="{{ hero.cta_primary_text }}" class="dash-input">
+            </label>
+            <label class="dash-label">
+              Secondary CTA text
+              <input type="text" name="cta_secondary_text" value="{{ hero.cta_secondary_text }}" class="dash-input">
+            </label>
+          </div>
+          
+          <label class="dash-label">
+            Strip items <small style="color: var(--dash-text-muted); font-weight: normal;">(comma-separated features)</small>
+            <input type="text" name="strip_items" value="{{ hero.strip_items }}" class="dash-input">
+          </label>
+          
+          <div class="dash-settings-footer">
+            <button class="dash-btn dash-btn--primary">Save Hero</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-  <!-- Shop settings -->
-  <div class="dash-card">
-    <h3 class="dash-card__title">Shop settings</h3>
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="_section" value="shop">
-      <label class="dash-label">
-        Kicker
-        <input type="text" name="kicker" value="{{ shop_settings.kicker }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Heading
-        <input type="text" name="heading" value="{{ shop_settings.heading }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Heading emphasis
-        <input type="text" name="heading_emphasis" value="{{ shop_settings.heading_emphasis }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Subheading
-        <input type="text" name="subheading" value="{{ shop_settings.subheading }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Free shipping note
-        <input type="text" name="free_shipping_note" value="{{ shop_settings.free_shipping_note }}" class="dash-input">
-      </label>
-      <label class="dash-label">
-        Free shipping threshold (pence)
-        <input type="number" name="free_shipping_threshold_pence" value="{{ shop_settings.free_shipping_threshold_pence }}" class="dash-input dash-input--sm">
-      </label>
-      <label class="dash-label">
-        Shipping rate (pence)
-        <input type="number" name="shipping_rate_pence" value="{{ shop_settings.shipping_rate_pence }}" class="dash-input dash-input--sm">
-      </label>
-      <button class="dash-btn dash-btn--primary">Save shop settings</button>
-    </form>
-  </div>
+    <!-- TAB 3: Booking settings -->
+    <div id="tab-booking" class="dash-tab-content">
+      <div class="dash-settings-info">
+        <h3 class="dash-settings-title">Booking Rules</h3>
+        <p class="dash-settings-desc">Control booking flow, cancellation policies, and global scheduling constraints.</p>
+      </div>
+      
+      <div class="dash-settings-card">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="_section" value="booking">
+          
+          <label class="dash-label">
+            Booking Page Heading
+            <input type="text" name="booking_page_heading" value="{{ booking_settings.booking_page_heading }}" class="dash-input">
+          </label>
+          
+          <label class="dash-label">
+            Booking Page Subheading
+            <textarea name="booking_page_subheading" rows="2" class="dash-textarea">{{ booking_settings.booking_page_subheading }}</textarea>
+          </label>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <label class="dash-label">
+              Max Advance Days
+              <input type="number" name="max_advance_days" value="{{ booking_settings.max_advance_days }}" class="dash-input">
+            </label>
+            <label class="dash-label">
+              Min Advance Hours
+              <input type="number" name="min_advance_hours" value="{{ booking_settings.min_advance_hours }}" class="dash-input">
+            </label>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <label class="dash-label">
+              Cancellation Hours
+              <input type="number" name="cancellation_hours" value="{{ booking_settings.cancellation_hours }}" class="dash-input">
+            </label>
+            <label class="dash-label">
+              Default Slot Duration (mins)
+              <input type="number" name="slot_duration_minutes" value="{{ booking_settings.slot_duration_minutes }}" class="dash-input">
+            </label>
+          </div>
+          
+          <div class="dash-settings-footer">
+            <button class="dash-btn dash-btn--primary">Save Rules</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
+    <!-- TAB 4: Shop settings -->
+    <div id="tab-shop" class="dash-tab-content">
+      <div class="dash-settings-info">
+        <h3 class="dash-settings-title">Shop Settings</h3>
+        <p class="dash-settings-desc">Configure ecommerce copy, shipping thresholds, and base rates.</p>
+      </div>
+      
+      <div class="dash-settings-card">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="_section" value="shop">
+          
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem;">
+            <label class="dash-label">
+              Kicker text
+              <input type="text" name="kicker" value="{{ shop_settings.kicker }}" class="dash-input">
+            </label>
+            <label class="dash-label">
+              Heading
+              <input type="text" name="heading" value="{{ shop_settings.heading }}" class="dash-input">
+            </label>
+          </div>
+          
+          <label class="dash-label">
+            Heading emphasis <small style="color: var(--dash-text-muted); font-weight: normal;">(highlighted word)</small>
+            <input type="text" name="heading_emphasis" value="{{ shop_settings.heading_emphasis }}" class="dash-input">
+          </label>
+          
+          <label class="dash-label">
+            Subheading
+            <textarea name="subheading" rows="2" class="dash-textarea">{{ shop_settings.subheading }}</textarea>
+          </label>
+          
+          <label class="dash-label">
+            Free shipping note banner
+            <input type="text" name="free_shipping_note" value="{{ shop_settings.free_shipping_note }}" class="dash-input">
+          </label>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <label class="dash-label">
+              Free shipping threshold (pence)
+              <input type="number" name="free_shipping_threshold_pence" value="{{ shop_settings.free_shipping_threshold_pence }}" class="dash-input">
+            </label>
+            <label class="dash-label">
+              Shipping rate (pence)
+              <input type="number" name="shipping_rate_pence" value="{{ shop_settings.shipping_rate_pence }}" class="dash-input">
+            </label>
+          </div>
+          
+          <div class="dash-settings-footer">
+            <button class="dash-btn dash-btn--primary">Save Shop Configuration</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div> <!-- End Right Content Area -->
 </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function switchTab(event, tabId) {
+    if(event) event.preventDefault();
+    
+    // Update sidebar links
+    document.querySelectorAll('.dash-nav__sublink').forEach(link => {
+      link.classList.remove('active');
+    });
+    const activeLink = document.querySelector(`.dash-nav__sublink[href*="#${tabId}"]`);
+    if(activeLink) activeLink.classList.add('active');
+    
+    // Update content
+    document.querySelectorAll('.dash-tab-content').forEach(content => {
+      content.classList.remove('active');
+    });
+    const activeTab = document.getElementById('tab-' + tabId);
+    if(activeTab) activeTab.classList.add('active');
+    
+    // Update URL hash without jumping
+    history.pushState(null, null, '#' + tabId);
+  }
+  
+  // Handle initial hash load if present
+  document.addEventListener('DOMContentLoaded', () => {
+    let hash = window.location.hash.replace('#', '');
+    if (!hash || !document.getElementById('tab-' + hash)) {
+      hash = 'site'; // default tab
+    }
+    switchTab(null, hash);
+  });
+</script>
 {% endblock %}
