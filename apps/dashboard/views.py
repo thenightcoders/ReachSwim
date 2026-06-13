@@ -20,11 +20,14 @@ from apps.accounts.decorators import owner_required
 @owner_required
 def home(request):
     """Dashboard home — quick stats and upcoming bookings."""
+    from django.db.models import Sum
     from apps.booking.models import Booking
     from apps.payments.models import Order
+    from apps.legal.models import ContactMessage
 
     today = timezone.now().date()
     week_start = today - datetime.timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
 
     # Quick stats
     upcoming_bookings = Booking.objects.filter(
@@ -39,15 +42,27 @@ def home(request):
     week_revenue = Order.objects.filter(
         status="paid",
         created_at__date__gte=week_start,
-    ).aggregate(total=__import__("django.db.models", fromlist=["Sum"]).Sum("total_pence"))["total"] or 0
+    ).aggregate(total=Sum("total_pence"))["total"] or 0
+
+    month_revenue = Order.objects.filter(
+        status="paid",
+        created_at__date__gte=month_start,
+    ).aggregate(total=Sum("total_pence"))["total"] or 0
 
     pending_orders = Order.objects.filter(status="pending").count()
+
+    total_clients = __import__("django.contrib.auth", fromlist=["get_user_model"]).get_user_model().objects.filter(role="client").count()
+
+    unread_messages = ContactMessage.objects.filter(is_read=False).count()
 
     return render(request, "dashboard/home.html", {
         "upcoming_bookings": upcoming_bookings,
         "today_count": today_count,
         "week_revenue": week_revenue,
+        "month_revenue": month_revenue,
         "pending_orders": pending_orders,
+        "total_clients": total_clients,
+        "unread_messages": unread_messages,
         "section": "home",
     })
 

@@ -11,6 +11,14 @@
 
 <div class="dash-settings-layout">
 
+  <!-- In-page tab bar -->
+  <nav class="dash-tabs" role="tablist">
+    <button class="dash-tab active" onclick="switchTab(event, 'site')"   role="tab">General Info</button>
+    <button class="dash-tab"        onclick="switchTab(event, 'hero')"    role="tab">Hero Section</button>
+    <button class="dash-tab"        onclick="switchTab(event, 'booking')" role="tab">Booking Rules</button>
+    <button class="dash-tab"        onclick="switchTab(event, 'shop')"    role="tab">Shop Settings</button>
+  </nav>
+
   <!-- Right Content Area -->
   <div class="dash-settings-content">
 
@@ -217,12 +225,20 @@
           
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <label class="dash-label">
-              Free shipping threshold (pence)
-              <input type="number" name="free_shipping_threshold_pence" value="{{ shop_settings.free_shipping_threshold_pence }}" class="dash-input">
+              Free shipping threshold
+              <div class="dash-input-group">
+                <span class="dash-input-group__prefix">£</span>
+                <input type="number" name="free_shipping_threshold_pence" value="{{ shop_settings.free_shipping_threshold_pence }}" class="dash-input" placeholder="e.g. 5000">
+              </div>
+              <span class="dash-field-hint">Enter in pence — e.g. 5000 = £50.00</span>
             </label>
             <label class="dash-label">
-              Shipping rate (pence)
-              <input type="number" name="shipping_rate_pence" value="{{ shop_settings.shipping_rate_pence }}" class="dash-input">
+              Shipping rate
+              <div class="dash-input-group">
+                <span class="dash-input-group__prefix">£</span>
+                <input type="number" name="shipping_rate_pence" value="{{ shop_settings.shipping_rate_pence }}" class="dash-input" placeholder="e.g. 395">
+              </div>
+              <span class="dash-field-hint">Enter in pence — e.g. 395 = £3.95</span>
             </label>
           </div>
           
@@ -242,21 +258,30 @@
 <script>
   function switchTab(event, tabId) {
     if(event) event.preventDefault();
-    
-    // Update sidebar links
-    document.querySelectorAll('.dash-nav__sublink').forEach(link => {
-      link.classList.remove('active');
-    });
+
+    // Update in-page tab buttons
+    document.querySelectorAll('.dash-tab').forEach(btn => btn.classList.remove('active'));
+    if (event && event.currentTarget) {
+      event.currentTarget.classList.add('active');
+    } else {
+      // Called programmatically (hash load) — find by onclick attr
+      document.querySelectorAll('.dash-tab').forEach(btn => {
+        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'" + tabId + "'")) {
+          btn.classList.add('active');
+        }
+      });
+    }
+
+    // Update sidebar sublinks (still useful on desktop)
+    document.querySelectorAll('.dash-nav__sublink').forEach(link => link.classList.remove('active'));
     const activeLink = document.querySelector(`.dash-nav__sublink[href*="#${tabId}"]`);
     if(activeLink) activeLink.classList.add('active');
-    
-    // Update content
-    document.querySelectorAll('.dash-tab-content').forEach(content => {
-      content.classList.remove('active');
-    });
-    const activeTab = document.getElementById('tab-' + tabId);
-    if(activeTab) activeTab.classList.add('active');
-    
+
+    // Update content panels
+    document.querySelectorAll('.dash-tab-content').forEach(content => content.classList.remove('active'));
+    const activePanel = document.getElementById('tab-' + tabId);
+    if(activePanel) activePanel.classList.add('active');
+
     // Update URL hash without jumping
     history.pushState(null, null, '#' + tabId);
   }

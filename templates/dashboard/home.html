@@ -17,13 +17,27 @@
     <span class="dash-stat-card__value">{{ today_count }}</span>
   </div>
   <div class="dash-stat-card">
-    <span class="dash-stat-card__label">Week revenue</span>
+    <span class="dash-stat-card__label">This week's revenue</span>
     <span class="dash-stat-card__value">&pound;{{ week_revenue|pence_to_pounds }}</span>
+  </div>
+  <div class="dash-stat-card">
+    <span class="dash-stat-card__label">This month's revenue</span>
+    <span class="dash-stat-card__value">&pound;{{ month_revenue|pence_to_pounds }}</span>
   </div>
   <div class="dash-stat-card">
     <span class="dash-stat-card__label">Pending orders</span>
     <span class="dash-stat-card__value">{{ pending_orders }}</span>
   </div>
+  <div class="dash-stat-card">
+    <span class="dash-stat-card__label">Total clients</span>
+    <span class="dash-stat-card__value">{{ total_clients }}</span>
+  </div>
+  {% if unread_messages %}
+  <div class="dash-stat-card dash-stat-card--alert">
+    <span class="dash-stat-card__label">Unread messages</span>
+    <span class="dash-stat-card__value">{{ unread_messages }}</span>
+  </div>
+  {% endif %}
 </div>
 
 <!-- Upcoming bookings -->

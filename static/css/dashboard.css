@@ -183,12 +183,12 @@ body.dash-body {
   gap: 0.25rem;
 }
 
-/* --- Topbar (Mobile & Desktop Header) --- */
+/* --- Topbar (always visible) --- */
 .dash-topbar {
-  display: none; /* Only show on mobile for now, or we can show a sleek topbar everywhere */
+  display: flex;
   position: fixed;
   top: 0;
-  left: 0;
+  left: var(--dash-sidebar-w);
   right: 0;
   height: 64px;
   background: rgba(255, 255, 255, 0.85);
@@ -200,6 +200,11 @@ body.dash-body {
   padding: 0 1.5rem;
   z-index: 99;
   box-shadow: var(--dash-shadow-sm);
+}
+
+/* Hide the hamburger toggle on desktop — sidebar is always open */
+.dash-topbar__toggle {
+  display: none;
 }
 
 .dash-topbar__left {
@@ -279,6 +284,7 @@ body.dash-body {
   flex: 1;
   min-height: 100vh;
   padding: 2.5rem;
+  padding-top: calc(64px + 2.5rem); /* clear the always-on topbar */
 }
 
 .dash-main__inner {
@@ -350,6 +356,33 @@ body.dash-body {
   font-weight: 700;
   color: var(--dash-text);
   line-height: 1;
+}
+
+/* --- Nav Badge Count --- */
+.dash-badge-count {
+  margin-left: auto;
+  background: var(--dash-danger);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+/* --- Stat Card — alert variant --- */
+.dash-stat-card--alert {
+  border-color: var(--dash-warn);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85), var(--dash-warn-light));
+}
+
+.dash-stat-card--alert .dash-stat-card__value {
+  color: #b45309;
 }
 
 /* --- Section Container --- */
@@ -553,6 +586,35 @@ body.dash-body {
   color: var(--dash-text);
 }
 
+/* --- Money / pence input wrapper --- */
+.dash-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dash-input-group .dash-input {
+  padding-left: 2.25rem;
+}
+
+.dash-input-group__prefix {
+  position: absolute;
+  left: 0.875rem;
+  font-weight: 600;
+  color: var(--dash-text-muted);
+  font-size: 0.95rem;
+  pointer-events: none;
+  user-select: none;
+}
+
+.dash-field-hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--dash-text-muted);
+  margin-top: 0.3rem;
+  font-weight: 400;
+}
+
 /* --- Filter Bar --- */
 .dash-filters {
   display: flex;
@@ -633,6 +695,45 @@ body.dash-body {
 .dash-alert--warning { background: #f59e0b; color: white; }
 .dash-alert--info { background: #3b82f6; color: white; }
 
+/* --- Inline tag pill (order items, etc.) --- */
+.dash-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: var(--dash-sidebar-active-bg);
+  color: var(--dash-text);
+  border: 1px solid var(--dash-border);
+  margin: 0.1rem 0.15rem 0.1rem 0;
+  white-space: nowrap;
+}
+
+/* --- Unread message row --- */
+.dash-table__row--unread {
+  background: var(--dash-accent-light);
+}
+
+.dash-table__row--unread:hover {
+  background: #dbeafe;
+}
+
+.dash-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dash-danger);
+  flex-shrink: 0;
+}
+
+.dash-table__cell--wrap {
+  max-width: 320px;
+  white-space: normal;
+  word-break: break-word;
+}
+
 /* --- Empty State --- */
 .dash-empty {
   text-align: center;
@@ -654,34 +755,40 @@ body.dash-body {
 @media (max-width: 768px) {
   .dash-sidebar {
     transform: translateX(-100%);
-    width: 280px; /* Slightly wider on mobile for touch */
+    width: 280px;
     border-right: none;
     box-shadow: var(--dash-shadow-lg);
     background: rgba(255, 255, 255, 0.95);
   }
-  
+
   .dash-sidebar.open {
     transform: translateX(0);
   }
-  
+
+  /* On mobile the topbar spans full width (sidebar is off-screen) */
   .dash-topbar {
+    left: 0;
+  }
+
+  /* Show hamburger toggle on mobile */
+  .dash-topbar__toggle {
     display: flex;
   }
-  
+
   .dash-main {
     margin-left: 0;
-    padding: 80px 1rem 2rem;
+    padding: calc(64px + 1.5rem) 1rem 2rem;
   }
-  
+
   .dash-heading {
     font-size: 1.75rem;
   }
-  
+
   .dash-filters {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .dash-filters .dash-input {
     width: 100%;
   }
@@ -720,6 +827,41 @@ body.dash-body {
 
 .dash-nav__sublink.active {
   color: var(--dash-accent);
+  font-weight: 600;
+}
+
+/* --- In-page Tab Bar (settings + any future tabbed page) --- */
+.dash-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.75rem;
+  border-bottom: 2px solid var(--dash-border);
+  padding-bottom: 0;
+}
+
+.dash-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px; /* sit on top of .dash-tabs border-bottom */
+  padding: 0.6rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--dash-text-muted);
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  font-family: var(--font-sans);
+}
+
+.dash-tab:hover {
+  color: var(--dash-text);
+  background: var(--dash-sidebar-active-bg);
+}
+
+.dash-tab.active {
+  color: var(--dash-accent);
+  border-bottom-color: var(--dash-accent);
   font-weight: 600;
 }
 
