@@ -29,7 +29,10 @@
         </form>
 
         <div class="profile-actions">
-          <a href="{% url 'accounts:logout' %}" class="btn btn-ghost btn-sm">Log out</a>
+          <form method="post" action="{% url 'accounts:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-ghost btn-sm">Log out</button>
+          </form>
         </div>
       </div>
 

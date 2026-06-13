@@ -6,6 +6,7 @@ Thin HTTP layer. Forms do the validation, views just wire things up.
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
 from .forms import LoginForm, RegisterForm, ProfileForm
 
@@ -34,8 +35,9 @@ def login_view(request):
     })
 
 
+@require_POST
 def logout_view(request):
-    """Log out and redirect to homepage."""
+    """Log out and redirect to homepage. POST-only to prevent CSRF logout."""
     logout(request)
     return redirect("pages:home")
 

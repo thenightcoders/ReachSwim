@@ -5,9 +5,10 @@ Thin views call this; this calls the availability service and ORM.
 import datetime
 from typing import Optional
 
+from django.db import transaction
 from django.utils import timezone
 
-from apps.booking.models import Booking, SessionType, Location
+from apps.booking.models import Booking, RecurringSchedule, SessionType, Location
 from apps.booking.services.availability import get_slot, get_booking_settings
 
 
@@ -21,6 +22,7 @@ class BookingValidationError(Exception):
     pass
 
 
+@transaction.atomic
 def create_booking(
     session_type_id: int,
     location_id: int,
@@ -34,7 +36,28 @@ def create_booking(
     """
     Validate and create a pending booking.
     Raises SlotUnavailableError if the slot is gone or full.
+
+    Locks the RecurringSchedule row for this slot so that concurrent requests
+    for the same slot queue up here rather than racing past the capacity check.
     """
+    # Acquire a row-level lock on the schedule entry for this slot.
+    # All concurrent booking attempts for the same slot will block here until
+    # the current transaction commits or rolls back.
+    try:
+        RecurringSchedule.objects.select_for_update().get(
+            session_type_id=session_type_id,
+            location_id=location_id,
+            day_of_week=date.weekday(),
+            start_time=start_time,
+            is_active=True,
+        )
+    except RecurringSchedule.DoesNotExist:
+        raise SlotUnavailableError(
+            "This slot is no longer available. Please choose another time."
+        )
+
+    # Re-check availability with the lock held — capacity may have changed
+    # while we were waiting for the lock.
     slot = get_slot(session_type_id, location_id, date, start_time)
     if slot is None or not slot.is_available:
         raise SlotUnavailableError(

@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import owner_required
+from apps.accounts.models import User
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +52,7 @@ def home(request):
 
     pending_orders = Order.objects.filter(status="pending").count()
 
-    total_clients = __import__("django.contrib.auth", fromlist=["get_user_model"]).get_user_model().objects.filter(role="client").count()
+    total_clients = User.objects.filter(role="client").count()
 
     unread_messages = ContactMessage.objects.filter(is_read=False).count()
 
@@ -80,7 +81,7 @@ def bookings(request):
     date_from = request.GET.get("from", "")
     date_to = request.GET.get("to", "")
 
-    qs = Booking.objects.select_related(
+    qs = Booking.with_spots_taken().select_related(
         "session_type", "location",
     ).order_by("-date", "-start_time")
 
@@ -275,7 +276,6 @@ def settings_view(request):
                           "cta_primary_text", "cta_secondary_text", "strip_items"]:
                 if field in request.POST:
                     setattr(hero, field, request.POST[field])
-            site.save()
             hero.save()
 
         elif section == "booking":
@@ -531,9 +531,7 @@ def schedule_delete(request, pk):
 # Users
 # ---------------------------------------------------------------------------
 
-from django.contrib.auth import get_user_model
 from .forms import UserForm
-User = get_user_model()
 
 @owner_required
 def user_list(request):

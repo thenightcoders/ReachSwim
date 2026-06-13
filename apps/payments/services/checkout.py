@@ -17,6 +17,7 @@ from typing import Optional
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import F
 
 from apps.booking.models import Booking
 from apps.booking.services.booking import create_booking, confirm_booking
@@ -233,13 +234,17 @@ def confirm_order(event: PaymentEvent) -> Optional[Order]:
         if oi.is_booking and oi.booking and oi.booking.status == Booking.STATUS_PENDING:
             confirm_booking(oi.booking, payment_intent_id=event.payment_intent_id)
 
-    # Deduct stock for product items
-    for oi in order.items.select_related("product"):
-        if oi.is_product and oi.product:
-            product = oi.product
-            if product.stock >= oi.quantity:
-                product.stock -= oi.quantity
-                product.save(update_fields=["stock"])
+    # Deduct stock for product items atomically.
+    # F() expression pushes the arithmetic to the DB in a single UPDATE,
+    # preventing the read-modify-write race condition.
+    # The stock__gte guard ensures we never go below zero.
+    for oi in order.items.filter(item_type=ITEM_TYPE_PRODUCT):
+        if oi.product_id:
+            from apps.shop.models import Product
+            Product.objects.filter(
+                pk=oi.product_id,
+                stock__gte=oi.quantity,
+            ).update(stock=F("stock") - oi.quantity)
 
     # Audit log
     PaymentRecord.objects.create(

@@ -101,6 +101,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.pages.context_processors.site_context",
+                "apps.payments.context_processors.cart_context",
                 "apps.dashboard.context_processors.dashboard_context",
             ],
         },

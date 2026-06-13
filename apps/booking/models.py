@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.db.models import Count, OuterRef, Subquery
 from django.utils import timezone
 from apps.pages.models import SingletonModel
 
@@ -368,9 +369,37 @@ class Booking(models.Model):
         pounds = self.amount_pence / 100
         return f"£{pounds:.2f}"
 
+    @classmethod
+    def with_spots_taken(cls):
+        """
+        Return a queryset with each booking annotated with `spots_taken_count`
+        — the number of non-cancelled bookings sharing the same slot.
+        One correlated subquery per row instead of N individual COUNT queries.
+        """
+        taken = (
+            cls.objects
+            .filter(
+                session_type_id=OuterRef("session_type_id"),
+                location_id=OuterRef("location_id"),
+                date=OuterRef("date"),
+                start_time=OuterRef("start_time"),
+            )
+            .exclude(status=cls.STATUS_CANCELLED)
+            .values("session_type_id")  # collapse to one group
+            .annotate(cnt=Count("pk"))
+            .values("cnt")
+        )
+        return cls.objects.annotate(spots_taken_count=Subquery(taken))
+
     @property
     def spots_taken(self):
-        """How many confirmed bookings exist for the same slot."""
+        """
+        How many non-cancelled bookings exist for the same slot.
+        If the queryset was built with with_spots_taken(), reads the annotation
+        from __dict__ (zero extra queries).  Falls back to a DB COUNT otherwise.
+        """
+        if "spots_taken_count" in self.__dict__:
+            return self.__dict__["spots_taken_count"]
         return (
             Booking.objects.filter(
                 session_type=self.session_type,
@@ -378,6 +407,6 @@ class Booking(models.Model):
                 date=self.date,
                 start_time=self.start_time,
             )
-            .exclude(status__in=[self.STATUS_CANCELLED])
+            .exclude(status=self.STATUS_CANCELLED)
             .count()
         )

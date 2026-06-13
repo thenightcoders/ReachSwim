@@ -12,6 +12,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from apps.booking.models import SessionPricing
 from apps.payments.interfaces import WebhookSignatureError
 from apps.payments.services import cart as cart_svc
 from apps.payments.services.checkout import (
@@ -34,14 +35,26 @@ def cart_add(request: HttpRequest) -> HttpResponse:
     """Add a booking slot to the cart.  Returns the cart drawer partial."""
     data = json.loads(request.body) if request.content_type == "application/json" else request.POST
 
+    session_type_id = int(data["session_type_id"])
+    location_id = int(data["location_id"])
+
+    # Look up the price server-side — never trust client-supplied price_pence.
+    try:
+        pricing = SessionPricing.objects.get(
+            session_type_id=session_type_id,
+            location_id=location_id,
+        )
+    except SessionPricing.DoesNotExist:
+        return HttpResponse("Invalid session or location.", status=400)
+
     cart_svc.add_to_cart(
         request,
-        session_type_id=int(data["session_type_id"]),
-        location_id=int(data["location_id"]),
+        session_type_id=session_type_id,
+        location_id=location_id,
         date_str=data["date"],
         start_time=data["start_time"],
         end_time=data["end_time"],
-        price_pence=int(data["price_pence"]),
+        price_pence=pricing.price_pence,
         label=data.get("label", "Session"),
     )
     return _cart_response(request)

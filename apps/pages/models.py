@@ -3,28 +3,36 @@ from django.core.cache import cache
 
 
 class SingletonModel(models.Model):
-    """Base for models that should only have one instance."""
+    """
+    Base for models that should only have one instance (pk=1 always).
+
+    load() is cached for 5 minutes and busted on every save().
+    Uses a plain @classmethod for the cache key — the @classmethod @property
+    combo was deprecated in Python 3.11 and removed in Python 3.13.
+    """
 
     class Meta:
         abstract = True
 
+    @classmethod
+    def _cache_key(cls) -> str:
+        return f"singleton_{cls.__name__}"
+
     def save(self, *args, **kwargs):
         self.pk = 1
         super().save(*args, **kwargs)
-        cache.delete(self.cache_key)
+        cache.delete(self._cache_key())
 
     def delete(self, *args, **kwargs):
         pass  # prevent deletion
 
     @classmethod
     def load(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
+        obj = cache.get(cls._cache_key())
+        if obj is None:
+            obj, _ = cls.objects.get_or_create(pk=1)
+            cache.set(cls._cache_key(), obj, timeout=300)
         return obj
-
-    @classmethod
-    @property
-    def cache_key(cls):
-        return f"singleton_{cls.__name__}"
 
 
 # =============================================================================

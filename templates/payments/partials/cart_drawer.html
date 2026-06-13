@@ -38,7 +38,6 @@
         {% endif %}
 
         <span class="cart-item-price">
-          {% widthratio item.price_pence item.qty item.price_pence as line_total %}
           {% if item.qty > 1 %}
             {{ item.price_pence|pence_to_pounds }} ea.
           {% else %}

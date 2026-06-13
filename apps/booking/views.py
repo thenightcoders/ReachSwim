@@ -38,6 +38,7 @@ def htmx_calendar_panel(request, session_type_id):
     Query params: ?location_id=N&year=YYYY&month=MM
     """
     session_type = get_object_or_404(SessionType, pk=session_type_id, is_active=True)
+    settings = BookingSettings.load()
 
     # All locations with pricing for this session type
     location_ids = session_type.pricing.values_list("location_id", flat=True)
@@ -108,8 +109,7 @@ def htmx_calendar_panel(request, session_type_id):
     show_prev = (prev_year, prev_month) >= (today.year, today.month)
 
     # Don't allow navigating beyond booking window
-    bs = BookingSettings.load()
-    max_date = today + datetime.timedelta(days=bs.max_advance_days)
+    max_date = today + datetime.timedelta(days=settings.max_advance_days)
     show_next = datetime.date(next_year, next_month, 1) <= max_date
 
     month_label = datetime.date(year, month, 1).strftime("%B %Y")
