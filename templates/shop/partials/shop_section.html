@@ -10,6 +10,10 @@
       <p class="section-head-right">{{ shop_settings.subheading }} {{ shop_settings.free_shipping_note }}</p>
     </div>
 
+    {% if shop_settings.free_shipping_note %}
+    <p class="shop-shipping-notice">🚚 {{ shop_settings.free_shipping_note }}</p>
+    {% endif %}
+
     <!-- Filter tabs -->
     <div class="shop-filters" data-filter-group>
       <button class="filter-tab active" data-filter="all">Everything</button>

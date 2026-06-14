@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from .forms import LoginForm, RegisterForm, ProfileForm
+from .forms import LoginForm, RegisterForm, ProfileForm, ChangePasswordForm, ChangeEmailForm
 
 
 def login_view(request):
@@ -125,6 +125,41 @@ def cancel_booking_view(request, reference):
     else:
         messages.success(request, "Your booking has been cancelled.")
     return redirect("accounts:profile")
+
+
+@login_required
+def change_password_view(request):
+    """Change password flow — requires current password."""
+    if request.method == "POST":
+        form = ChangePasswordForm(request.POST, user=request.user)
+        if form.is_valid():
+            request.user.set_password(form.cleaned_data["new_password"])
+            request.user.save()
+            # Keep the session alive after password change
+            from django.contrib.auth import update_session_auth_hash
+            update_session_auth_hash(request, request.user)
+            messages.success(request, "Password updated.")
+            return redirect("accounts:profile")
+    else:
+        form = ChangePasswordForm(user=request.user)
+
+    return render(request, "accounts/change_password.html", {"form": form})
+
+
+@login_required
+def change_email_view(request):
+    """Change email flow — requires current password confirmation."""
+    if request.method == "POST":
+        form = ChangeEmailForm(request.POST, user=request.user)
+        if form.is_valid():
+            request.user.email = form.cleaned_data["new_email"]
+            request.user.save(update_fields=["email"])
+            messages.success(request, "Email address updated.")
+            return redirect("accounts:profile")
+    else:
+        form = ChangeEmailForm(user=request.user)
+
+    return render(request, "accounts/change_email.html", {"form": form})
 
 
 def _post_login_redirect(user):

@@ -1941,6 +1941,20 @@ body[data-has-hero="False"] .site-nav {
   background: var(--cream);
 }
 
+/* Shipping notice */
+.shop-shipping-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  background: rgba(0,0,0,0.06);
+  border-radius: 20px;
+  padding: 5px 14px;
+  margin-top: 16px;
+}
+
 /* Filter tabs */
 .shop-filters {
   display: flex;

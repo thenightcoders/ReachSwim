@@ -38,6 +38,8 @@
         </form>
 
         <div class="profile-actions">
+          <a href="{% url 'accounts:change_password' %}" class="btn btn-ghost btn-sm">Change password</a>
+          <a href="{% url 'accounts:change_email' %}" class="btn btn-ghost btn-sm">Change email</a>
           <form method="post" action="{% url 'accounts:logout' %}">
             {% csrf_token %}
             <button type="submit" class="btn btn-ghost btn-sm">Log out</button>

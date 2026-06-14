@@ -225,6 +225,7 @@
       .then((r) => r.text())
       .then((html) => {
         openDrawerWithHTML(html);
+        showCartToast();
         btn.textContent = "Added ✓";
         btn.disabled = true;
         setTimeout(() => { btn.textContent = "Add to cart"; btn.disabled = false; }, 1500);

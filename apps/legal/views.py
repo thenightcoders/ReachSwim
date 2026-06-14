@@ -19,7 +19,15 @@ class LegalPageView(DetailView):
 def contact_view(request):
     """Contact form — GET shows form, POST saves message."""
     config = ContactConfig.load()
-    form = ContactForm(request.POST or None)
+
+    initial = {}
+    if request.user.is_authenticated:
+        initial = {
+            "name": request.user.full_name or "",
+            "email": request.user.email,
+        }
+
+    form = ContactForm(request.POST or None, initial=initial)
 
     if request.method == "POST" and form.is_valid():
         form.save()

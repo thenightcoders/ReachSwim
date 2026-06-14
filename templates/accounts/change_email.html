@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Change email — {{ site_config.site_name }}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="auth-wrap">
+
+      {% if messages %}
+      {% for message in messages %}
+      <div class="alert alert--{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+      {% endif %}
+
+      <h1 class="h-display auth-title">Change email</h1>
+      <p class="auth-sub">Current: <strong>{{ request.user.email }}</strong></p>
+
+      <form method="post" class="auth-form">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert--error">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="form-group">
+          <label for="id_new_email" class="form-label">New email address</label>
+          {{ form.new_email }}
+          {% if form.new_email.errors %}
+          <p class="form-error">{{ form.new_email.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label for="id_current_password" class="form-label">Current password (to confirm)</label>
+          {{ form.current_password }}
+          {% if form.current_password.errors %}
+          <p class="form-error">{{ form.current_password.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-ghost btn-sm">Update email</button>
+      </form>
+
+      <p class="auth-switch"><a href="{% url 'accounts:profile' %}">← Back to profile</a></p>
+    </div>
+  </div>
+</section>
+{% endblock %}
