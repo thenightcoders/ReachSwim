@@ -220,6 +220,195 @@ def delete_event(booking) -> None:
 # Freebusy (two-way sync — blocks slots the owner reserved themselves)
 # ---------------------------------------------------------------------------
 
+def sync_from_calendar() -> Tuple[int, int]:
+    """
+    Pull events from Google Calendar and sync them to the booking DB.
+
+    Returns (synced, cancelled):
+      - synced:    new Booking records created from untagged calendar events
+                   that matched an active recurring schedule slot.
+      - cancelled: Booking records cancelled because their calendar event was
+                   deleted (only when sync_deletions_from_calendar is True).
+
+    How matching works
+    ------------------
+    For each untagged calendar event (no reachswim_booking extended property):
+      1. Parse its start/end times and weekday.
+      2. Find all active RecurringSchedule rows where day_of_week, start_time,
+         and end_time match exactly.
+      3. For each matching schedule, if a Booking with the same google_event_id
+         doesn't exist yet and the slot still has capacity, create one and patch
+         the calendar event with reachswim_booking=true so future syncs skip it.
+    """
+    config = _load_config()
+    if not config.is_connected:
+        return 0, 0
+
+    svc = _service()
+    if svc is None:
+        return 0, 0
+
+    import zoneinfo
+    from apps.booking.models import (
+        BookingSettings, RecurringSchedule, Booking, SessionPricing,
+    )
+
+    tz = zoneinfo.ZoneInfo("Europe/London")
+    now = timezone.now()
+    today = now.date()
+    settings = BookingSettings.load()
+    end_date = today + datetime.timedelta(days=settings.max_advance_days)
+
+    day_start = datetime.datetime.combine(today, datetime.time.min).replace(tzinfo=tz)
+    day_end   = datetime.datetime.combine(end_date, datetime.time.max).replace(tzinfo=tz)
+
+    try:
+        result = svc.events().list(
+            calendarId=config.calendar_id or "primary",
+            timeMin=day_start.isoformat(),
+            timeMax=day_end.isoformat(),
+            singleEvents=True,
+            orderBy="startTime",
+        ).execute()
+    except Exception as exc:
+        logger.error("sync_from_calendar: events().list() failed: %s", exc)
+        return 0, 0
+
+    synced = 0
+
+    for event in result.get("items", []):
+        private_props = event.get("extendedProperties", {}).get("private", {})
+        event_id = event.get("id", "")
+
+        # Skip events already created by the website.
+        if private_props.get("reachswim_booking") == "true":
+            continue
+
+        start_str = event.get("start", {}).get("dateTime")
+        end_str   = event.get("end",   {}).get("dateTime")
+        if not start_str or not end_str:
+            continue  # all-day event — ignore
+
+        start_dt = datetime.datetime.fromisoformat(start_str).astimezone(tz)
+        end_dt   = datetime.datetime.fromisoformat(end_str).astimezone(tz)
+
+        event_date  = start_dt.date()
+        event_start = start_dt.time().replace(tzinfo=None)
+        event_end   = end_dt.time().replace(tzinfo=None)
+        weekday     = event_date.weekday()
+
+        # Find schedules whose slot times match the event exactly.
+        matching_schedules = RecurringSchedule.objects.filter(
+            day_of_week=weekday,
+            start_time=event_start,
+            end_time=event_end,
+            is_active=True,
+        ).select_related("session_type", "location")
+
+        for schedule in matching_schedules:
+            # Don't duplicate if already synced.
+            if Booking.objects.filter(google_event_id=event_id).exists():
+                continue
+
+            # Respect max capacity.
+            taken = Booking.count_for_slot(
+                schedule.session_type.id,
+                schedule.location.id,
+                event_date,
+                event_start,
+            )
+            if taken >= schedule.max_capacity:
+                continue
+
+            try:
+                price = SessionPricing.objects.get(
+                    session_type=schedule.session_type,
+                    location=schedule.location,
+                ).price_pence
+            except SessionPricing.DoesNotExist:
+                price = 0
+
+            client_name = event.get("summary") or "Manual booking (Calendar)"
+
+            Booking.objects.create(
+                session_type=schedule.session_type,
+                location=schedule.location,
+                date=event_date,
+                start_time=event_start,
+                end_time=event_end,
+                client_name=client_name,
+                client_email="manual@calendar.sync",
+                status=Booking.STATUS_CONFIRMED,
+                amount_pence=price,
+                google_event_id=event_id,
+                notes="Created automatically by Google Calendar sync.",
+            )
+
+            # Tag the event so future syncs don't re-process it.
+            try:
+                svc.events().patch(
+                    calendarId=config.calendar_id or "primary",
+                    eventId=event_id,
+                    body={
+                        "extendedProperties": {
+                            "private": {
+                                **private_props,
+                                "reachswim_booking": "true",
+                            }
+                        }
+                    },
+                ).execute()
+            except Exception as exc:
+                logger.warning(
+                    "sync_from_calendar: could not tag event %s: %s", event_id, exc
+                )
+
+            synced += 1
+
+    # -----------------------------------------------------------------------
+    # Deletion sync: calendar event gone → cancel the booking
+    # -----------------------------------------------------------------------
+    cancelled = 0
+
+    if config.sync_deletions_from_calendar:
+        future_bookings = Booking.objects.filter(
+            date__gte=today,
+            status__in=[Booking.STATUS_CONFIRMED, Booking.STATUS_PENDING],
+            google_event_id__gt="",
+        )
+
+        for booking in future_bookings:
+            try:
+                svc.events().get(
+                    calendarId=config.calendar_id or "primary",
+                    eventId=booking.google_event_id,
+                ).execute()
+                # Event still exists — nothing to do.
+            except Exception as exc:
+                status_code = (
+                    getattr(exc, "status_code", None)
+                    or getattr(getattr(exc, "resp", None), "status", None)
+                )
+                if str(status_code) == "404" or "404" in str(exc):
+                    from apps.booking.services.booking import cancel_booking
+                    cancel_booking(
+                        booking,
+                        reason="Deleted from Google Calendar",
+                        notify_client=True,
+                    )
+                    cancelled += 1
+                else:
+                    logger.warning(
+                        "sync_from_calendar: could not check event %s: %s",
+                        booking.google_event_id, exc,
+                    )
+
+    config.last_synced = timezone.now()
+    config.save(update_fields=["last_synced"])
+
+    return synced, cancelled
+
+
 def get_busy_times(date: datetime.date) -> List[Tuple[datetime.time, datetime.time]]:
     """
     Return (start_time, end_time) pairs for periods the owner has personally

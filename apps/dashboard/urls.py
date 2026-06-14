@@ -51,4 +51,5 @@ urlpatterns = [
     path("google-calendar/connect/", views.gcal_connect, name="gcal_connect"),
     path("google-calendar/callback/", views.gcal_callback, name="gcal_callback"),
     path("google-calendar/disconnect/", views.gcal_disconnect, name="gcal_disconnect"),
+    path("google-calendar/sync/", views.gcal_sync, name="gcal_sync"),
 ]

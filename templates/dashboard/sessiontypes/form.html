@@ -72,7 +72,7 @@
         <div style="display:flex;align-items:center;gap:1rem;">
           <span style="flex:1;font-size:0.9rem;font-weight:500;color:var(--dash-text);">{{ row.location.name }}</span>
           <div style="display:flex;align-items:center;gap:0.4rem;">
-            <span style="font-size:0.9rem;color:var(--dash-text-muted);">£</span>
+            <span style="font-size:0.9rem;color:var(--dash-text-muted);">{{ site_config.currency_symbol }}</span>
             <input type="number" name="price_{{ row.location.pk }}" value="{{ row.price_pounds }}"
                    class="dash-input" min="0" step="0.01" placeholder="—"
                    style="width:110px;text-align:right;">

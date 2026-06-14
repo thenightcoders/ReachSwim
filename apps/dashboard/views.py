@@ -383,6 +383,10 @@ def settings_view(request):
                     site.established_year = int(request.POST["established_year"])
                 except ValueError:
                     pass
+            if "currency" in request.POST:
+                currency = request.POST["currency"]
+                if currency in ("GBP", "EUR", "USD"):
+                    site.currency = currency
             site.save()
 
         elif section == "hero":
@@ -435,7 +439,13 @@ def settings_view(request):
                 val = request.POST.get(field, "").strip()
                 if val:
                     setattr(gcal_config, field, val)
-            gcal_config.save(update_fields=["client_id", "client_secret", "calendar_id"])
+            gcal_config.sync_deletions_from_calendar = (
+                request.POST.get("sync_deletions_from_calendar") == "on"
+            )
+            gcal_config.save(update_fields=[
+                "client_id", "client_secret", "calendar_id",
+                "sync_deletions_from_calendar",
+            ])
             return redirect("/dashboard/settings/#gcal")
 
         return redirect("dashboard:settings")
@@ -830,3 +840,13 @@ def gcal_disconnect(request):
     from apps.booking.services.google_calendar import disconnect
     disconnect()
     return redirect("/dashboard/settings/#gcal")
+
+
+@owner_required
+@require_POST
+def gcal_sync(request):
+    """Manually trigger a Google Calendar → DB sync."""
+    from apps.booking.services.google_calendar import sync_from_calendar
+    synced, cancelled = sync_from_calendar()
+    params = f"?sync_synced={synced}&sync_cancelled={cancelled}"
+    return redirect(f"/dashboard/settings/{params}#gcal")

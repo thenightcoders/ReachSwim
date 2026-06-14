@@ -131,7 +131,7 @@
           <label class="dash-label" style="margin: 0;">
             Price
             <div class="dash-input-group" style="margin-top: 0.4rem;">
-              <span class="dash-input-group__prefix">£</span>
+              <span class="dash-input-group__prefix">{{ site_config.currency_symbol }}</span>
               <input type="number" name="price" value="{{ form.price.value|default:'' }}"
                      class="dash-input" step="0.01" min="0" placeholder="0.00">
             </div>
@@ -149,7 +149,7 @@
         <label class="dash-label" style="margin: 0;">
           Shipping override
           <div class="dash-input-group" style="margin-top: 0.4rem;">
-            <span class="dash-input-group__prefix">£</span>
+            <span class="dash-input-group__prefix">{{ site_config.currency_symbol }}</span>
             <input type="number" name="shipping" value="{{ form.shipping.value|default:'' }}"
                    class="dash-input" step="0.01" min="0" placeholder="Leave blank to use shop default">
           </div>

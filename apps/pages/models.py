@@ -42,6 +42,18 @@ class SingletonModel(models.Model):
 class SiteConfig(SingletonModel):
     """Global site settings — editable in admin."""
 
+    CURRENCY_CHOICES = [
+        ("GBP", "British Pound (£)"),
+        ("EUR", "Euro (€)"),
+        ("USD", "US Dollar ($)"),
+    ]
+    CURRENCY_SYMBOLS = {"GBP": "£", "EUR": "€", "USD": "$"}
+
+    currency = models.CharField(
+        max_length=3, choices=CURRENCY_CHOICES, default="GBP",
+        help_text="Currency displayed site-wide.",
+    )
+
     site_name = models.CharField(max_length=100, default="ReachSwim")
     tagline = models.CharField(max_length=200, default="Adult swim coaching")
     logo = models.ImageField(upload_to="site/", blank=True)
@@ -70,6 +82,10 @@ class SiteConfig(SingletonModel):
         max_length=300,
         default="Adult swim coaching in London. One coach, your lane, real progress.",
     )
+
+    @property
+    def currency_symbol(self) -> str:
+        return self.CURRENCY_SYMBOLS.get(self.currency, "£")
 
     class Meta:
         verbose_name = "Site Configuration"

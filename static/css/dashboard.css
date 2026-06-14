@@ -1,39 +1,45 @@
 /* ==========================================================================
-   Dashboard — owner admin panel (Premium UI)
+   Dashboard — owner admin panel
    ========================================================================== */
 
 :root {
-  /* Colors */
-  --dash-bg: #f8fafc;
-  --dash-sidebar-bg: #ffffff;
-  --dash-sidebar-w: 260px;
-  --dash-sidebar-text: #64748b;
-  --dash-sidebar-active: #0f172a;
-  --dash-sidebar-active-bg: #f1f5f9;
-  
-  --dash-accent: #3b82f6;
-  --dash-accent-hover: #2563eb;
-  --dash-accent-light: #eff6ff;
-  
+  /* Content area */
+  --dash-bg: #f4f6f9;
+  --dash-card-bg: #ffffff;
+  --dash-border: #e2e8f0;
+  --dash-text: #0f172a;
+  --dash-text-muted: #64748b;
+
+  /* Sidebar */
+  --dash-sidebar-w: 248px;
+  --dash-sidebar-bg: #0f1117;
+  --dash-sidebar-border: rgba(255, 255, 255, 0.06);
+  --dash-sidebar-text: #6b7280;
+  --dash-sidebar-text-hover: #e5e7eb;
+  --dash-sidebar-active-text: #ffffff;
+  --dash-sidebar-active-bg: rgba(56, 189, 248, 0.08);
+  --dash-water: #38bdf8;
+
+  /* Accent (used in content area) */
+  --dash-accent: #0ea5e9;
+  --dash-accent-hover: #0284c7;
+  --dash-accent-light: #e0f2fe;
+
+  /* Status */
   --dash-success: #10b981;
   --dash-success-light: #ecfdf5;
   --dash-danger: #ef4444;
   --dash-danger-light: #fef2f2;
   --dash-warn: #f59e0b;
   --dash-warn-light: #fffbeb;
-  
-  --dash-card-bg: #ffffff;
-  --dash-border: #e2e8f0;
-  --dash-text: #0f172a;
-  --dash-text-muted: #64748b;
-  
-  /* Shadows & Effects */
+
+  /* Shadows */
   --dash-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --dash-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --dash-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --dash-radius: 12px;
-  --dash-radius-lg: 16px;
-  
+  --dash-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  --dash-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --dash-radius: 10px;
+  --dash-radius-lg: 14px;
+
   /* Typography */
   --font-sans: 'Inter', -apple-system, sans-serif;
   --font-display: 'Outfit', -apple-system, sans-serif;
@@ -44,10 +50,6 @@ body.dash-body {
   margin: 0;
   font-family: var(--font-sans);
   background-color: var(--dash-bg);
-  background-image: 
-    radial-gradient(at 100% 0%, hsla(210, 100%, 93%, 0.5) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, hsla(217, 100%, 95%, 0.5) 0px, transparent 50%);
-  background-attachment: fixed;
   color: var(--dash-text);
   display: flex;
   min-height: 100vh;
@@ -61,19 +63,18 @@ body.dash-body {
   left: 0;
   bottom: 0;
   width: var(--dash-sidebar-w);
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-right: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: var(--dash-shadow-sm);
+  background: var(--dash-sidebar-bg);
+  border-right: 1px solid var(--dash-sidebar-border);
   display: flex;
   flex-direction: column;
   z-index: 100;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Brand */
 .dash-sidebar__brand {
-  padding: 1.5rem;
+  padding: 1.5rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--dash-sidebar-border);
 }
 
 .dash-brand {
@@ -87,122 +88,155 @@ body.dash-body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, var(--dash-accent), #60a5fa);
-  color: white;
+  width: 34px;
+  height: 34px;
+  background: var(--dash-water);
+  color: #0f1117;
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.1rem;
-  border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: -0.02em;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .dash-brand-text {
-  color: var(--dash-text);
+  color: #f9fafb;
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.15rem;
+  font-weight: 600;
+  font-size: 1rem;
   letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
-/* --- Nav Links --- */
+/* --- Nav --- */
 .dash-nav {
   flex: 1;
-  padding: 1rem 1.25rem;
+  padding: 0.75rem 0;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  scrollbar-width: none;
+}
+
+.dash-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .dash-nav__group {
-  font-size: 0.7rem;
+  font-size: 0.63rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   font-weight: 600;
-  color: #94a3b8;
-  margin: 1.25rem 0 0.5rem 0.5rem;
+  color: #374151;
+  padding: 0.9rem 1.25rem 0.3rem;
+  margin-top: 0;
 }
 
 .dash-nav__group:first-child {
-  margin-top: 0;
+  padding-top: 0.3rem;
 }
 
 .dash-nav__link {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
+  padding: 0.48rem 1.25rem;
   color: var(--dash-sidebar-text);
   text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 500;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  font-size: 0.855rem;
+  font-weight: 450;
+  border-left: 2px solid transparent;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  /* Reset button defaults */
+  background: none;
+  border-right: none;
+  border-top: none;
+  border-bottom: none;
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
 }
 
 .dash-nav__link:hover {
-  background: var(--dash-sidebar-active-bg);
-  color: var(--dash-sidebar-active);
-  transform: translateX(4px);
+  color: var(--dash-sidebar-text-hover);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .dash-nav__link.active {
-  background: var(--dash-accent-light);
-  color: var(--dash-accent);
-  font-weight: 600;
+  color: var(--dash-sidebar-active-text);
+  background: var(--dash-sidebar-active-bg);
+  border-left-color: var(--dash-water);
+  font-weight: 500;
 }
 
 .dash-nav__link.active .dash-icon {
-  stroke: var(--dash-accent);
+  color: var(--dash-water);
+  opacity: 1;
+}
+
+.dash-nav__link--muted:not(.active) {
+  color: #4b5563;
+}
+
+.dash-nav__link--muted:not(.active):hover {
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .dash-nav__link--danger:hover {
-  background: var(--dash-danger-light);
-  color: var(--dash-danger);
-}
-
-.dash-nav__link--danger:hover .dash-icon {
-  stroke: var(--dash-danger);
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .dash-icon {
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
   stroke: currentColor;
-  opacity: 0.8;
+  opacity: 0.7;
+  transition: opacity 0.15s;
 }
 
+.dash-nav__link:hover .dash-icon {
+  opacity: 1;
+}
+
+/* Sidebar footer */
 .dash-sidebar__footer {
-  padding: 1.25rem;
-  border-top: 1px solid var(--dash-border);
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--dash-sidebar-border);
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
 }
 
-/* --- Topbar (always visible) --- */
+.dash-sidebar__footer form {
+  display: contents;
+}
+
+.dash-sidebar__footer .dash-nav__link--danger:hover .dash-icon {
+  stroke: #f87171;
+}
+
+/* --- Topbar --- */
 .dash-topbar {
   display: flex;
   position: fixed;
   top: 0;
   left: var(--dash-sidebar-w);
   right: 0;
-  height: 64px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  height: 56px;
+  background: #ffffff;
   border-bottom: 1px solid var(--dash-border);
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.5rem;
+  padding: 0 1.75rem;
   z-index: 99;
   box-shadow: var(--dash-shadow-sm);
 }
 
-/* Hide the hamburger toggle on desktop — sidebar is always open */
+/* Hide hamburger on desktop */
 .dash-topbar__toggle {
   display: none;
 }
@@ -218,22 +252,22 @@ body.dash-body {
   border: none;
   color: var(--dash-text);
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 0.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  transition: background 0.2s;
+  border-radius: 6px;
+  transition: background 0.15s;
 }
 
 .dash-topbar__toggle:hover {
-  background: var(--dash-sidebar-active-bg);
+  background: #f1f5f9;
 }
 
 .dash-topbar__title {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--dash-text);
   letter-spacing: -0.01em;
 }
@@ -245,16 +279,17 @@ body.dash-body {
 }
 
 .dash-avatar {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--dash-accent), #60a5fa);
-  color: white;
+  background: var(--dash-sidebar-bg);
+  color: var(--dash-water);
+  border: 1.5px solid var(--dash-water);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 0.85rem;
+  font-weight: 700;
+  font-size: 0.8rem;
   font-family: var(--font-display);
 }
 
@@ -262,14 +297,9 @@ body.dash-body {
 .dash-overlay {
   display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 99; /* Below sidebar, above everything else */
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 99;
   opacity: 0;
   transition: opacity 0.3s;
 }
@@ -278,13 +308,14 @@ body.dash-body {
   display: block;
   opacity: 1;
 }
+
 /* --- Main Layout --- */
 .dash-main {
   margin-left: var(--dash-sidebar-w);
   flex: 1;
   min-height: 100vh;
-  padding: 2.5rem;
-  padding-top: calc(64px + 2.5rem); /* clear the always-on topbar */
+  padding: 2rem 2.5rem;
+  padding-top: calc(56px + 2rem);
 }
 
 .dash-main__inner {
@@ -772,29 +803,26 @@ body.dash-body {
 @media (max-width: 768px) {
   .dash-sidebar {
     transform: translateX(-100%);
-    width: 280px;
+    width: 260px;
     border-right: none;
-    box-shadow: var(--dash-shadow-lg);
-    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
   }
 
   .dash-sidebar.open {
     transform: translateX(0);
   }
 
-  /* On mobile the topbar spans full width (sidebar is off-screen) */
   .dash-topbar {
     left: 0;
   }
 
-  /* Show hamburger toggle on mobile */
   .dash-topbar__toggle {
     display: flex;
   }
 
   .dash-main {
     margin-left: 0;
-    padding: calc(64px + 1.5rem) 1rem 2rem;
+    padding: calc(56px + 1.25rem) 1rem 2rem;
   }
 
   .dash-heading {
@@ -820,31 +848,27 @@ body.dash-body {
 .dash-nav__submenu {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding-left: 2.25rem;
-  margin-top: 0.25rem;
-  margin-bottom: 0.5rem;
+  padding-left: 2.75rem;
+  padding-bottom: 0.25rem;
+  margin-top: -0.1rem;
 }
 
 .dash-nav__sublink {
-  padding: 0.4rem 0.75rem;
-  color: var(--dash-sidebar-text);
+  padding: 0.22rem 0;
+  color: #4b5563;
   text-decoration: none;
-  font-size: 0.85rem;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  font-size: 0.76rem;
+  transition: color 0.15s ease;
   display: block;
 }
 
 .dash-nav__sublink:hover {
-  background: var(--dash-sidebar-active-bg);
-  color: var(--dash-sidebar-active);
-  transform: translateX(4px);
+  color: #9ca3af;
 }
 
 .dash-nav__sublink.active {
-  color: var(--dash-accent);
-  font-weight: 600;
+  color: var(--dash-water);
+  font-weight: 500;
 }
 
 /* ============================================================
@@ -1066,113 +1090,226 @@ body.dash-body {
   font-size: 0.95rem;
 }
 
-/* --- In-page Tab Bar (settings + any future tabbed page) --- */
-.dash-tabs {
+/* --- Settings Tab Bar --- */
+.settings-tabs {
   display: flex;
   gap: 0.25rem;
-  margin-bottom: 1.75rem;
-  border-bottom: 2px solid var(--dash-border);
-  padding-bottom: 0;
+  margin-bottom: 2rem;
+  background: #fff;
+  border: 1px solid var(--dash-border);
+  border-radius: 10px;
+  padding: 0.3rem;
+  box-shadow: var(--dash-shadow-sm);
+  width: fit-content;
+  flex-wrap: wrap;
 }
 
-.dash-tab {
+.settings-tab {
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px; /* sit on top of .dash-tabs border-bottom */
-  padding: 0.6rem 1.1rem;
-  font-size: 0.9rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
   font-weight: 500;
   color: var(--dash-text-muted);
   cursor: pointer;
-  border-radius: 6px 6px 0 0;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  border-radius: 7px;
+  transition: all 0.15s ease;
   font-family: var(--font-sans);
+  white-space: nowrap;
 }
 
-.dash-tab:hover {
+.settings-tab:hover {
   color: var(--dash-text);
-  background: var(--dash-sidebar-active-bg);
+  background: #f1f5f9;
 }
 
-.dash-tab.active {
-  color: var(--dash-accent);
-  border-bottom-color: var(--dash-accent);
-  font-weight: 600;
+.settings-tab.active {
+  background: var(--dash-sidebar-bg);
+  color: #fff;
+  font-weight: 500;
 }
 
-/* --- Premium Settings Layout (No Sidebar Menu) --- */
-.dash-settings-layout {
-  display: block;
-  max-width: 800px;
-}
-
-.dash-tab-content {
+/* Tab panels */
+.settings-panel {
   display: none;
-  animation: fadeIn 0.3s ease;
 }
 
-.dash-tab-content.active {
+.settings-panel.active {
   display: block;
+  animation: fadeIn 0.15s ease;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.dash-settings-info {
+/* ============================================================
+   Settings Page — scrollable single column
+   ============================================================ */
+
+.settings-page {
+  /* full content width */
+}
+
+/* Section inside a tab panel */
+.settings-section {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  gap: 0.75rem;
+  max-width: 680px;
 }
 
-.dash-settings-title {
+.settings-section__head {
+  /* description sits above the card */
+}
+
+.settings-section__title {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--dash-text);
-  margin: 0;
+  margin: 0 0 0.2rem;
+  letter-spacing: -0.01em;
 }
 
-.dash-settings-desc {
-  font-size: 0.95rem;
+.settings-section__desc {
+  font-size: 0.8rem;
   color: var(--dash-text-muted);
-  line-height: 1.5;
   margin: 0;
+  line-height: 1.55;
 }
 
-.dash-settings-card {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+/* White card below the description */
+.settings-section > form,
+.settings-section > .settings-cards {
+  background: #fff;
+  border: 1px solid var(--dash-border);
   border-radius: var(--dash-radius-lg);
-  box-shadow: var(--dash-shadow-md);
-  padding: 2rem;
-}
-
-.dash-settings-card form {
+  padding: 1.375rem 1.5rem;
+  box-shadow: var(--dash-shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.875rem;
+  min-width: 0;
 }
 
-/* Sticky sidebar used on all form pages */
+/* Field grids */
+.settings-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem;
+}
+
+.settings-grid-13 {
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  gap: 0.875rem;
+}
+
+/* Thin rule between field groups */
+.settings-rule {
+  height: 1px;
+  background: var(--dash-border);
+  margin: 0.25rem 0;
+}
+
+/* Sub-label for field groups within a section */
+.settings-sublabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* Save row */
+.settings-save {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid var(--dash-border);
+  margin-top: 0.25rem;
+}
+
+/* GCal status */
+.gcal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+}
+
+.gcal-status--on  { background: #dcfce7; color: #15803d; }
+.gcal-status--off { background: #f1f5f9; color: var(--dash-text-muted); }
+
+.gcal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.gcal-dot--on  { background: #22c55e; }
+.gcal-dot--off { background: #94a3b8; }
+
+/* gcal step card */
+.settings-card {
+  background: #f8fafc;
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius);
+  padding: 1.25rem;
+}
+
+.settings-card + .settings-card {
+  margin-top: 0.875rem;
+}
+
+.settings-card__title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--dash-text);
+  margin: 0 0 0.75rem;
+}
+
+.settings-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+/* Callback URL code */
+.settings-code {
+  font-size: 0.75rem;
+  background: #fff;
+  border: 1px solid var(--dash-border);
+  border-radius: 6px;
+  padding: 0.45rem 0.7rem;
+  color: var(--dash-text);
+  font-family: 'Menlo', 'Monaco', monospace;
+  word-break: break-all;
+  display: block;
+  margin: 0.5rem 0 0;
+}
+
+/* Legacy compat */
+.dash-settings-footer {
+  margin-top: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--dash-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
 .dash-form-sidebar {
   position: sticky;
   top: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-}
-
-.dash-settings-footer {
-  margin-top: 1rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--dash-border);
-  display: flex;
-  justify-content: flex-end;
 }
 
