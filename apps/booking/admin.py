@@ -1,4 +1,5 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.utils.html import format_html
 from apps.pages.admin import SingletonAdmin
 from .models import (
     BookingSettings,
@@ -100,6 +101,18 @@ class LocationAdmin(admin.ModelAdmin):
 
 
 # =============================================================================
+# Session Pricing (standalone — also accessible as inlines above)
+# =============================================================================
+
+@admin.register(SessionPricing)
+class SessionPricingAdmin(admin.ModelAdmin):
+    list_display = ("session_type", "location", "price_display")
+    list_filter = ("session_type", "location")
+    search_fields = ("session_type__name", "location__name")
+    ordering = ("session_type__name", "location__name")
+
+
+# =============================================================================
 # Packages  (standalone list — also available as inline on SessionType)
 # =============================================================================
 
@@ -155,12 +168,116 @@ class GoogleCalendarConfigAdmin(SingletonAdmin):
 # Bookings
 # =============================================================================
 
+# ---------------------------------------------------------------------------
+# Admin actions
+# ---------------------------------------------------------------------------
+
+@admin.action(description="Confirm selected bookings")
+def confirm_bookings(modeladmin, request, queryset):
+    from apps.booking.services.booking import confirm_booking
+
+    confirmable = queryset.filter(status=Booking.STATUS_PENDING)
+    count = 0
+    for booking in confirmable:
+        confirm_booking(booking)
+        count += 1
+
+    if count:
+        modeladmin.message_user(
+            request,
+            f"{count} booking(s) confirmed and confirmation emails sent.",
+            messages.SUCCESS,
+        )
+    else:
+        modeladmin.message_user(
+            request,
+            "No pending bookings in the selection.",
+            messages.WARNING,
+        )
+
+
+@admin.action(description="Cancel selected bookings")
+def cancel_bookings(modeladmin, request, queryset):
+    from apps.booking.services.booking import cancel_booking
+
+    cancellable = queryset.exclude(
+        status__in=(Booking.STATUS_CANCELLED, Booking.STATUS_COMPLETED)
+    )
+    count = 0
+    for booking in cancellable:
+        cancel_booking(booking, reason="Cancelled by admin.")
+        count += 1
+
+    if count:
+        modeladmin.message_user(
+            request,
+            f"{count} booking(s) cancelled.",
+            messages.SUCCESS,
+        )
+    else:
+        modeladmin.message_user(
+            request,
+            "No cancellable bookings in the selection.",
+            messages.WARNING,
+        )
+
+
+@admin.action(description="Mark selected bookings as completed")
+def complete_bookings(modeladmin, request, queryset):
+    from apps.booking.services.booking import complete_booking
+
+    completable = queryset.filter(status=Booking.STATUS_CONFIRMED)
+    count = completable.count()
+    for booking in completable:
+        complete_booking(booking)
+
+    if count:
+        modeladmin.message_user(
+            request,
+            f"{count} booking(s) marked as completed.",
+            messages.SUCCESS,
+        )
+    else:
+        modeladmin.message_user(
+            request,
+            "No confirmed bookings in the selection.",
+            messages.WARNING,
+        )
+
+
+@admin.action(description="Re-send confirmation email to selected clients")
+def resend_confirmation_emails(modeladmin, request, queryset):
+    from apps.booking.services.email import send_booking_confirmation
+
+    sent = 0
+    failed = 0
+    for booking in queryset.filter(status=Booking.STATUS_CONFIRMED):
+        ok = send_booking_confirmation(booking)
+        if ok:
+            sent += 1
+        else:
+            failed += 1
+
+    parts = []
+    if sent:
+        parts.append(f"{sent} email(s) sent")
+    if failed:
+        parts.append(f"{failed} failed (check logs)")
+
+    level = messages.SUCCESS if not failed else messages.WARNING
+    modeladmin.message_user(request, "; ".join(parts) or "No confirmed bookings selected.", level)
+
+
+# ---------------------------------------------------------------------------
+# BookingAdmin
+# ---------------------------------------------------------------------------
+
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
     list_display = (
         "reference_short", "session_type", "location",
         "date", "start_time", "client_name",
-        "status", "amount_display",
+        "status_badge", "amount_display", "is_cancellable_display",
     )
     list_filter = ("status", "session_type", "location", "date")
     search_fields = ("client_name", "client_email", "reference")
@@ -170,6 +287,7 @@ class BookingAdmin(admin.ModelAdmin):
     )
     date_hierarchy = "date"
     ordering = ("-date", "-start_time")
+    actions = [confirm_bookings, cancel_bookings, complete_bookings, resend_confirmation_emails]
 
     fieldsets = (
         ("Session", {
@@ -205,3 +323,23 @@ class BookingAdmin(admin.ModelAdmin):
     @admin.display(description="Ref")
     def reference_short(self, obj):
         return str(obj.reference)[:8]
+
+    @admin.display(description="Status")
+    def status_badge(self, obj):
+        colours = {
+            Booking.STATUS_PENDING:   "#f59e0b",
+            Booking.STATUS_CONFIRMED: "#10b981",
+            Booking.STATUS_CANCELLED: "#ef4444",
+            Booking.STATUS_COMPLETED: "#6366f1",
+        }
+        colour = colours.get(obj.status, "#888")
+        return format_html(
+            '<span style="display:inline-block;padding:2px 8px;border-radius:9999px;'
+            'background:{};color:#fff;font-size:11px;font-weight:600">{}</span>',
+            colour,
+            obj.get_status_display(),
+        )
+
+    @admin.display(description="Cancellable?", boolean=True)
+    def is_cancellable_display(self, obj):
+        return obj.is_cancellable

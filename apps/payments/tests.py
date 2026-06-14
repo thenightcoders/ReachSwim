@@ -278,3 +278,283 @@ class CartDrawerTemplateTest(TestCase):
             content,
             "line_total was only produced by the dead widthratio tag and must be gone too",
         )
+
+
+# ---------------------------------------------------------------------------
+# Fix 3 — cart_add_product must look up price server-side
+# ---------------------------------------------------------------------------
+
+class CartAddProductPriceSecurityTest(TestCase):
+    """
+    cart_add_product must look up product.price_pence from the DB, never trust
+    the client-supplied price_pence value.
+
+    A client sending price_pence=1 for a £24 product must store 2400 in cart.
+    """
+
+    def setUp(self):
+        from apps.shop.models import ProductCategory, Product
+        cat = ProductCategory.objects.create(name="Caps", slug="caps")
+        self.product = Product.objects.create(
+            name="Silicone Cap",
+            slug="silicone-cap",
+            category=cat,
+            price_pence=2400,  # £24 — canonical price
+            stock=10,
+            is_active=True,
+        )
+
+    def _post_add(self, price_pence):
+        import json
+        return self.client.post(
+            "/cart/add-product/",
+            data=json.dumps({
+                "product_id": self.product.pk,
+                "name": "Silicone Cap",
+                "price_pence": price_pence,
+                "qty": 1,
+            }),
+            content_type="application/json",
+        )
+
+    def test_tampered_low_price_is_ignored(self):
+        """Sending price_pence=1 stores the DB price (2400), not 1."""
+        response = self._post_add(price_pence=1)
+
+        self.assertEqual(response.status_code, 200)
+        cart = self.client.session.get("reachswim_cart", [])
+        self.assertEqual(len(cart), 1)
+        self.assertEqual(cart[0]["price_pence"], 2400)
+
+    def test_tampered_zero_price_is_ignored(self):
+        """Sending price_pence=0 stores the DB price."""
+        response = self._post_add(price_pence=0)
+
+        self.assertEqual(response.status_code, 200)
+        cart = self.client.session.get("reachswim_cart", [])
+        self.assertEqual(cart[0]["price_pence"], 2400)
+
+    def test_inactive_product_returns_400(self):
+        """Inactive products must not be addable to the cart."""
+        import json
+        from apps.shop.models import Product, ProductCategory
+
+        cat = ProductCategory.objects.create(name="Goggles", slug="goggles")
+        inactive = Product.objects.create(
+            name="Old Goggles",
+            slug="old-goggles",
+            category=cat,
+            price_pence=5000,
+            stock=5,
+            is_active=False,
+        )
+
+        response = self.client.post(
+            "/cart/add-product/",
+            data=json.dumps({"product_id": inactive.pk, "price_pence": 1, "qty": 1}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        cart = self.client.session.get("reachswim_cart", [])
+        self.assertEqual(len(cart), 0)
+
+    def test_nonexistent_product_returns_400(self):
+        """Non-existent product_id must return 400."""
+        import json
+        response = self.client.post(
+            "/cart/add-product/",
+            data=json.dumps({"product_id": 99999, "price_pence": 1, "qty": 1}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+
+# ---------------------------------------------------------------------------
+# Fix 2 — cancel pending order releases pending bookings
+# ---------------------------------------------------------------------------
+
+class CancelPendingOrderTest(TestCase):
+    """
+    cancel_pending_order() must:
+    - Cancel any pending Bookings linked to the Order
+    - Mark the Order as expired
+    - Be idempotent (second call on an already-expired order is a no-op)
+    """
+
+    def _make_pending_order_with_booking(self):
+        """Create a pending Order linked to a pending Booking."""
+        from apps.booking.models import (
+            Booking, Location, SessionPricing, SessionType,
+            RecurringSchedule,
+        )
+        import datetime
+
+        session_type = SessionType.objects.create(
+            name="Private", slug="priv-cancel", duration_minutes=60, is_active=True,
+        )
+        location = Location.objects.create(
+            name="Pool C", slug="pool-c", address="3 Test Ln", is_active=True,
+        )
+        SessionPricing.objects.create(
+            session_type=session_type, location=location, price_pence=8000,
+        )
+        booking = Booking.objects.create(
+            session_type=session_type,
+            location=location,
+            date=datetime.date(2030, 6, 1),
+            start_time=datetime.time(10, 0),
+            end_time=datetime.time(11, 0),
+            client_name="Cancel Test",
+            client_email="cancel@example.com",
+            status=Booking.STATUS_PENDING,
+            amount_pence=8000,
+        )
+        order = Order.objects.create(
+            client_name="Cancel Test",
+            client_email="cancel@example.com",
+            subtotal_pence=8000,
+            total_pence=8000,
+        )
+        OrderItem.objects.create(
+            order=order,
+            item_type=OrderItem.ITEM_TYPE_BOOKING,
+            booking=booking,
+            price_pence=8000,
+            label="Private",
+            quantity=1,
+        )
+        return order, booking
+
+    def test_cancels_pending_booking_and_expires_order(self):
+        from apps.payments.services.checkout import cancel_pending_order
+
+        order, booking = self._make_pending_order_with_booking()
+
+        cancel_pending_order(str(order.reference))
+
+        order.refresh_from_db()
+        booking.refresh_from_db()
+
+        self.assertEqual(order.status, Order.STATUS_EXPIRED)
+        from apps.booking.models import Booking
+        self.assertEqual(booking.status, Booking.STATUS_CANCELLED)
+
+    def test_is_idempotent_on_expired_order(self):
+        """Calling cancel_pending_order twice is safe — second call is a no-op."""
+        from apps.payments.services.checkout import cancel_pending_order
+
+        order, booking = self._make_pending_order_with_booking()
+
+        cancel_pending_order(str(order.reference))
+        cancel_pending_order(str(order.reference))  # no-op
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.STATUS_EXPIRED)
+
+    def test_does_not_cancel_paid_order(self):
+        """A paid order must not be touched by cancel_pending_order."""
+        from apps.payments.services.checkout import cancel_pending_order
+
+        order, _ = self._make_pending_order_with_booking()
+        order.status = Order.STATUS_PAID
+        order.save(update_fields=["status", "updated_at"])
+
+        cancel_pending_order(str(order.reference))  # should be a no-op
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.STATUS_PAID)
+
+    def test_payment_cancel_view_calls_cancel(self):
+        """
+        The payment_cancel view must pop pending_order_ref from the session
+        and cancel the order.
+        """
+        order, booking = self._make_pending_order_with_booking()
+
+        session = self.client.session
+        session["pending_order_ref"] = str(order.reference)
+        session.save()
+
+        response = self.client.get("/payments/cancel/")
+
+        self.assertEqual(response.status_code, 200)
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.STATUS_EXPIRED)
+
+        # Session key must be cleared
+        self.assertNotIn("pending_order_ref", self.client.session)
+
+
+# ---------------------------------------------------------------------------
+# Fix 6 — Voucher.redeem() is atomic (F() expression)
+# ---------------------------------------------------------------------------
+
+class VoucherRedeemAtomicTest(TestCase):
+    """
+    Voucher.redeem() must use an F() expression to increment times_used
+    atomically.  We can't simulate two true concurrent DB transactions in
+    TestCase, but we can verify the core behaviour:
+      - times_used increments correctly
+      - the in-memory instance is refreshed from DB after the UPDATE
+    """
+
+    def _make_voucher(self, times_used=0, max_uses=5):
+        import datetime
+        from apps.payments.models import Voucher
+        from django.utils import timezone
+        return Voucher.objects.create(
+            code="TESTCODE10",
+            discount_type=Voucher.DISCOUNT_PERCENTAGE,
+            discount_value=10,
+            max_uses=max_uses,
+            times_used=times_used,
+            valid_from=timezone.now() - datetime.timedelta(days=1),
+            is_active=True,
+        )
+
+    def test_redeem_increments_times_used(self):
+        from apps.payments.models import Voucher
+        v = self._make_voucher(times_used=0)
+
+        v.redeem()
+
+        v.refresh_from_db()
+        self.assertEqual(v.times_used, 1)
+
+    def test_redeem_refreshes_in_memory_instance(self):
+        """After redeem(), the in-memory times_used must reflect the DB value."""
+        v = self._make_voucher(times_used=3)
+
+        v.redeem()
+
+        # No additional refresh_from_db call — redeem() must do it
+        self.assertEqual(v.times_used, 4)
+
+    def test_multiple_redeems_accumulate(self):
+        """Calling redeem() three times brings times_used from 0 to 3."""
+        v = self._make_voucher(times_used=0)
+
+        v.redeem()
+        v.redeem()
+        v.redeem()
+
+        v.refresh_from_db()
+        self.assertEqual(v.times_used, 3)
+
+    def test_voucher_marked_exhausted_after_max_uses(self):
+        """
+        is_valid() must return False once times_used >= max_uses,
+        proving redeem() + is_valid() interact correctly.
+        """
+        from django.utils import timezone
+        v = self._make_voucher(times_used=4, max_uses=5)
+
+        v.redeem()  # brings times_used to 5
+
+        v.refresh_from_db()
+        self.assertFalse(
+            v.is_valid(subtotal_pence=10000),
+            "Voucher should be invalid once times_used reaches max_uses",
+        )

@@ -297,3 +297,63 @@ def confirm_from_session_id(session_id: str) -> Optional[Order]:
     except Exception:
         logger.exception("confirm_from_session_id failed for %s", session_id)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Step 4: Cancel a pending order (user abandoned checkout / clicked cancel)
+# ---------------------------------------------------------------------------
+
+@transaction.atomic
+def cancel_pending_order(order_reference: str) -> None:
+    """
+    Cancel all pending Bookings tied to a pending Order, then mark the
+    Order itself as expired.
+
+    Called from the cancel page (user aborted Stripe checkout) and from
+    expire_pending_orders() (stale cleanup).  Safe to call multiple times —
+    idempotent because we filter on STATUS_PENDING.
+    """
+    from apps.booking.services.booking import cancel_booking as _cancel_booking
+
+    try:
+        order = Order.objects.select_for_update().get(
+            reference=order_reference,
+            status=Order.STATUS_PENDING,
+        )
+    except Order.DoesNotExist:
+        return  # already paid or expired — nothing to do
+
+    # Cancel every pending booking attached to this order
+    for oi in order.items.select_related("booking"):
+        if oi.is_booking and oi.booking and oi.booking.status == "pending":
+            _cancel_booking(oi.booking, reason="Payment cancelled by customer.")
+
+    order.status = Order.STATUS_EXPIRED
+    order.save(update_fields=["status", "updated_at"])
+
+
+def expire_pending_orders(older_than_minutes: int = 35) -> int:
+    """
+    Bulk-cancel all pending orders (and their bookings) that are older than
+    ``older_than_minutes``.  Returns the number of orders expired.
+
+    Stripe sessions expire after 30 min; we use 35 min to give the webhook a
+    little slack before we clean up.  Call this from a management command or
+    a scheduled task.
+    """
+    from django.utils import timezone
+
+    cutoff = timezone.now() - datetime.timedelta(minutes=older_than_minutes)
+    stale = Order.objects.filter(
+        status=Order.STATUS_PENDING,
+        created_at__lt=cutoff,
+    ).values_list("reference", flat=True)
+
+    count = 0
+    for ref in stale:
+        cancel_pending_order(str(ref))
+        count += 1
+
+    if count:
+        logger.info("expire_pending_orders: expired %d stale orders.", count)
+    return count

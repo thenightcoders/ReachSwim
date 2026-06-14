@@ -255,9 +255,15 @@ class Voucher(models.Model):
         return min(discount, subtotal_pence)
 
     def redeem(self):
-        """Increment usage counter."""
-        self.times_used += 1
-        self.save(update_fields=["times_used"])
+        """
+        Increment usage counter atomically.
+        Uses F() expression to push arithmetic to the DB in a single UPDATE,
+        preventing the read-modify-write race where two concurrent checkouts
+        both read times_used=0 and both write 1.
+        """
+        from django.db.models import F
+        Voucher.objects.filter(pk=self.pk).update(times_used=F("times_used") + 1)
+        self.refresh_from_db(fields=["times_used"])
 
 
 # =============================================================================

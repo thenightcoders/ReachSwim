@@ -21,7 +21,7 @@ from apps.booking.models import (
     SessionPricing,
     SessionType,
 )
-from apps.booking.services.booking import SlotUnavailableError, create_booking
+from apps.booking.services.booking import SlotUnavailableError, cancel_booking, confirm_booking, create_booking
 
 
 # ---------------------------------------------------------------------------
@@ -411,3 +411,238 @@ class WithSpotsTakenTest(TestCase):
         b = Booking.with_spots_taken().get(client_email="same-slot@example.com")
         self.assertEqual(b.spots_taken, 1,
                          "Booking on a different date must not count towards this slot")
+
+
+# ---------------------------------------------------------------------------
+# Fix 5 — confirm_booking sends a confirmation email
+# ---------------------------------------------------------------------------
+
+class BookingConfirmationEmailTest(TestCase):
+    """
+    confirm_booking() must send one email to the client after marking the
+    booking as confirmed.  The email must contain key booking details.
+    """
+
+    def setUp(self):
+        self.st, self.loc, self.date, self.time = _make_booking_fixtures(weekday=1)
+
+    def test_email_sent_on_confirm(self):
+        from django.core import mail
+
+        booking = Booking.objects.create(
+            session_type=self.st,
+            location=self.loc,
+            date=self.date,
+            start_time=self.time,
+            end_time=datetime.time(11, 0),
+            client_name="Test Client",
+            client_email="client@example.com",
+            status=Booking.STATUS_PENDING,
+            amount_pence=8000,
+        )
+
+        confirm_booking(booking)
+
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertIn("client@example.com", email.to)
+        self.assertIn("confirmed", email.subject.lower())
+
+    def test_email_contains_booking_details(self):
+        from django.core import mail
+
+        booking = Booking.objects.create(
+            session_type=self.st,
+            location=self.loc,
+            date=self.date,
+            start_time=self.time,
+            end_time=datetime.time(11, 0),
+            client_name="Ada Lovelace",
+            client_email="ada@example.com",
+            status=Booking.STATUS_PENDING,
+            amount_pence=8000,
+        )
+
+        confirm_booking(booking)
+
+        body = mail.outbox[0].body
+        self.assertIn("Ada Lovelace", body)
+        self.assertIn(self.st.name, body)
+        self.assertIn(self.loc.name, body)
+        self.assertIn(str(booking.reference), body)
+
+    def test_email_failure_does_not_raise(self):
+        """
+        A broken SMTP config must never kill the booking confirmation —
+        send_booking_confirmation in email.py swallows exceptions and logs them.
+        """
+        from unittest.mock import patch
+        from apps.booking.services.booking import confirm_booking
+
+        booking = Booking.objects.create(
+            session_type=self.st,
+            location=self.loc,
+            date=self.date,
+            start_time=self.time,
+            end_time=datetime.time(11, 0),
+            client_name="Safe Client",
+            client_email="safe@example.com",
+            status=Booking.STATUS_PENDING,
+            amount_pence=8000,
+        )
+
+        # Patch the underlying send method inside the email service
+        with patch(
+            "apps.booking.services.email.EmailMultiAlternatives.send",
+            side_effect=Exception("SMTP down"),
+        ):
+            # Must not raise
+            result = confirm_booking(booking)
+
+        self.assertEqual(result.status, Booking.STATUS_CONFIRMED)
+
+    def test_booking_status_confirmed_even_when_email_is_sent(self):
+        """confirm_booking returns the booking with STATUS_CONFIRMED."""
+        from django.core import mail
+
+        booking = Booking.objects.create(
+            session_type=self.st,
+            location=self.loc,
+            date=self.date,
+            start_time=self.time,
+            end_time=datetime.time(11, 0),
+            client_name="Verify",
+            client_email="verify@example.com",
+            status=Booking.STATUS_PENDING,
+            amount_pence=8000,
+        )
+
+        result = confirm_booking(booking)
+
+        self.assertEqual(result.status, Booking.STATUS_CONFIRMED)
+        self.assertEqual(len(mail.outbox), 1)
+
+
+# ---------------------------------------------------------------------------
+# Fix 9 — client booking cancellation view
+# ---------------------------------------------------------------------------
+
+class ClientBookingCancelTest(TestCase):
+    """
+    The cancel_booking_view must:
+    - Cancel the booking when the logged-in user owns it and the session is far enough away
+    - Reject the request if the booking belongs to someone else
+    - Reject cancellation within the notice window
+    - Reject already-cancelled bookings
+    """
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        self.user = User.objects.create_user(
+            email="client@example.com",
+            password="pass",
+            full_name="Test Client",
+            role="client",
+        )
+        self.st, self.loc, self.date, self.time = _make_booking_fixtures(weekday=3)
+
+        # BookingSettings: 2-hour notice window
+        bs = BookingSettings.load()
+        bs.cancellation_hours = 2
+        bs.save()
+
+    def _make_booking(self, email="client@example.com", status=Booking.STATUS_CONFIRMED):
+        return Booking.objects.create(
+            session_type=self.st,
+            location=self.loc,
+            date=self.date,
+            start_time=self.time,
+            end_time=datetime.time(11, 0),
+            client_name="Test Client",
+            client_email=email,
+            status=status,
+            amount_pence=8000,
+        )
+
+    def _cancel_url(self, booking):
+        from django.urls import reverse
+        return reverse("accounts:booking_cancel", args=[booking.reference])
+
+    def test_cancel_succeeds_for_owner(self):
+        """Logged-in user can cancel their own confirmed future booking."""
+        self.client.force_login(self.user)
+        booking = self._make_booking()
+
+        response = self.client.post(self._cancel_url(booking))
+
+        self.assertRedirects(response, "/account/profile/")
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.STATUS_CANCELLED)
+
+    def test_cancel_rejected_for_other_user(self):
+        """Cannot cancel a booking that belongs to someone else."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        other = User.objects.create_user(
+            email="other@example.com",
+            password="pass",
+            full_name="Other Person",
+            role="client",
+        )
+        self.client.force_login(other)
+        booking = self._make_booking(email="client@example.com")
+
+        response = self.client.post(self._cancel_url(booking))
+
+        self.assertRedirects(response, "/account/profile/")
+        booking.refresh_from_db()
+        # Must NOT be cancelled — wrong user
+        self.assertNotEqual(booking.status, Booking.STATUS_CANCELLED)
+
+    def test_cancel_rejected_within_notice_window(self):
+        """Cancellation within the notice window is refused."""
+        from django.utils import timezone as tz
+        self.client.force_login(self.user)
+
+        # Create a booking starting in 1 hour — inside the 2-hour window
+        now = tz.now()
+        soon = now + datetime.timedelta(hours=1)
+        booking = Booking.objects.create(
+            session_type=self.st,
+            location=self.loc,
+            date=soon.date(),
+            start_time=soon.time().replace(second=0, microsecond=0),
+            end_time=(soon + datetime.timedelta(hours=1)).time().replace(second=0, microsecond=0),
+            client_name="Test Client",
+            client_email="client@example.com",
+            status=Booking.STATUS_CONFIRMED,
+            amount_pence=8000,
+        )
+
+        response = self.client.post(self._cancel_url(booking))
+
+        self.assertRedirects(response, "/account/profile/")
+        booking.refresh_from_db()
+        self.assertNotEqual(booking.status, Booking.STATUS_CANCELLED)
+
+    def test_cancel_already_cancelled_booking_rejected(self):
+        """Cancelling an already-cancelled booking is a no-op (status check)."""
+        self.client.force_login(self.user)
+        booking = self._make_booking(status=Booking.STATUS_CANCELLED)
+
+        response = self.client.post(self._cancel_url(booking))
+
+        self.assertRedirects(response, "/account/profile/")
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.STATUS_CANCELLED)
+
+    def test_get_request_not_allowed(self):
+        """The cancel URL only accepts POST."""
+        self.client.force_login(self.user)
+        booking = self._make_booking()
+
+        response = self.client.get(self._cancel_url(booking))
+
+        self.assertEqual(response.status_code, 405)

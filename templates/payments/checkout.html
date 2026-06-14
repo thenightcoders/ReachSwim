@@ -27,11 +27,21 @@
           {% endfor %}
         </ul>
 
-        {% if voucher_code %}
+        {% if voucher_code or show_shipping %}
         <div class="checkout-row">
           <span>Subtotal</span>
           <span>{{ cart_subtotal|pence_to_pounds }}</span>
         </div>
+        {% endif %}
+
+        {% if show_shipping %}
+        <div class="checkout-row">
+          <span>Shipping</span>
+          <span>{{ shipping_pence|pence_to_pounds }}</span>
+        </div>
+        {% endif %}
+
+        {% if voucher_code %}
         <div class="checkout-row checkout-discount">
           <span>Voucher: {{ voucher_code }}</span>
           <span>&minus;{{ voucher_discount|pence_to_pounds }}</span>
@@ -52,17 +62,20 @@
           <div class="form-group">
             <label for="client_name">Full name</label>
             <input type="text" id="client_name" name="client_name" required class="form-input"
-                   placeholder="Jane Smith">
+                   placeholder="Jane Smith"
+                   value="{% if user.is_authenticated %}{{ user.full_name }}{% endif %}">
           </div>
           <div class="form-group">
             <label for="client_email">Email</label>
             <input type="email" id="client_email" name="client_email" required class="form-input"
-                   placeholder="jane@example.com">
+                   placeholder="jane@example.com"
+                   value="{% if user.is_authenticated %}{{ user.email }}{% endif %}">
           </div>
           <div class="form-group">
             <label for="client_phone">Phone <span class="form-optional">(optional)</span></label>
             <input type="tel" id="client_phone" name="client_phone" class="form-input"
-                   placeholder="07700 900000">
+                   placeholder="07700 900000"
+                   value="{% if user.is_authenticated %}{{ user.phone|default:'' }}{% endif %}">
           </div>
           <button type="submit" class="btn btn-primary checkout-pay-btn">
             Pay {{ cart_total|pence_to_pounds }}

@@ -1,0 +1,16 @@
+Hi {{ client_first_name }},
+
+Your booking is confirmed. Here are the details:
+
+  Session:    {{ session_type_name }}
+  Location:   {{ location_name }}
+  Date:       {{ date_str }}
+  Time:       {{ time_str }}
+  Amount:     {{ amount_str }}
+  Reference:  {{ reference }}
+
+If you need to cancel or have any questions, reply to this email.
+
+See you in the water,
+ReachSwim
+https://reachswim.co.uk

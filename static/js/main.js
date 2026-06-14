@@ -178,13 +178,14 @@
 
   // --- Add booking to cart (called from slot buttons) ---
   window.addToCart = function (btn) {
+    // price_pence is intentionally omitted — the server looks it up from
+    // SessionPricing and ignores any client-supplied value.
     const payload = {
       session_type_id: btn.dataset.sessionType,
       location_id: btn.dataset.location,
       date: btn.dataset.date,
       start_time: btn.dataset.start,
       end_time: btn.dataset.end,
-      price_pence: btn.dataset.price,
       label: btn.dataset.label || "Session",
     };
 
@@ -194,8 +195,8 @@
       body: JSON.stringify(payload),
     })
       .then((r) => r.text())
-      .then(function () {
-        document.body.dispatchEvent(new Event("cartUpdated"));
+      .then(function (html) {
+        openDrawerWithHTML(html);
         showCartToast();
         btn.textContent = "Added ✓";
         btn.disabled = true;

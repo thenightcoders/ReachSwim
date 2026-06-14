@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking confirmed</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; }
+    .wrapper { max-width: 560px; margin: 40px auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .header { background: #0a1628; padding: 32px 40px; }
+    .header h1 { margin: 0; color: #fff; font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+    .header p { margin: 4px 0 0; color: #7cb8e8; font-size: 14px; }
+    .body { padding: 36px 40px; }
+    .body p { margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #333; }
+    .detail-table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    .detail-table td { padding: 10px 0; font-size: 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    .detail-table td:first-child { color: #777; width: 110px; font-weight: 500; }
+    .detail-table td:last-child { color: #1a1a1a; font-weight: 500; }
+    .ref-box { background: #f7f9fc; border: 1px solid #e0e8f0; border-radius: 6px; padding: 14px 18px; margin: 24px 0; }
+    .ref-box .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #888; margin: 0 0 4px; }
+    .ref-box .value { font-family: 'Courier New', monospace; font-size: 13px; color: #0a1628; }
+    .footer { padding: 24px 40px; background: #f7f9fc; border-top: 1px solid #eee; }
+    .footer p { margin: 0; font-size: 13px; color: #888; line-height: 1.5; }
+    .footer a { color: #2563eb; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>Booking confirmed</h1>
+      <p>ReachSwim — Adult Swim Coaching</p>
+    </div>
+    <div class="body">
+      <p>Hi {{ client_first_name }},</p>
+      <p>
+        Your booking is confirmed. We're looking forward to seeing you in the water.
+        Here's everything you need:
+      </p>
+
+      <table class="detail-table">
+        <tr>
+          <td>Session</td>
+          <td>{{ session_type_name }}</td>
+        </tr>
+        <tr>
+          <td>Location</td>
+          <td>{{ location_name }}</td>
+        </tr>
+        <tr>
+          <td>Date</td>
+          <td>{{ date_str }}</td>
+        </tr>
+        <tr>
+          <td>Time</td>
+          <td>{{ time_str }}</td>
+        </tr>
+        <tr>
+          <td>Amount paid</td>
+          <td>{{ amount_str }}</td>
+        </tr>
+      </table>
+
+      <div class="ref-box">
+        <p class="label">Booking reference</p>
+        <p class="value">{{ reference }}</p>
+      </div>
+
+      <p>
+        If you need to cancel, please do so at least
+        <strong>{{ booking.session_type.duration_minutes|default:"24" }} hours before the session</strong>
+        from your account page, or by replying to this email.
+      </p>
+    </div>
+    <div class="footer">
+      <p>
+        Questions? Reply to this email or visit
+        <a href="https://reachswim.co.uk/contact/">reachswim.co.uk/contact</a>.
+        &copy; ReachSwim.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

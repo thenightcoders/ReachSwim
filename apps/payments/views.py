@@ -16,6 +16,7 @@ from apps.booking.models import SessionPricing
 from apps.payments.interfaces import WebhookSignatureError
 from apps.payments.services import cart as cart_svc
 from apps.payments.services.checkout import (
+    cancel_pending_order,
     confirm_from_session_id,
     confirm_order,
     create_checkout_session,
@@ -63,14 +64,24 @@ def cart_add(request: HttpRequest) -> HttpResponse:
 @require_POST
 def cart_add_product(request: HttpRequest) -> HttpResponse:
     """Add a product to the cart.  Returns the cart drawer partial."""
+    from apps.shop.models import Product
+
     data = json.loads(request.body) if request.content_type == "application/json" else request.POST
+
+    product_id = int(data["product_id"])
+
+    # Look up the canonical price server-side — never trust client-supplied value.
+    try:
+        product = Product.objects.get(pk=product_id, is_active=True)
+    except Product.DoesNotExist:
+        return HttpResponse("Product not found.", status=400)
 
     cart_svc.add_product_to_cart(
         request,
-        product_id=int(data["product_id"]),
-        name=data["name"],
+        product_id=product_id,
+        name=product.name,
         color=data.get("color", ""),
-        price_pence=int(data["price_pence"]),
+        price_pence=product.price_pence,
         qty=int(data.get("qty", 1)),
         photo_class=data.get("photo_class", ""),
         image_url=data.get("image_url", ""),
@@ -190,6 +201,9 @@ def checkout(request: HttpRequest) -> HttpResponse:
             "cart_total": cart_svc.cart_total_pence(request),
         })
 
+    # Store so the cancel page can release pending bookings if the user bails.
+    request.session["pending_order_ref"] = str(order.reference)
+
     session = create_checkout_session(request, order)
     return redirect(session.redirect_url, permanent=False)
 
@@ -242,6 +256,9 @@ def payment_success(request: HttpRequest) -> HttpResponse:
 
 
 def payment_cancel(request: HttpRequest) -> HttpResponse:
+    order_ref = request.session.pop("pending_order_ref", None)
+    if order_ref:
+        cancel_pending_order(order_ref)
     return render(request, "payments/cancel.html")
 
 

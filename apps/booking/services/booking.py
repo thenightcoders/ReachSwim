@@ -1,8 +1,12 @@
 """
 Booking service — creates and cancels bookings, validates slot availability.
 Thin views call this; this calls the availability service and ORM.
+
+Email notifications are delegated to apps.booking.services.email — import
+from there if you need to call them directly.
 """
 import datetime
+import logging
 from typing import Optional
 
 from django.db import transaction
@@ -10,6 +14,8 @@ from django.utils import timezone
 
 from apps.booking.models import Booking, RecurringSchedule, SessionType, Location
 from apps.booking.services.availability import get_slot, get_booking_settings
+
+logger = logging.getLogger(__name__)
 
 
 class SlotUnavailableError(Exception):
@@ -82,26 +88,44 @@ def create_booking(
 
 def confirm_booking(booking: Booking, payment_intent_id: str = "") -> Booking:
     """Mark a booking as confirmed after successful payment."""
+    from apps.booking.services.email import send_booking_confirmation
+
     booking.status = Booking.STATUS_CONFIRMED
     if payment_intent_id:
         booking.stripe_payment_intent_id = payment_intent_id
     booking.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
+    send_booking_confirmation(booking)
     return booking
 
 
 def cancel_booking(
     booking: Booking,
     reason: str = "",
+    notify_client: bool = True,
 ) -> Booking:
     """
     Cancel a booking.  Refund logic lives in the payments app.
+
+    set notify_client=False when calling from expire_pending_orders() — those
+    bookings were never confirmed so the client has no expectation of a session
+    and a cancellation email would be confusing.
     """
+    from apps.booking.services.email import send_booking_cancellation
+
+    # Capture old status before we overwrite it — the email decision depends
+    # on whether the booking was actually confirmed, not on STATUS_CANCELLED.
+    was_confirmed = booking.status == Booking.STATUS_CONFIRMED
+
     booking.status = Booking.STATUS_CANCELLED
     booking.cancelled_at = timezone.now()
     booking.cancellation_reason = reason
     booking.save(update_fields=[
         "status", "cancelled_at", "cancellation_reason", "updated_at",
     ])
+
+    if notify_client and was_confirmed:
+        send_booking_cancellation(booking)
+
     return booking
 
 

@@ -82,6 +82,55 @@ def profile_view(request):
     })
 
 
+@login_required
+@require_POST
+def cancel_booking_view(request, reference):
+    """
+    Cancel a booking owned by the logged-in user.
+
+    Ownership is verified by matching client_email to request.user.email.
+    Only pending/confirmed bookings that haven't started yet can be cancelled.
+    """
+    import uuid as _uuid
+    from django.contrib import messages
+    from django.utils import timezone
+    from apps.booking.models import Booking, BookingSettings
+    from apps.booking.services.booking import cancel_booking
+
+    try:
+        booking = Booking.objects.get(reference=reference)
+    except (Booking.DoesNotExist, ValueError):
+        messages.error(request, "Booking not found.")
+        return redirect("accounts:profile")
+
+    # Ownership check — email must match the logged-in user
+    if booking.client_email.lower() != request.user.email.lower():
+        messages.error(request, "You don't have permission to cancel this booking.")
+        return redirect("accounts:profile")
+
+    # Only cancellable if still pending or confirmed
+    if booking.status not in (Booking.STATUS_PENDING, Booking.STATUS_CONFIRMED):
+        messages.error(request, "This booking cannot be cancelled.")
+        return redirect("accounts:profile")
+
+    # Check cancellation window
+    bs = BookingSettings.load()
+    session_start = timezone.datetime.combine(booking.date, booking.start_time)
+    session_start = timezone.make_aware(session_start)
+    hours_until = (session_start - timezone.now()).total_seconds() / 3600
+
+    if hours_until < bs.cancellation_hours:
+        messages.error(
+            request,
+            f"Bookings can only be cancelled at least {bs.cancellation_hours} hours before the session.",
+        )
+        return redirect("accounts:profile")
+
+    cancel_booking(booking, reason="Cancelled by client via profile.")
+    messages.success(request, "Your booking has been cancelled.")
+    return redirect("accounts:profile")
+
+
 def _post_login_redirect(user):
     """Redirect owner/staff to dashboard, clients to profile."""
     if user.can_access_dashboard:

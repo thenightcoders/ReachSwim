@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from apps.pages.admin import SingletonAdmin
 from .models import LegalPage, ContactConfig, ContactMessage
 
@@ -23,6 +23,30 @@ class ContactConfigAdmin(SingletonAdmin):
     )
 
 
+# ---------------------------------------------------------------------------
+# Admin actions for ContactMessage
+# ---------------------------------------------------------------------------
+
+@admin.action(description="Mark selected messages as read")
+def mark_as_read(modeladmin, request, queryset):
+    count = queryset.filter(is_read=False).update(is_read=True)
+    modeladmin.message_user(
+        request,
+        f"{count} message(s) marked as read.",
+        messages.SUCCESS if count else messages.WARNING,
+    )
+
+
+@admin.action(description="Mark selected messages as unread")
+def mark_as_unread(modeladmin, request, queryset):
+    count = queryset.filter(is_read=True).update(is_read=False)
+    modeladmin.message_user(
+        request,
+        f"{count} message(s) marked as unread.",
+        messages.SUCCESS if count else messages.WARNING,
+    )
+
+
 @admin.register(ContactMessage)
 class ContactMessageAdmin(admin.ModelAdmin):
     list_display = ("name", "email", "subject", "created_at", "is_read")
@@ -30,6 +54,7 @@ class ContactMessageAdmin(admin.ModelAdmin):
     list_editable = ("is_read",)
     readonly_fields = ("name", "email", "subject", "message", "created_at")
     search_fields = ("name", "email", "subject", "message")
+    actions = [mark_as_read, mark_as_unread]
 
     def has_add_permission(self, request):
         return False

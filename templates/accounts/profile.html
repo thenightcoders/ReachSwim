@@ -5,6 +5,15 @@
 {% block content %}
 <section class="section">
   <div class="container">
+
+    {% if messages %}
+    <div class="profile-messages">
+      {% for message in messages %}
+      <div class="alert alert--{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="profile-grid">
 
       <!-- Left: profile info -->
@@ -52,6 +61,13 @@
               {{ b.date|date:"D j M Y" }} · {{ b.start_time|time:"H:i" }}
             </div>
             <span class="booking-status booking-status--{{ b.status }}">{{ b.get_status_display }}</span>
+            {% if b.status == "pending" or b.status == "confirmed" %}
+            <form method="post" action="{% url 'accounts:booking_cancel' b.reference %}"
+                  onsubmit="return confirm('Cancel this booking?')">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost btn-sm booking-cancel-btn">Cancel</button>
+            </form>
+            {% endif %}
           </div>
           {% endfor %}
         </div>

@@ -1,0 +1,19 @@
+Hi {{ client_first_name }},
+
+Your booking has been cancelled. Here's what was scheduled:
+
+  Session:    {{ session_type_name }}
+  Location:   {{ location_name }}
+  Date:       {{ date_str }}
+  Time:       {{ time_str }}
+  Reference:  {{ reference }}
+{% if cancellation_reason %}
+  Reason:     {{ cancellation_reason }}
+{% endif %}
+
+To book another session, visit: https://reachswim.co.uk/book/
+
+Questions? Reply to this email.
+
+ReachSwim
+https://reachswim.co.uk
