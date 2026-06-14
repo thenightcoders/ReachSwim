@@ -8,7 +8,7 @@
     </div>
     {% if slot.max_capacity > 1 %}
     <div class="cal-slot-spots">
-      {{ slot.spots_remaining }}/{{ slot.max_capacity }} spots
+      {% if slot.spots_remaining == 1 %}1 spot left{% else %}{{ slot.spots_remaining }} spots left{% endif %}
     </div>
     {% endif %}
     {% if slot.is_available %}

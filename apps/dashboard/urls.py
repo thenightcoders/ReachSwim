@@ -31,6 +31,7 @@ urlpatterns = [
     path("sessiontypes/create/", views.sessiontype_create, name="sessiontype_create"),
     path("sessiontypes/<int:pk>/edit/", views.sessiontype_edit, name="sessiontype_edit"),
     path("sessiontypes/<int:pk>/delete/", views.sessiontype_delete, name="sessiontype_delete"),
+    path("sessiontypes/<int:pk>/pricing/", views.sessiontype_pricing_update, name="sessiontype_pricing_update"),
 
     # Schedules
     path("schedules/", views.schedule_list, name="schedule_list"),

@@ -543,21 +543,51 @@ def sessiontype_create(request):
 @owner_required
 def sessiontype_edit(request, pk):
     """Edit an existing session type."""
-    from apps.booking.models import SessionType
+    from apps.booking.models import SessionType, Location, SessionPricing
     from .forms import SessionTypeForm
     session_type = get_object_or_404(SessionType, pk=pk)
     if request.method == "POST":
         form = SessionTypeForm(request.POST, instance=session_type)
         if form.is_valid():
             form.save()
+            # Also update pricing
+            locations = Location.objects.filter(is_active=True)
+            for location in locations:
+                price_str = request.POST.get(f"price_{location.pk}", "").strip()
+                if price_str:
+                    try:
+                        price_pence = round(float(price_str) * 100)
+                        SessionPricing.objects.update_or_create(
+                            session_type=session_type,
+                            location=location,
+                            defaults={"price_pence": price_pence},
+                        )
+                    except (ValueError, TypeError):
+                        pass
+                else:
+                    SessionPricing.objects.filter(
+                        session_type=session_type, location=location
+                    ).delete()
             return redirect("dashboard:sessiontype_list")
     else:
         form = SessionTypeForm(instance=session_type)
+
+    locations = Location.objects.filter(is_active=True).order_by("order", "name")
+    pricing_map = {
+        p.location_id: p.price_pence
+        for p in SessionPricing.objects.filter(session_type=session_type)
+    }
+    locations_with_pricing = [
+        {"location": loc, "price_pounds": f"{pricing_map[loc.pk] / 100:.2f}" if loc.pk in pricing_map else ""}
+        for loc in locations
+    ]
+
     return render(request, "dashboard/sessiontypes/form.html", {
-        "form": form, 
-        "session_type": session_type, 
-        "section": "sessiontypes", 
-        "action": "Edit"
+        "form": form,
+        "session_type": session_type,
+        "section": "sessiontypes",
+        "action": "Edit",
+        "locations_with_pricing": locations_with_pricing,
     })
 
 @owner_required
@@ -568,6 +598,32 @@ def sessiontype_delete(request, pk):
     session_type = get_object_or_404(SessionType, pk=pk)
     session_type.delete()
     return redirect("dashboard:sessiontype_list")
+
+
+@owner_required
+@require_POST
+def sessiontype_pricing_update(request, pk):
+    """Upsert/remove pricing entries for all active locations."""
+    from apps.booking.models import SessionType, Location, SessionPricing
+    session_type = get_object_or_404(SessionType, pk=pk)
+    locations = Location.objects.filter(is_active=True)
+    for location in locations:
+        price_str = request.POST.get(f"price_{location.pk}", "").strip()
+        if price_str:
+            try:
+                price_pence = round(float(price_str) * 100)
+                SessionPricing.objects.update_or_create(
+                    session_type=session_type,
+                    location=location,
+                    defaults={"price_pence": price_pence},
+                )
+            except (ValueError, TypeError):
+                pass
+        else:
+            SessionPricing.objects.filter(
+                session_type=session_type, location=location
+            ).delete()
+    return redirect("dashboard:sessiontype_edit", pk=pk)
 
 
 # ---------------------------------------------------------------------------
