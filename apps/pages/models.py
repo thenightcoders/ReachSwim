@@ -51,7 +51,13 @@ class SiteConfig(SingletonModel):
 
     currency = models.CharField(
         max_length=3, choices=CURRENCY_CHOICES, default="GBP",
-        help_text="Currency displayed site-wide.",
+        help_text=(
+            "Currency symbol shown in the dashboard and templates. "
+            "DISPLAY ONLY — changing this does not affect Stripe (hardcoded to GBP), "
+            "model price_display properties (hardcoded to £), or any pricing logic. "
+            "To support multiple real currencies, update all price_pence fields, "
+            "the pence_to_pounds template filter, and the Stripe session currency."
+        ),
     )
 
     site_name = models.CharField(max_length=100, default="ReachSwim")

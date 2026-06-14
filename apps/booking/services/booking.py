@@ -43,6 +43,7 @@ def create_booking(
     client_email: str,
     client_phone: str = "",
     notes: str = "",
+    user=None,
 ) -> Booking:
     """
     Validate and create a pending booking.
@@ -87,6 +88,7 @@ def create_booking(
         amount_pence=slot.price_pence,
         status=Booking.STATUS_PENDING,
         notes=notes.strip(),
+        user=user if (user is not None and getattr(user, "is_authenticated", False)) else None,
     )
     return booking
 

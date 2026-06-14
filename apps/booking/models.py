@@ -239,17 +239,38 @@ class RecurringSchedule(models.Model):
 # =============================================================================
 
 class GoogleCalendarConfig(SingletonModel):
-    """OAuth credentials for the owner's Google Calendar."""
+    """
+    OAuth credentials for the owner's Google Calendar.
+
+    Security note: client_secret and credentials_json contain sensitive
+    credentials.  In production, prefer the env var overrides below so
+    these values never touch the database:
+
+        GOOGLE_CALENDAR_CLIENT_ID=...
+        GOOGLE_CALENDAR_CLIENT_SECRET=...
+        GOOGLE_CALENDAR_CREDENTIALS_JSON=...  (full JSON token string)
+
+    The effective_* properties read env vars first and fall back to the DB
+    fields, so existing setups (configured via admin) keep working without
+    any change.
+    """
 
     client_id = models.CharField(
         max_length=255,
         blank=True,
-        help_text="OAuth2 Client ID from Google Cloud Console.",
+        help_text=(
+            "OAuth2 Client ID from Google Cloud Console. "
+            "Override with GOOGLE_CALENDAR_CLIENT_ID env var in production."
+        ),
     )
     client_secret = models.CharField(
         max_length=255,
         blank=True,
-        help_text="OAuth2 Client Secret from Google Cloud Console.",
+        help_text=(
+            "OAuth2 Client Secret from Google Cloud Console. "
+            "Override with GOOGLE_CALENDAR_CLIENT_SECRET env var in production "
+            "to keep secrets out of the database."
+        ),
     )
     calendar_id = models.CharField(
         max_length=255,
@@ -259,7 +280,11 @@ class GoogleCalendarConfig(SingletonModel):
     )
     credentials_json = models.TextField(
         blank=True,
-        help_text="Stored OAuth2 tokens (set automatically after connecting).",
+        help_text=(
+            "Stored OAuth2 tokens (set automatically after connecting). "
+            "Override with GOOGLE_CALENDAR_CREDENTIALS_JSON env var to keep "
+            "OAuth refresh tokens out of the database."
+        ),
     )
     is_connected = models.BooleanField(default=False)
     last_synced = models.DateTimeField(null=True, blank=True)
@@ -279,6 +304,28 @@ class GoogleCalendarConfig(SingletonModel):
         if self.is_connected:
             return f"Connected — {self.calendar_id}"
         return "Not connected"
+
+    # ------------------------------------------------------------------
+    # Env var overrides — use these everywhere instead of the raw fields
+    # ------------------------------------------------------------------
+
+    @property
+    def effective_client_id(self) -> str:
+        """Env var GOOGLE_CALENDAR_CLIENT_ID takes precedence over DB field."""
+        import os
+        return os.getenv("GOOGLE_CALENDAR_CLIENT_ID") or self.client_id
+
+    @property
+    def effective_client_secret(self) -> str:
+        """Env var GOOGLE_CALENDAR_CLIENT_SECRET takes precedence over DB field."""
+        import os
+        return os.getenv("GOOGLE_CALENDAR_CLIENT_SECRET") or self.client_secret
+
+    @property
+    def effective_credentials_json(self) -> str:
+        """Env var GOOGLE_CALENDAR_CREDENTIALS_JSON takes precedence over DB field."""
+        import os
+        return os.getenv("GOOGLE_CALENDAR_CREDENTIALS_JSON") or self.credentials_json
 
 
 # =============================================================================
@@ -322,10 +369,24 @@ class Booking(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
 
-    # Who
+    # Who — string fields are the authoritative audit record.
+    # user is an optional link to the accounts.User who booked;
+    # null when the booking was made by a guest (no account at checkout time).
     client_name = models.CharField(max_length=200)
     client_email = models.EmailField()
     client_phone = models.CharField(max_length=30, blank=True)
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bookings",
+        help_text=(
+            "Linked account if the client was authenticated at checkout. "
+            "Null for guest bookings. "
+            "client_email remains the authoritative audit record regardless."
+        ),
+    )
 
     # Status & payment
     status = models.CharField(

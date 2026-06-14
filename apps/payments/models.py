@@ -153,6 +153,46 @@ class OrderItem(models.Model):
     def is_product(self):
         return self.item_type == self.ITEM_TYPE_PRODUCT
 
+    def validate(self):
+        """
+        Assert that the right FK fields are populated for this item_type.
+
+        Call this in tests and in _create_*_order_item helpers to catch
+        schema violations early — before they silently produce broken orders.
+        Raises AssertionError with a descriptive message on failure.
+
+        When a third item type (e.g. package, gift card) is added, extend
+        this method rather than scattering isinstance/item_type checks.
+        """
+        pk_label = f"OrderItem pk={self.pk}" if self.pk else "unsaved OrderItem"
+
+        if self.item_type == self.ITEM_TYPE_BOOKING:
+            assert self.product_id is None, (
+                f"{pk_label}: booking item must not have product_id set "
+                f"(got product_id={self.product_id})"
+            )
+            has_booking = self.booking_id is not None
+            has_snapshot = self.session_type_id is not None and self.date is not None
+            assert has_booking or has_snapshot, (
+                f"{pk_label}: booking item must have either a booking FK "
+                f"or a session_type + date snapshot"
+            )
+
+        elif self.item_type == self.ITEM_TYPE_PRODUCT:
+            assert self.product_id is not None, (
+                f"{pk_label}: product item must have product_id set"
+            )
+            assert self.booking_id is None, (
+                f"{pk_label}: product item must not have booking_id set "
+                f"(got booking_id={self.booking_id})"
+            )
+
+        else:
+            raise AssertionError(
+                f"{pk_label}: unknown item_type '{self.item_type}' — "
+                f"update OrderItem.validate() when adding new item types"
+            )
+
 
 # =============================================================================
 # Payment audit log
@@ -306,10 +346,26 @@ class PackagePurchase(models.Model):
         return self.is_active and not self.is_expired and self.sessions_remaining > 0
 
     def use_session(self):
-        """Deduct one session. Raises ValueError if none left."""
-        if self.sessions_remaining <= 0:
+        """
+        Deduct one session atomically.  Raises ValueError if none left.
+
+        Uses a filtered UPDATE (sessions_remaining__gt=0) pushed to the DB so
+        two concurrent requests for the same package both hit the database —
+        only the one that finds sessions_remaining > 0 wins.  The other gets
+        updated=0 and raises ValueError.  Same pattern as Voucher.redeem().
+        """
+        from django.db.models import F
+
+        updated = (
+            PackagePurchase.objects
+            .filter(pk=self.pk, sessions_remaining__gt=0)
+            .update(sessions_remaining=F("sessions_remaining") - 1)
+        )
+        if not updated:
             raise ValueError("No sessions remaining on this package.")
-        self.sessions_remaining -= 1
+
+        self.refresh_from_db(fields=["sessions_remaining", "is_active"])
+
         if self.sessions_remaining == 0:
+            PackagePurchase.objects.filter(pk=self.pk).update(is_active=False)
             self.is_active = False
-        self.save(update_fields=["sessions_remaining", "is_active"])

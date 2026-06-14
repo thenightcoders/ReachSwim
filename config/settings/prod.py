@@ -21,3 +21,18 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
 _csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
+
+# ---------------------------------------------------------------------------
+# Cache — Redis (shared across all gunicorn workers)
+# ---------------------------------------------------------------------------
+# The default in-memory cache (LocMemCache) is per-process, so a
+# SingletonModel.save() on worker A won't bust worker B's cached object.
+# Redis gives all workers a single shared cache, fixing this.
+# Requires: pip install django-redis  OR  Django 4.0+ built-in Redis backend.
+# Env var: REDIS_URL (e.g. redis://localhost:6379/0)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+    }
+}

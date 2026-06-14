@@ -70,11 +70,18 @@ def profile_view(request):
     else:
         form = ProfileForm(instance=request.user)
 
-    # Fetch this user's bookings (matched by email)
+    # Fetch this user's bookings.
+    # Prefer the direct FK (set on bookings made while logged in) and also
+    # catch any guest bookings that share the same email — deduped via distinct().
+    from django.db.models import Q
     from apps.booking.models import Booking
-    bookings = Booking.objects.filter(
-        client_email__iexact=request.user.email,
-    ).select_related("session_type", "location").order_by("-date", "-start_time")
+    bookings = (
+        Booking.objects
+        .filter(Q(user=request.user) | Q(client_email__iexact=request.user.email))
+        .select_related("session_type", "location")
+        .order_by("-date", "-start_time")
+        .distinct()
+    )
 
     return render(request, "accounts/profile.html", {
         "form": form,

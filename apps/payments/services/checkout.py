@@ -121,7 +121,10 @@ def create_order_from_cart(
         item_type = item.get("item_type", ITEM_TYPE_BOOKING)
 
         if item_type == ITEM_TYPE_BOOKING:
-            _create_booking_order_item(order, item, client_name, client_email, client_phone)
+            _create_booking_order_item(
+                order, item, client_name, client_email, client_phone,
+                user=request.user,
+            )
         elif item_type == ITEM_TYPE_PRODUCT:
             _create_product_order_item(order, item)
 
@@ -137,7 +140,7 @@ def create_order_from_cart(
     return order
 
 
-def _create_booking_order_item(order, item, client_name, client_email, client_phone):
+def _create_booking_order_item(order, item, client_name, client_email, client_phone, user=None):
     """Create an OrderItem + pending Booking for a booking cart item."""
     date = datetime.date.fromisoformat(item["date"])
     start_time = datetime.time.fromisoformat(item["start_time"])
@@ -151,6 +154,7 @@ def _create_booking_order_item(order, item, client_name, client_email, client_ph
         client_name=client_name.strip(),
         client_email=client_email.strip().lower(),
         client_phone=client_phone.strip(),
+        user=user,
     )
 
     OrderItem.objects.create(
