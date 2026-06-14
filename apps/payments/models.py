@@ -66,6 +66,11 @@ class Order(models.Model):
         return f"Order {self.reference} — {self.get_status_display()}"
 
     @property
+    def order_number(self) -> str:
+        """Short human-readable order reference (first 8 hex chars, uppercased)."""
+        return str(self.reference)[:8].upper()
+
+    @property
     def total_display(self):
         return f"£{self.total_pence / 100:.2f}"
 

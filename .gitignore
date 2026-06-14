@@ -62,3 +62,4 @@ Thumbs.db
 skills-lock.json
 # Local architecture/design docs
 ADR-*.md
+*.docx

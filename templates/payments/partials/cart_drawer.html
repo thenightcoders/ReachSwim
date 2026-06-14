@@ -18,7 +18,7 @@
       {% endif %}
 
       <div class="cart-item-details">
-        <span class="cart-item-label">{{ item.label }}</span>
+        <span class="cart-item-label" title="{{ item.label }}">{{ item.label }}</span>
         {% if item.item_type == "product" and item.qty > 1 %}
         <span class="cart-item-meta">Qty: {{ item.qty }}</span>
         {% endif %}

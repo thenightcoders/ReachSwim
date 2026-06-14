@@ -3,6 +3,7 @@ Account views — login, logout, register, profile.
 
 Thin HTTP layer. Forms do the validation, views just wire things up.
 """
+from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -35,10 +36,10 @@ def login_view(request):
     })
 
 
-@require_POST
 def logout_view(request):
-    """Log out and redirect to homepage. POST-only to prevent CSRF logout."""
-    logout(request)
+    """Log out and redirect to homepage. POST logs out; GET redirects harmlessly."""
+    if request.method == "POST":
+        logout(request)
     return redirect("pages:home")
 
 
@@ -52,6 +53,7 @@ def register_view(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
+            messages.success(request, "Welcome to ReachSwim! Your account is ready.")
             return redirect("accounts:profile")
     else:
         form = RegisterForm()
@@ -66,6 +68,7 @@ def profile_view(request):
         form = ProfileForm(request.POST, instance=request.user)
         if form.is_valid():
             form.save()
+            messages.success(request, "Changes saved.")
             return redirect("accounts:profile")
     else:
         form = ProfileForm(instance=request.user)
