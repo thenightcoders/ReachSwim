@@ -46,7 +46,6 @@ class StripeService(PaymentProviderInterface):
     ) -> PaymentSession:
         """Create a Stripe Checkout session and return the redirect URL."""
         params: dict = {
-            "payment_method_types": ["card"],
             "submit_type": "book",
             "line_items": [
                 {
@@ -153,7 +152,7 @@ class StripeService(PaymentProviderInterface):
         if session.payment_status != "paid":
             return None
 
-        order_ref = (session.metadata or {}).get("order_reference")
+        order_ref = getattr(session.metadata, "order_reference", None)
         if not order_ref:
             return None
 

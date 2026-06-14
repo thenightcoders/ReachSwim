@@ -263,6 +263,13 @@ class GoogleCalendarConfig(SingletonModel):
     )
     is_connected = models.BooleanField(default=False)
     last_synced = models.DateTimeField(null=True, blank=True)
+    sync_deletions_from_calendar = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled: if you delete a booking event from Google Calendar, "
+            "the matching booking on the website is automatically cancelled."
+        ),
+    )
 
     class Meta:
         verbose_name = "Google Calendar"

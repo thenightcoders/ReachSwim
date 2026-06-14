@@ -5,91 +5,181 @@
 {% block topbar_title %}Booking #{{ booking.pk }}{% endblock %}
 
 {% block content %}
-<div class="dash-header">
-  <a href="{% url 'dashboard:bookings' %}" class="dash-back">&larr; All bookings</a>
-  <h1 class="dash-heading">Booking #{{ booking.pk }}</h1>
-  <span class="dash-badge dash-badge--{{ booking.status }} dash-badge--lg">{{ booking.get_status_display }}</span>
+
+<div class="dash-header" style="margin-bottom:2rem;">
+  <div>
+    <a href="{% url 'dashboard:bookings' %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      All Bookings
+    </a>
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <h1 class="dash-heading" style="margin:0;">Booking <span style="color:var(--dash-text-muted);">#{{ booking.pk }}</span></h1>
+      <span class="dash-badge dash-badge--{{ booking.status }}" style="font-size:0.8rem;padding:0.3rem 0.875rem;letter-spacing:0.03em;">{{ booking.get_status_display }}</span>
+    </div>
+  </div>
 </div>
 
-<div class="dash-detail-grid">
-  <!-- Info card -->
-  <div class="dash-card">
-    <h3 class="dash-card__title">Details</h3>
-    <dl class="dash-dl">
-      <dt>Session type</dt>
-      <dd>{{ booking.session_type.name }}</dd>
-      <dt>Location</dt>
-      <dd>{{ booking.location.name }}</dd>
-      <dt>Date</dt>
-      <dd>{{ booking.date|date:"l j F Y" }}</dd>
-      <dt>Time</dt>
-      <dd>{{ booking.start_time|time:"H:i" }} &ndash; {{ booking.end_time|time:"H:i" }}</dd>
-      <dt>Price</dt>
-      <dd>{{ booking.amount_pence|pence_to_pounds }}</dd>
-    </dl>
-  </div>
+<div style="display:grid;grid-template-columns:1fr 300px;gap:1.5rem;align-items:start;max-width:1000px;">
 
-  <!-- Client card -->
-  <div class="dash-card">
-    <h3 class="dash-card__title">Client</h3>
-    <dl class="dash-dl">
-      <dt>Name</dt>
-      <dd>{{ booking.client_name }}</dd>
-      <dt>Email</dt>
-      <dd><a href="mailto:{{ booking.client_email }}">{{ booking.client_email }}</a></dd>
-      <dt>Phone</dt>
-      <dd>{{ booking.client_phone|default:"—" }}</dd>
-    </dl>
-  </div>
+  <!-- LEFT COLUMN -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
 
-  <!-- Actions card -->
-  <div class="dash-card">
-    <h3 class="dash-card__title">Actions</h3>
-    <div class="dash-actions">
-      {% if booking.status == "pending" %}
+    <!-- Session Details Card -->
+    <div class="dash-settings-card" style="padding:0;overflow:hidden;">
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.7);">
+        <span style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);">Session Details</span>
+      </div>
+
+      <!-- Date / Time accent strip -->
+      <div style="display:flex;gap:0;border-bottom:1px solid rgba(226,232,240,0.7);">
+        <div style="flex:1;padding:1.25rem 1.5rem;background:linear-gradient(135deg,rgba(239,246,255,0.9),rgba(219,234,254,0.6));">
+          <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--dash-accent);font-weight:700;margin-bottom:0.4rem;">Date</div>
+          <div style="font-family:var(--font-display);font-size:1.05rem;font-weight:600;color:var(--dash-text);">{{ booking.date|date:"l j F Y" }}</div>
+        </div>
+        <div style="width:1px;background:rgba(59,130,246,0.15);"></div>
+        <div style="flex:1;padding:1.25rem 1.5rem;background:linear-gradient(135deg,rgba(239,246,255,0.9),rgba(219,234,254,0.6));">
+          <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--dash-accent);font-weight:700;margin-bottom:0.4rem;">Time</div>
+          <div style="font-family:var(--font-display);font-size:1.05rem;font-weight:600;color:var(--dash-text);">{{ booking.start_time|time:"H:i" }}&nbsp;&ndash;&nbsp;{{ booking.end_time|time:"H:i" }}</div>
+        </div>
+      </div>
+
+      <!-- Key-value rows -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.5);">
+          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Session Type</span>
+          <span style="font-size:0.92rem;font-weight:500;color:var(--dash-text);">{{ booking.session_type.name }}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.5);">
+          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Location</span>
+          <span style="font-size:0.92rem;font-weight:500;color:var(--dash-text);">{{ booking.location.name }}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.875rem 1.5rem;">
+          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Price</span>
+          <span style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;color:var(--dash-text);">{{ booking.amount_pence|pence_to_pounds }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client Card -->
+    <div class="dash-settings-card" style="padding:0;overflow:hidden;">
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.7);">
+        <span style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);">Client</span>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.5);">
+          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Name</span>
+          <span style="font-size:0.92rem;font-weight:500;color:var(--dash-text);">{{ booking.client_name }}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.5);">
+          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Email</span>
+          <a href="mailto:{{ booking.client_email }}" style="font-size:0.92rem;font-weight:500;color:var(--dash-accent);text-decoration:none;">{{ booking.client_email }}</a>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;">
+          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Phone</span>
+          <span style="font-size:0.92rem;font-weight:500;color:var(--dash-text);">{{ booking.client_phone|default:"—" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Card -->
+    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);margin-bottom:0.875rem;">Internal Notes</div>
       <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_notes">
+        <textarea name="notes" class="dash-textarea" rows="4" placeholder="Internal notes…">{{ booking.notes }}</textarea>
+        <button class="dash-btn" style="margin-top:0.75rem;">Save Notes</button>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- RIGHT SIDEBAR -->
+  <div style="position:sticky;top:calc(64px + 1.5rem);display:flex;flex-direction:column;gap:1rem;">
+    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);margin-bottom:1.25rem;">Actions</div>
+
+      {% if booking.status == "pending" %}
+      <form method="post" style="margin-bottom:0.875rem;">
         {% csrf_token %}
         <input type="hidden" name="action" value="confirm">
-        <button class="dash-btn dash-btn--primary">Confirm booking</button>
+        <button class="dash-btn dash-btn--primary" style="width:100%;justify-content:center;gap:0.5rem;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Confirm Booking
+        </button>
       </form>
+
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.875rem;">
+        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
+        <span style="font-size:0.72rem;color:var(--dash-text-muted);font-weight:500;letter-spacing:0.04em;">OR</span>
+        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
+      </div>
+
       <form method="post" onsubmit="return confirm('Cancel this booking?')">
         {% csrf_token %}
         <input type="hidden" name="action" value="cancel">
-        <input type="text" name="reason" placeholder="Cancellation reason (optional)" class="dash-input">
-        <button class="dash-btn dash-btn--danger">Cancel booking</button>
+        <label class="dash-label" style="margin-bottom:0.4rem;font-size:0.78rem;">
+          Reason <small style="font-weight:400;color:var(--dash-text-muted);">(optional)</small>
+        </label>
+        <input type="text" name="reason" placeholder="e.g. Client no show" class="dash-input" style="margin-bottom:0.625rem;">
+        <button class="dash-btn dash-btn--danger" style="width:100%;justify-content:center;">Cancel Booking</button>
       </form>
+
       {% elif booking.status == "confirmed" %}
-      <form method="post">
+      <form method="post" style="margin-bottom:0.875rem;">
         {% csrf_token %}
         <input type="hidden" name="action" value="complete">
-        <button class="dash-btn dash-btn--primary">Mark completed</button>
+        <button class="dash-btn dash-btn--primary" style="width:100%;justify-content:center;gap:0.5rem;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Mark Completed
+        </button>
       </form>
+
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.875rem;">
+        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
+        <span style="font-size:0.72rem;color:var(--dash-text-muted);font-weight:500;letter-spacing:0.04em;">OR</span>
+        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
+      </div>
+
       <form method="post" onsubmit="return confirm('Cancel this booking?')">
         {% csrf_token %}
         <input type="hidden" name="action" value="cancel">
-        <input type="text" name="reason" placeholder="Cancellation reason (optional)" class="dash-input">
-        <button class="dash-btn dash-btn--danger">Cancel booking</button>
+        <label class="dash-label" style="margin-bottom:0.4rem;font-size:0.78rem;">
+          Reason <small style="font-weight:400;color:var(--dash-text-muted);">(optional)</small>
+        </label>
+        <input type="text" name="reason" placeholder="e.g. Client no show" class="dash-input" style="margin-bottom:0.625rem;">
+        <button class="dash-btn dash-btn--danger" style="width:100%;justify-content:center;">Cancel Booking</button>
       </form>
+
       {% elif booking.status == "cancelled" %}
-      <p class="dash-text--muted">
-        Cancelled {{ booking.cancelled_at|date:"j M Y H:i" }}<br>
-        {% if booking.cancellation_reason %}Reason: {{ booking.cancellation_reason }}{% endif %}
-      </p>
+      <div style="padding:1rem;border-radius:10px;background:var(--dash-danger-light);border:1px solid #fecaca;">
+        <div style="font-size:0.8rem;font-weight:700;color:var(--dash-danger);margin-bottom:0.35rem;">Booking Cancelled</div>
+        <div style="font-size:0.82rem;color:#b91c1c;">{{ booking.cancelled_at|date:"j M Y, H:i" }}</div>
+        {% if booking.cancellation_reason %}
+        <div style="font-size:0.8rem;color:#b91c1c;margin-top:0.35rem;">Reason: {{ booking.cancellation_reason }}</div>
+        {% endif %}
+      </div>
+
       {% elif booking.status == "completed" %}
-      <p class="dash-text--muted">Session completed.</p>
+      <div style="padding:1rem;border-radius:10px;background:var(--dash-success-light);border:1px solid #bbf7d0;">
+        <div style="font-size:0.8rem;font-weight:700;color:var(--dash-success);">Session Completed</div>
+      </div>
       {% endif %}
+
+    </div>
+
+    <!-- Danger zone -->
+    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;border:1px solid rgba(239,68,68,0.25);background:rgba(254,242,242,0.6);">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:0.85rem;color:var(--dash-danger);margin-bottom:0.875rem;text-transform:uppercase;letter-spacing:0.04em;">Danger Zone</div>
+      <form method="post" action="{% url 'dashboard:booking_delete' booking.pk %}" onsubmit="return confirm('Permanently delete booking #{{ booking.pk }}? This cannot be undone.')">
+        {% csrf_token %}
+        <button type="submit" class="dash-btn dash-btn--danger" style="width:100%;justify-content:center;gap:0.5rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          Delete Booking
+        </button>
+      </form>
     </div>
   </div>
 
-  <!-- Notes card -->
-  <div class="dash-card">
-    <h3 class="dash-card__title">Notes</h3>
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="save_notes">
-      <textarea name="notes" class="dash-textarea" rows="4" placeholder="Internal notes…">{{ booking.notes }}</textarea>
-      <button class="dash-btn dash-btn--sm" style="margin-top:.5rem">Save notes</button>
-    </form>
-  </div>
 </div>
 {% endblock %}

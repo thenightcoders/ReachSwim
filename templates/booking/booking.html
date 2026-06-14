@@ -70,6 +70,12 @@
     });
     btn.classList.add('cal-day--selected');
   };
+
+  // Auto-select the only session type — skips the unnecessary click
+  var cards = document.querySelectorAll('.booking-option-card');
+  if (cards.length === 1) {
+    setTimeout(function() { cards[0].click(); }, 60);
+  }
 })();
 </script>
 {% endblock %}

@@ -169,6 +169,15 @@ def create_event(booking) -> Optional[str]:
             ).strip(),
             "start": {"dateTime": start_dt.isoformat(), "timeZone": "Europe/London"},
             "end":   {"dateTime": end_dt.isoformat(),   "timeZone": "Europe/London"},
+            # Mark as a ReachSwim booking so get_busy_times can skip it.
+            # Slot capacity is tracked in the DB; these events must not
+            # be treated as owner-blocked time.
+            "extendedProperties": {
+                "private": {
+                    "reachswim_booking": "true",
+                    "booking_id": str(booking.pk),
+                }
+            },
         }
 
         created = svc.events().insert(
@@ -213,8 +222,13 @@ def delete_event(booking) -> None:
 
 def get_busy_times(date: datetime.date) -> List[Tuple[datetime.time, datetime.time]]:
     """
-    Return (start_time, end_time) pairs for periods the owner is busy on `date`.
-    The availability service uses this to hide those slots from clients.
+    Return (start_time, end_time) pairs for periods the owner has personally
+    blocked on `date` (holidays, personal appointments, etc.).
+
+    Events created by ReachSwim (tagged with the 'reachswim_booking' extended
+    property) are intentionally skipped — their capacity is already tracked in
+    the database via Booking.count_for_slot, so they must not also block the
+    slot as owner-unavailable time.
     """
     config = _load_config()
     if not config.is_connected:
@@ -231,23 +245,28 @@ def get_busy_times(date: datetime.date) -> List[Tuple[datetime.time, datetime.ti
         day_start = datetime.datetime.combine(date, datetime.time.min).replace(tzinfo=tz)
         day_end   = datetime.datetime.combine(date, datetime.time.max).replace(tzinfo=tz)
 
-        body = {
-            "timeMin": day_start.isoformat(),
-            "timeMax": day_end.isoformat(),
-            "timeZone": "Europe/London",
-            "items": [{"id": config.calendar_id or "primary"}],
-        }
-
-        result = svc.freebusy().query(body=body).execute()
-        cal_key = config.calendar_id or "primary"
-        busy_periods = (
-            result.get("calendars", {}).get(cal_key, {}).get("busy", [])
-        )
+        result = svc.events().list(
+            calendarId=config.calendar_id or "primary",
+            timeMin=day_start.isoformat(),
+            timeMax=day_end.isoformat(),
+            singleEvents=True,
+            orderBy="startTime",
+        ).execute()
 
         out = []
-        for period in busy_periods:
-            start = datetime.datetime.fromisoformat(period["start"])
-            end   = datetime.datetime.fromisoformat(period["end"])
+        for event in result.get("items", []):
+            # Skip events this app created — they are not owner-blocked time.
+            private_props = event.get("extendedProperties", {}).get("private", {})
+            if private_props.get("reachswim_booking") == "true":
+                continue
+
+            start_str = event.get("start", {}).get("dateTime")
+            end_str   = event.get("end",   {}).get("dateTime")
+            if not start_str or not end_str:
+                continue  # all-day event, skip
+
+            start = datetime.datetime.fromisoformat(start_str)
+            end   = datetime.datetime.fromisoformat(end_str)
             start_local = start.astimezone(tz).time().replace(tzinfo=None)
             end_local   = end.astimezone(tz).time().replace(tzinfo=None)
             out.append((start_local, end_local))

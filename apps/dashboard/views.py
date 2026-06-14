@@ -75,11 +75,13 @@ def home(request):
 @owner_required
 def bookings(request):
     """List all bookings with filters."""
+    from django.db.models import Q
     from apps.booking.models import Booking
 
     status = request.GET.get("status", "")
     date_from = request.GET.get("from", "")
     date_to = request.GET.get("to", "")
+    q = request.GET.get("q", "").strip()
 
     qs = Booking.with_spots_taken().select_related(
         "session_type", "location",
@@ -91,12 +93,20 @@ def bookings(request):
         qs = qs.filter(date__gte=date_from)
     if date_to:
         qs = qs.filter(date__lte=date_to)
+    if q:
+        qs = qs.filter(
+            Q(client_name__icontains=q) | Q(client_email__icontains=q)
+        )
+
+    bookings_list = list(qs[:200])
 
     return render(request, "dashboard/bookings.html", {
-        "bookings": qs[:100],
+        "bookings": bookings_list,
+        "booking_count": len(bookings_list),
         "current_status": status,
         "date_from": date_from,
         "date_to": date_to,
+        "q": q,
         "section": "bookings",
     })
 
@@ -133,6 +143,18 @@ def booking_detail(request, pk):
         "booking": booking,
         "section": "bookings",
     })
+
+@owner_required
+@require_POST
+def booking_delete(request, pk):
+    """Hard-delete a booking."""
+    from apps.booking.models import Booking
+    from apps.booking.services import google_calendar
+    booking = get_object_or_404(Booking, pk=pk)
+    google_calendar.delete_event(booking)
+    booking.delete()
+    return redirect("dashboard:bookings")
+
 
 @owner_required
 def booking_create(request):
@@ -176,6 +198,16 @@ def booking_edit(request, pk):
 # ---------------------------------------------------------------------------
 # Orders
 # ---------------------------------------------------------------------------
+
+@owner_required
+@require_POST
+def order_delete(request, pk):
+    """Hard-delete an order and its line items."""
+    from apps.payments.models import Order
+    order = get_object_or_404(Order, pk=pk)
+    order.delete()
+    return redirect("dashboard:orders")
+
 
 @owner_required
 def orders(request):

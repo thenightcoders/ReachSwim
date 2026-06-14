@@ -1,13 +1,20 @@
 {% extends "base.html" %}
 {% load payment_tags %}
 
-{% block title %}Booking confirmed — {{ site_config.site_name }}{% endblock %}
+{% block title %}{% if order_type == "product" %}Order confirmed{% elif order_type == "mixed" %}You're all set{% else %}Booking confirmed{% endif %} — {{ site_config.site_name }}{% endblock %}
 
 {% block content %}
 <section class="section success-section">
   <div class="container container--narrow" style="text-align:center;">
     <div class="success-icon">&#10003;</div>
+
+    {% if order_type == "product" %}
+    <h1 class="h-display">Order confirmed!</h1>
+    {% elif order_type == "mixed" %}
+    <h1 class="h-display">You're all set!</h1>
+    {% else %}
     <h1 class="h-display">You're booked in!</h1>
+    {% endif %}
 
     {% if order %}
     <p class="success-lead">
@@ -15,7 +22,13 @@
     </p>
 
     <div class="success-details">
+      {% if order_type == "product" %}
+      <h2>Your order</h2>
+      {% elif order_type == "mixed" %}
+      <h2>Your order</h2>
+      {% else %}
       <h2>Your sessions</h2>
+      {% endif %}
       {% for item in order.items.all %}
       <div class="success-item">
         <span>{{ item.label }}</span>

@@ -250,8 +250,17 @@ def payment_success(request: HttpRequest) -> HttpResponse:
     session_id = request.GET.get("session_id", "")
     order = confirm_from_session_id(session_id)
 
+    order_type = "booking"  # default
+    if order:
+        item_types = set(order.items.values_list("item_type", flat=True))
+        if item_types == {"product"}:
+            order_type = "product"
+        elif "booking" in item_types and "product" in item_types:
+            order_type = "mixed"
+
     return render(request, "payments/success.html", {
         "order": order,
+        "order_type": order_type,
     })
 
 

@@ -1126,7 +1126,8 @@ body[data-has-hero="False"] .site-nav {
 .booking-option-card.selected,
 .booking-location-card.selected {
   border-color: var(--pool);
-  box-shadow: 0 0 0 3px rgba(86, 178, 193, 0.25);
+  box-shadow: 0 0 0 3px rgba(86, 178, 193, 0.2);
+  background: rgba(86, 178, 193, 0.06);
 }
 
 .booking-option-name {
@@ -1164,23 +1165,23 @@ body[data-has-hero="False"] .site-nav {
 
 .cal-panel {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 340px;
   gap: 0;
   background: var(--paper);
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
   margin-top: 32px;
-  max-width: 740px;
+  max-width: 1000px;
 }
 
 .cal-left {
-  padding: 24px 24px;
+  padding: 28px 32px;
 }
 
 .cal-right {
   border-left: 2px solid var(--border);
-  padding: 24px 20px;
+  padding: 28px 24px;
   min-height: 380px;
 }
 
@@ -1188,8 +1189,11 @@ body[data-has-hero="False"] .site-nav {
 .cal-location-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 20px;
+  padding: 8px 12px;
+  background: rgba(0,0,0,.03);
+  border-radius: 10px;
 }
 
 .cal-location-label {
@@ -1202,12 +1206,15 @@ body[data-has-hero="False"] .site-nav {
 }
 
 .cal-location-select {
-  padding: 6px 12px;
-  border: 2px solid var(--border);
-  border-radius: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 6px 28px 6px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 100px;
   font-size: 0.9rem;
+  font-weight: 500;
   font-family: var(--font-sans);
-  background: var(--paper);
+  background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;
   color: var(--ink);
   cursor: pointer;
   transition: border-color .2s;
@@ -1264,17 +1271,17 @@ body[data-has-hero="False"] .site-nav {
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: 6px;
 }
 
 .cal-header {
   text-align: center;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-muted);
-  padding: 8px 0;
+  padding: 10px 0;
 }
 
 .cal-day {
@@ -1283,7 +1290,7 @@ body[data-has-hero="False"] .site-nav {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 0.9rem;
+  font-size: 0.93rem;
   font-weight: 500;
   border: none;
   background: none;
@@ -1352,42 +1359,65 @@ body[data-has-hero="False"] .site-nav {
 }
 
 .cal-slots-date {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 16px;
   color: var(--ink);
+  padding-bottom: 12px;
+  border-bottom: 1.5px solid var(--border);
 }
 
 .cal-slot {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border: 2px solid var(--border);
-  border-radius: 8px;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
   background: var(--paper);
-  transition: border-color .2s;
+  transition: border-color .2s, box-shadow .2s;
 }
-.cal-slot:hover { border-color: var(--pool); }
+.cal-slot:hover { border-color: var(--pool); box-shadow: 0 2px 12px rgba(86,178,193,.12); }
 
 .cal-slot--full {
   opacity: .45;
   pointer-events: none;
 }
 
+.cal-slot-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .cal-slot-time {
   font-family: var(--font-mono);
-  font-size: 0.88rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.cal-slot-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-slot-price {
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
-  flex: 1;
 }
 
 .cal-slot-spots {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--ink-muted);
   font-family: var(--font-mono);
+  white-space: nowrap;
 }
 
 .cal-slot-btn { flex-shrink: 0; }
@@ -1416,7 +1446,6 @@ body[data-has-hero="False"] .site-nav {
 
   .cal-panel {
     grid-template-columns: 1fr;
-    max-width: 100%;
   }
   .cal-right {
     border-left: none;

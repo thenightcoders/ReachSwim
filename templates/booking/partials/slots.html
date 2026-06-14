@@ -1,16 +1,18 @@
+{% load payment_tags %}
 <div class="cal-slots">
   <h3 class="cal-slots-date">{{ date|date:"l, j F" }}</h3>
 
   {% for slot in slots %}
   <div class="cal-slot{% if not slot.is_available %} cal-slot--full{% endif %}">
-    <div class="cal-slot-time">
-      {{ slot.start_time|time:"H:i" }} &ndash; {{ slot.end_time|time:"H:i" }}
+    <div class="cal-slot-body">
+      <div class="cal-slot-time">{{ slot.start_time|time:"H:i" }} &ndash; {{ slot.end_time|time:"H:i" }}</div>
+      <div class="cal-slot-meta">
+        <span class="cal-slot-price">{{ slot.price_pence|pence_to_pounds }}</span>
+        {% if slot.max_capacity > 1 %}
+        <span class="cal-slot-spots">&middot; {% if slot.spots_remaining == 1 %}Last spot{% else %}{{ slot.spots_remaining }} left{% endif %}</span>
+        {% endif %}
+      </div>
     </div>
-    {% if slot.max_capacity > 1 %}
-    <div class="cal-slot-spots">
-      {% if slot.spots_remaining == 1 %}1 spot left{% else %}{{ slot.spots_remaining }} spots left{% endif %}
-    </div>
-    {% endif %}
     {% if slot.is_available %}
     <button
       type="button"
@@ -23,9 +25,7 @@
       data-end="{{ slot.end_time|time:'H:i' }}"
       data-price="{{ slot.price_pence }}"
       data-label="{{ session_type.name }} @ {{ location.name }} — {{ slot.date|date:'D j M' }} {{ slot.start_time|time:'H:i' }}"
-    >
-      Book
-    </button>
+    >Book</button>
     {% else %}
     <span class="cal-slot-full">Full</span>
     {% endif %}
