@@ -60,3 +60,5 @@ Thumbs.db
 .continue
 .junie
 skills-lock.json
+# Local architecture/design docs
+ADR-*.md
