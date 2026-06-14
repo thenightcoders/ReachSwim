@@ -1,4 +1,4 @@
-{% load pages_tags %}
+{% load payment_tags %}
 
 <div class="cal-panel">
 
@@ -23,7 +23,7 @@
         </option>
         {% endfor %}
       </select>
-      <span class="cal-price">&pound;{{ price_pence|pence_to_pounds }} per session</span>
+      <span class="cal-price">{{ price_pence|pence_to_pounds }} per session</span>
     </div>
 
     <!-- Month navigation -->

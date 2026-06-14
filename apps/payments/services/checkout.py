@@ -15,7 +15,6 @@ import logging
 import time
 from typing import Optional
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models import F
 
@@ -43,12 +42,41 @@ def _get_provider():
 
 
 def _get_shipping(request) -> int:
-    """Calculate shipping for the current cart."""
+    """
+    Calculate shipping for the current cart.
+
+    Per-product overrides take precedence over the global ShopSettings rate.
+    If any product in the cart has shipping_override_pence set, the highest
+    override value is used (covers the most expensive item to ship).
+    Falls back to ShopSettings.shipping_rate_pence when no overrides exist.
+    Free-shipping threshold is always checked first.
+    """
     if not has_products(request):
         return 0
-    from apps.shop.models import ShopSettings
+
+    from apps.shop.models import ShopSettings, Product
+
     shop = ShopSettings.load()
-    return shop.shipping_cost(product_total_pence(request))
+    product_total = product_total_pence(request)
+
+    if product_total >= shop.free_shipping_threshold_pence:
+        return 0
+
+    cart = get_cart(request)
+    product_ids = [
+        item["product_id"]
+        for item in cart
+        if item.get("item_type") == ITEM_TYPE_PRODUCT
+    ]
+
+    overrides = list(
+        Product.objects.filter(
+            pk__in=product_ids,
+            shipping_override_pence__isnull=False,
+        ).values_list("shipping_override_pence", flat=True)
+    )
+
+    return max(overrides) if overrides else shop.shipping_rate_pence
 
 
 # ---------------------------------------------------------------------------
@@ -261,42 +289,24 @@ def confirm_order(event: PaymentEvent) -> Optional[Order]:
 
 
 # ---------------------------------------------------------------------------
-# Success-page fallback (like Jetski)
+# Success-page fallback
 # ---------------------------------------------------------------------------
 
 def confirm_from_session_id(session_id: str) -> Optional[Order]:
     """
     Called from the success page when the webhook hasn't fired yet.
-    Verifies with Stripe directly and confirms the order.
+    Delegates to the payment provider to retrieve and verify the session —
+    no direct Stripe SDK imports here, so swapping providers needs no change.
     """
-    if not session_id or session_id.startswith("{"):
-        return None
-
     try:
-        import stripe as _stripe
-        _stripe.api_key = settings.STRIPE_SECRET_KEY
-        session = _stripe.checkout.Session.retrieve(session_id)
-
-        if session.payment_status != "paid":
-            return None
-
-        order_ref = (session.metadata or {}).get("order_reference")
-        if not order_ref:
-            return None
-
-        event = PaymentEvent(
-            order_reference=order_ref,
-            amount_pence=session.amount_total,
-            currency=(session.currency or "gbp").upper(),
-            provider_event_id=f"success_{session.id}",
-            payment_intent_id=session.payment_intent or "",
-            raw_payload={"session_id": session_id},
-        )
-        return confirm_order(event)
-
+        event = _get_provider().retrieve_completed_session(session_id)
     except Exception:
         logger.exception("confirm_from_session_id failed for %s", session_id)
         return None
+
+    if event is None:
+        return None
+    return confirm_order(event)
 
 
 # ---------------------------------------------------------------------------

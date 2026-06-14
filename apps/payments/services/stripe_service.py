@@ -6,7 +6,6 @@ provider-agnostic interface.  No Django ORM.  No booking logic.
 
 Ported from Jetski, adapted for GBP / pence and order_reference.
 """
-from decimal import Decimal
 from typing import Optional
 
 import stripe
@@ -136,11 +135,34 @@ class StripeService(PaymentProviderInterface):
             raw_payload=event,
         )
 
-    # ------------------------------------------------------------------
-    # Utility
-    # ------------------------------------------------------------------
+    def retrieve_completed_session(self, session_id: str) -> Optional[PaymentEvent]:
+        """
+        Retrieve a Checkout session from Stripe and return a PaymentEvent if
+        it has been paid, or None if unpaid / unknown.
 
-    @staticmethod
-    def decimal_to_pence(amount: Decimal) -> int:
-        """Convert a Decimal pound amount to integer pence."""
-        return int(amount * 100)
+        Uses a synthetic provider_event_id so the checkout service can call
+        confirm_order() idempotently (it deduplicates on that field).
+        """
+        if not session_id or session_id.startswith("{"):
+            return None
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+        except stripe.error.StripeError:
+            return None
+
+        if session.payment_status != "paid":
+            return None
+
+        order_ref = (session.metadata or {}).get("order_reference")
+        if not order_ref:
+            return None
+
+        return PaymentEvent(
+            order_reference=order_ref,
+            amount_pence=session.amount_total,
+            currency=(session.currency or "gbp").upper(),
+            provider_event_id=f"success_{session.id}",
+            payment_intent_id=session.payment_intent or "",
+            raw_payload={"session_id": session_id},
+        )
+

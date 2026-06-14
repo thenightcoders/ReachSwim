@@ -1,5 +1,5 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% load pages_tags %}
+{% load payment_tags %}
 
 {% block title %}Overview{% endblock %}
 {% block topbar_title %}Overview{% endblock %}
@@ -18,11 +18,11 @@
   </div>
   <div class="dash-stat-card">
     <span class="dash-stat-card__label">This week's revenue</span>
-    <span class="dash-stat-card__value">&pound;{{ week_revenue|pence_to_pounds }}</span>
+    <span class="dash-stat-card__value">{{ week_revenue|pence_to_pounds }}</span>
   </div>
   <div class="dash-stat-card">
     <span class="dash-stat-card__label">This month's revenue</span>
-    <span class="dash-stat-card__value">&pound;{{ month_revenue|pence_to_pounds }}</span>
+    <span class="dash-stat-card__value">{{ month_revenue|pence_to_pounds }}</span>
   </div>
   <div class="dash-stat-card">
     <span class="dash-stat-card__label">Pending orders</span>

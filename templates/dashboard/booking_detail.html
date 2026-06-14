@@ -1,5 +1,5 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% load pages_tags %}
+{% load payment_tags %}
 
 {% block title %}Booking #{{ booking.pk }}{% endblock %}
 {% block topbar_title %}Booking #{{ booking.pk }}{% endblock %}
@@ -25,7 +25,7 @@
       <dt>Time</dt>
       <dd>{{ booking.start_time|time:"H:i" }} &ndash; {{ booking.end_time|time:"H:i" }}</dd>
       <dt>Price</dt>
-      <dd>&pound;{{ booking.price_pence|pence_to_pounds }}</dd>
+      <dd>{{ booking.amount_pence|pence_to_pounds }}</dd>
     </dl>
   </div>
 

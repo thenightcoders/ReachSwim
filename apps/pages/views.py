@@ -9,7 +9,6 @@ from .models import (
     Testimonial,
     FAQItem,
 )
-from apps.shop.models import Product, ProductCategory, ShopSettings
 
 
 class HomepageView(TemplateView):
@@ -25,10 +24,6 @@ class HomepageView(TemplateView):
         ctx["pillars"] = ApproachPillar.objects.all()
         ctx["testimonials"] = Testimonial.objects.filter(is_active=True)
         ctx["faq_items"] = FAQItem.objects.filter(is_active=True)
-        # Shop section
-        ctx["shop_settings"] = ShopSettings.load()
-        ctx["categories"] = ProductCategory.objects.all()
-        ctx["products"] = Product.objects.filter(
-            is_active=True,
-        ).select_related("category")
+        # Shop section data is injected by {% shop_section %} template tag
+        # (apps/shop/templatetags/shop_tags.py) — pages has no shop dependency.
         return ctx

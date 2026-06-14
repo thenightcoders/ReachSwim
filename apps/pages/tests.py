@@ -20,7 +20,7 @@ from apps.pages.models import SingletonModel, SiteConfig
 # Helpers
 # ---------------------------------------------------------------------------
 
-class _Dummy(SingletonModel):
+class DummySingleton(SingletonModel):
     """
     Minimal concrete SingletonModel for testing the base class behaviour
     without touching real content models.

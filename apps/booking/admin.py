@@ -342,4 +342,5 @@ class BookingAdmin(admin.ModelAdmin):
 
     @admin.display(description="Cancellable?", boolean=True)
     def is_cancellable_display(self, obj):
-        return obj.is_cancellable
+        from apps.booking.services.booking import is_booking_cancellable
+        return is_booking_cancellable(obj)

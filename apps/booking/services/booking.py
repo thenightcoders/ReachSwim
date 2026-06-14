@@ -28,6 +28,11 @@ class BookingValidationError(Exception):
     pass
 
 
+class CancellationWindowError(Exception):
+    """Raised when a cancellation is attempted outside the free-cancellation window."""
+    pass
+
+
 @transaction.atomic
 def create_booking(
     session_type_id: int,
@@ -127,6 +132,53 @@ def cancel_booking(
         send_booking_cancellation(booking)
 
     return booking
+
+
+def is_booking_cancellable(booking: Booking) -> bool:
+    """
+    Return True if the booking is in a state where the client can cancel for free.
+
+    A booking is cancellable when:
+      - status is STATUS_CONFIRMED
+      - session start is still at least cancellation_hours in the future
+
+    Single authoritative implementation — used by admin, views, and any
+    future code that needs to check cancellability without touching the model layer.
+    """
+    if booking.status != Booking.STATUS_CONFIRMED:
+        return False
+    bs = get_booking_settings()
+    session_dt = timezone.make_aware(
+        datetime.datetime.combine(booking.date, booking.start_time)
+    )
+    cutoff = session_dt - datetime.timedelta(hours=bs.cancellation_hours)
+    return timezone.now() < cutoff
+
+
+def cancel_booking_for_client(booking: Booking, client_email: str) -> Booking:
+    """
+    Cancel a booking on behalf of a client, enforcing ownership and the
+    cancellation window.
+
+    Raises:
+        PermissionError        — client_email doesn't match booking owner.
+        ValueError             — booking is not in a cancellable status.
+        CancellationWindowError — outside the free-cancellation window.
+    """
+    if booking.client_email.lower() != client_email.lower():
+        raise PermissionError("You don't have permission to cancel this booking.")
+
+    if booking.status not in (Booking.STATUS_PENDING, Booking.STATUS_CONFIRMED):
+        raise ValueError("This booking cannot be cancelled.")
+
+    if not is_booking_cancellable(booking):
+        bs = get_booking_settings()
+        raise CancellationWindowError(
+            f"Bookings can only be cancelled at least {bs.cancellation_hours} "
+            f"hours before the session."
+        )
+
+    return cancel_booking(booking, reason="Cancelled by client via profile.")
 
 
 def complete_booking(booking: Booking) -> Booking:

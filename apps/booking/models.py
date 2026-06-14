@@ -351,20 +351,6 @@ class Booking(models.Model):
         )
 
     @property
-    def is_cancellable(self):
-        """Can the client still cancel for free?"""
-        if self.status != self.STATUS_CONFIRMED:
-            return False
-        from apps.booking.services.availability import get_booking_settings
-        settings = get_booking_settings()
-        from datetime import datetime, timedelta
-        session_dt = timezone.make_aware(
-            datetime.combine(self.date, self.start_time)
-        )
-        cutoff = session_dt - timedelta(hours=settings.cancellation_hours)
-        return timezone.now() < cutoff
-
-    @property
     def amount_display(self):
         pounds = self.amount_pence / 100
         return f"£{pounds:.2f}"
@@ -391,22 +377,43 @@ class Booking(models.Model):
         )
         return cls.objects.annotate(spots_taken_count=Subquery(taken))
 
+    @classmethod
+    def count_for_slot(
+        cls,
+        session_type_id: int,
+        location_id: int,
+        date,
+        start_time,
+    ) -> int:
+        """Count non-cancelled bookings for a given (session_type, location, date, time) tuple.
+
+        Single authoritative implementation — used by spots_taken and the
+        availability service so the query logic lives in exactly one place.
+        """
+        return (
+            cls.objects
+            .filter(
+                session_type_id=session_type_id,
+                location_id=location_id,
+                date=date,
+                start_time=start_time,
+            )
+            .exclude(status=cls.STATUS_CANCELLED)
+            .count()
+        )
+
     @property
     def spots_taken(self):
         """
         How many non-cancelled bookings exist for the same slot.
         If the queryset was built with with_spots_taken(), reads the annotation
-        from __dict__ (zero extra queries).  Falls back to a DB COUNT otherwise.
+        from __dict__ (zero extra queries).  Falls back to count_for_slot otherwise.
         """
         if "spots_taken_count" in self.__dict__:
             return self.__dict__["spots_taken_count"]
-        return (
-            Booking.objects.filter(
-                session_type=self.session_type,
-                location=self.location,
-                date=self.date,
-                start_time=self.start_time,
-            )
-            .exclude(status=self.STATUS_CANCELLED)
-            .count()
+        return Booking.count_for_slot(
+            self.session_type_id,
+            self.location_id,
+            self.date,
+            self.start_time,
         )

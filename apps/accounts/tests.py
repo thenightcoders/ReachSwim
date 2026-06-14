@@ -1,13 +1,68 @@
 """
-Tests for apps/accounts/views.py
-
-Fix 6 — LogoutSecurityTest:
-  logout_view must be POST-only.  A GET request (e.g. an <img> tag on a
-  third-party page) must NOT log the user out.
+Tests for apps/accounts — views, managers, email validation.
 """
+import importlib
+import sys
+import types
+from unittest.mock import MagicMock, patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+
+# ---------------------------------------------------------------------------
+# Stub out py3-validate-email so tests run even when the package isn't installed.
+# If it IS installed, sys.modules already has the real thing — we skip injection.
+# ---------------------------------------------------------------------------
+if importlib.util.find_spec("validate_email") is None:
+    _stub_ve = types.ModuleType("validate_email")
+    _stub_exc = types.ModuleType("validate_email.exceptions")
+
+    class _Base(Exception):
+        pass
+
+    class AddressFormatError(_Base):
+        pass
+
+    class DomainBlacklistedError(_Base):
+        pass
+
+    class EmailValidationError(_Base):
+        pass
+
+    class DNSError(EmailValidationError):
+        pass
+
+    class DomainNotFoundError(DNSError):
+        pass
+
+    class NoMXError(DNSError):
+        pass
+
+    class SMTPError(EmailValidationError):
+        pass
+
+    class AddressNotDeliverableError(SMTPError):
+        pass
+
+    class SMTPTemporaryError(SMTPError):
+        pass
+
+    for _cls in (
+        AddressFormatError, DomainBlacklistedError, EmailValidationError,
+        DNSError, DomainNotFoundError, NoMXError,
+        SMTPError, AddressNotDeliverableError, SMTPTemporaryError,
+    ):
+        setattr(_stub_exc, _cls.__name__, _cls)
+
+    _stub_ve.validate_email_or_fail = MagicMock(return_value=None)
+    _stub_ve.validate_email = MagicMock(return_value=True)
+    _stub_ve.exceptions = _stub_exc
+
+    sys.modules["validate_email"] = _stub_ve
+    sys.modules["validate_email.exceptions"] = _stub_exc
+
+from apps.accounts.email_validator import EmailCheckResult, validate_email_address  # noqa: E402
 
 User = get_user_model()
 
@@ -280,3 +335,228 @@ class ProfileViewTest(TestCase):
 
         self.assertIn("bookings", response.context)
         self.assertEqual(response.context["bookings"].count(), 1)
+
+
+# ---------------------------------------------------------------------------
+# Email whitespace — UserManager
+# ---------------------------------------------------------------------------
+
+class UserManagerNormalizationTest(TestCase):
+    """
+    Manager._create_user must strip whitespace before storing the email.
+    Bug: ' user@example.com ' would pass the unique constraint (different
+    string) but then fail login because the login form strips its input.
+    """
+
+    def test_leading_trailing_spaces_are_stripped(self):
+        user = User.objects.create_user(
+            email="  stripped@example.com  ",
+            password="pass",
+            full_name="Space Test",
+        )
+        self.assertEqual(user.email, "stripped@example.com")
+
+    def test_tabs_and_newlines_are_stripped(self):
+        user = User.objects.create_user(
+            email="\tleading@example.com\n",
+            password="pass",
+            full_name="Tab Test",
+        )
+        self.assertEqual(user.email, "leading@example.com")
+
+    def test_user_created_with_spaces_can_log_in(self):
+        """
+        Historical bug: register with padded email → login fails.
+        After the fix, stored email is clean so the login lookup succeeds.
+        """
+        User.objects.create_user(
+            email="  login@example.com  ",
+            password="supersecure1",
+            full_name="Login Test",
+        )
+        logged_in = self.client.login(
+            username="login@example.com", password="supersecure1",
+        )
+        self.assertTrue(logged_in, "User created with padded email could not log in")
+
+    def test_duplicate_detection_works_after_stripping(self):
+        """Creating the same email with and without spaces must hit the unique constraint."""
+        User.objects.create_user(
+            email="dupe@example.com", password="pass", full_name="First",
+        )
+        with self.assertRaises(Exception):  # IntegrityError / ValidationError
+            User.objects.create_user(
+                email="  dupe@example.com  ", password="pass", full_name="Second",
+            )
+
+    def test_normalize_email_lowercases_domain(self):
+        """Django's normalize_email lowercases the domain part — confirm it's still applied."""
+        user = User.objects.create_user(
+            email="User@EXAMPLE.COM", password="pass", full_name="Case Test",
+        )
+        self.assertEqual(user.email, "User@example.com")
+
+
+# ---------------------------------------------------------------------------
+# email_validator module
+# ---------------------------------------------------------------------------
+
+class EmailValidatorModuleTest(TestCase):
+    """
+    Unit tests for apps.accounts.email_validator.validate_email_address().
+
+    Mocks validate_email_or_fail at the module level so these run whether
+    or not py3-validate-email is installed.
+    """
+
+    def _ve_or_fail(self):
+        """Return the name to patch — always the one bound in our module."""
+        return "apps.accounts.email_validator.validate_email_or_fail"
+
+    def _exc(self, name: str):
+        """Retrieve an exception class from whichever validate_email.exceptions is loaded."""
+        return getattr(sys.modules["validate_email.exceptions"], name)
+
+    # --- happy path ---
+
+    def test_valid_email_returns_true(self):
+        with patch(self._ve_or_fail(), return_value=None):
+            result = validate_email_address("good@example.com")
+        self.assertTrue(result.valid)
+        self.assertIsNone(result.reason)
+
+    def test_result_is_truthy_when_valid(self):
+        with patch(self._ve_or_fail(), return_value=None):
+            result = validate_email_address("good@example.com")
+        self.assertTrue(bool(result))
+
+    # --- format errors ---
+
+    def test_bad_format_returns_friendly_message(self):
+        with patch(self._ve_or_fail(), side_effect=self._exc("AddressFormatError")()):
+            result = validate_email_address("notanemail")
+        self.assertFalse(result.valid)
+        self.assertIn("valid email", result.reason)
+
+    def test_result_is_falsy_when_invalid(self):
+        with patch(self._ve_or_fail(), side_effect=self._exc("AddressFormatError")()):
+            result = validate_email_address("notanemail")
+        self.assertFalse(bool(result))
+
+    # --- blacklist ---
+
+    def test_disposable_domain_returns_friendly_message(self):
+        with patch(self._ve_or_fail(), side_effect=self._exc("DomainBlacklistedError")()):
+            result = validate_email_address("user@mailnull.com")
+        self.assertFalse(result.valid)
+        self.assertIn("Disposable", result.reason)
+
+    # --- DNS errors ---
+
+    def test_domain_not_found_maps_to_friendly_message(self):
+        with patch(self._ve_or_fail(), side_effect=self._exc("DomainNotFoundError")()):
+            result = validate_email_address("user@totallyfake123456.xyz", check_dns=True)
+        self.assertFalse(result.valid)
+        self.assertIn("doesn't exist", result.reason)
+
+    def test_no_mx_maps_to_friendly_message(self):
+        with patch(self._ve_or_fail(), side_effect=self._exc("NoMXError")()):
+            result = validate_email_address("user@nomx.example", check_dns=True)
+        self.assertFalse(result.valid)
+        self.assertIn("MX", result.reason)
+
+    # --- checks tracking ---
+
+    def test_default_checks_are_format_and_blacklist(self):
+        with patch(self._ve_or_fail(), return_value=None):
+            result = validate_email_address("good@example.com")
+        self.assertEqual(result.checks, ["format", "blacklist"])
+
+    def test_dns_check_appears_in_checks_list_when_enabled(self):
+        with patch(self._ve_or_fail(), return_value=None):
+            result = validate_email_address("good@example.com", check_dns=True)
+        self.assertIn("dns", result.checks)
+
+
+# ---------------------------------------------------------------------------
+# Email validation wired into RegisterForm
+# ---------------------------------------------------------------------------
+
+class RegisterFormValidationTest(TestCase):
+    """
+    The registration form must reject disposable addresses and bad formats
+    via validate_email_address, and must always strip whitespace from input.
+    """
+
+    BASE_DATA = {
+        "full_name": "New Swimmer",
+        "phone": "",
+        "password": "strongpass1",
+        "password_confirm": "strongpass1",
+    }
+
+    def _post(self, email, **extra):
+        return self.client.post(
+            reverse("accounts:register"),
+            {**self.BASE_DATA, "email": email, **extra},
+        )
+
+    # --- whitespace ---
+
+    def test_form_strips_whitespace_from_email(self):
+        """Django's EmailField strips before clean_email is called."""
+        with patch(
+            "apps.accounts.forms.validate_email_address",
+            return_value=EmailCheckResult(valid=True),
+        ):
+            self._post("  padded@example.com  ")
+        # If no error, the user should be stored with the clean address
+        self.assertTrue(User.objects.filter(email="padded@example.com").exists())
+
+    # --- disposable domain ---
+
+    def test_disposable_email_is_rejected_by_form(self):
+        with patch(
+            "apps.accounts.forms.validate_email_address",
+            return_value=EmailCheckResult(
+                valid=False,
+                reason="Disposable or temporary email addresses are not accepted.",
+            ),
+        ) as mock_val:
+            response = self._post("user@mailnull.com")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(email="user@mailnull.com").exists())
+        mock_val.assert_called_once_with("user@mailnull.com")
+
+    # --- bad format ---
+
+    def test_bad_format_email_is_rejected_by_form(self):
+        with patch(
+            "apps.accounts.forms.validate_email_address",
+            return_value=EmailCheckResult(
+                valid=False,
+                reason="Enter a valid email address.",
+            ),
+        ):
+            response = self._post("notanemail@")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(email="notanemail@").exists())
+
+    # --- error message surfaced in response ---
+
+    def test_validation_error_reason_appears_in_response(self):
+        with patch(
+            "apps.accounts.forms.validate_email_address",
+            return_value=EmailCheckResult(
+                valid=False,
+                reason="Disposable or temporary email addresses are not accepted.",
+            ),
+        ):
+            response = self._post("user@throwam.com")
+
+        self.assertContains(
+            response,
+            "Disposable or temporary email addresses are not accepted.",
+        )

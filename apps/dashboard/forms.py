@@ -61,6 +61,77 @@ class UserForm(forms.ModelForm):
             'is_active': forms.CheckboxInput(attrs={'class': 'dash-checkbox'}),
         }
 
+from apps.shop.models import Product
+from decimal import Decimal
+
+class ProductForm(forms.ModelForm):
+    """
+    Non-technical product form.
+    - price is entered in pounds (£), converted to pence on save
+    - slug, photo_class, order are advanced fields (hidden by default in the template)
+    """
+    price = forms.DecimalField(
+        label="Price",
+        min_value=Decimal("0"),
+        decimal_places=2,
+        max_digits=8,
+        widget=forms.NumberInput(attrs={
+            'class': 'dash-input',
+            'step': '0.01',
+            'placeholder': '0.00',
+            'min': '0',
+        }),
+    )
+    shipping = forms.DecimalField(
+        label="Custom shipping (£)",
+        required=False,
+        min_value=Decimal("0"),
+        decimal_places=2,
+        max_digits=8,
+        widget=forms.NumberInput(attrs={
+            'class': 'dash-input',
+            'step': '0.01',
+            'placeholder': 'Leave blank to use shop default',
+            'min': '0',
+        }),
+    )
+
+    class Meta:
+        model = Product
+        fields = ['name', 'slug', 'category', 'description', 'color',
+                  'image', 'stock', 'is_active', 'photo_class', 'order']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'dash-input', 'placeholder': 'e.g. Classic Silicone Cap'}),
+            'slug': forms.TextInput(attrs={'class': 'dash-input'}),
+            'category': forms.Select(attrs={'class': 'dash-input dash-input--select'}),
+            'description': forms.Textarea(attrs={'class': 'dash-textarea', 'rows': 3, 'placeholder': 'Short description shown on the product card.'}),
+            'color': forms.TextInput(attrs={'class': 'dash-input', 'placeholder': 'e.g. Reef Blue'}),
+            'image': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+            'stock': forms.NumberInput(attrs={'class': 'dash-input', 'min': '0'}),
+            'is_active': forms.CheckboxInput(),
+            'photo_class': forms.TextInput(attrs={'class': 'dash-input', 'placeholder': 'e.g. photo--tile'}),
+            'order': forms.NumberInput(attrs={'class': 'dash-input', 'min': '0'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            if self.instance.price_pence:
+                self.fields['price'].initial = Decimal(self.instance.price_pence) / 100
+            if self.instance.shipping_override_pence is not None:
+                self.fields['shipping'].initial = Decimal(self.instance.shipping_override_pence) / 100
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        price = self.cleaned_data.get('price')
+        if price is not None:
+            instance.price_pence = int(price * 100)
+        shipping = self.cleaned_data.get('shipping')
+        instance.shipping_override_pence = int(shipping * 100) if shipping is not None else None
+        if commit:
+            instance.save()
+        return instance
+
 from apps.booking.models import Booking
 
 class BookingForm(forms.ModelForm):

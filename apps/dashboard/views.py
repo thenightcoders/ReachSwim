@@ -105,24 +105,25 @@ def bookings(request):
 def booking_detail(request, pk):
     """View a single booking with edit capability."""
     from apps.booking.models import Booking
+    from apps.booking.services.booking import (
+        confirm_booking,
+        cancel_booking,
+        complete_booking,
+    )
 
     booking = get_object_or_404(Booking, pk=pk)
 
     if request.method == "POST":
         action = request.POST.get("action")
-        if action == "confirm" and booking.status == "pending":
-            booking.status = Booking.STATUS_CONFIRMED
-            booking.save(update_fields=["status", "updated_at"])
-        elif action == "cancel" and booking.status in ("pending", "confirmed"):
-            booking.status = Booking.STATUS_CANCELLED
-            booking.cancelled_at = timezone.now()
-            booking.cancellation_reason = request.POST.get("reason", "")
-            booking.save(update_fields=[
-                "status", "cancelled_at", "cancellation_reason", "updated_at",
-            ])
-        elif action == "complete" and booking.status == "confirmed":
-            booking.status = Booking.STATUS_COMPLETED
-            booking.save(update_fields=["status", "updated_at"])
+        if action == "confirm" and booking.status == Booking.STATUS_PENDING:
+            confirm_booking(booking)
+        elif action == "cancel" and booking.status in (
+            Booking.STATUS_PENDING, Booking.STATUS_CONFIRMED
+        ):
+            reason = request.POST.get("reason", "")
+            cancel_booking(booking, reason=reason)
+        elif action == "complete" and booking.status == Booking.STATUS_CONFIRMED:
+            complete_booking(booking)
         elif action == "save_notes":
             booking.notes = request.POST.get("notes", "")
             booking.save(update_fields=["notes", "updated_at"])
@@ -227,6 +228,85 @@ def product_update_stock(request, pk):
     return redirect("dashboard:products")
 
 
+def _resolve_category(post_data):
+    """
+    Resolve category_name text input → ProductCategory pk.
+    Matches case-insensitively; creates a new category if no match found.
+    """
+    from apps.shop.models import ProductCategory
+    from django.utils.text import slugify
+
+    data = post_data.copy()
+    name = data.get("category_name", "").strip()
+    if name:
+        cat = ProductCategory.objects.filter(name__iexact=name).first()
+        if not cat:
+            base = slugify(name) or "category"
+            slug, n = base, 1
+            while ProductCategory.objects.filter(slug=slug).exists():
+                slug = f"{base}-{n}"
+                n += 1
+            cat = ProductCategory.objects.create(name=name, slug=slug)
+        data["category"] = str(cat.pk)
+    return data
+
+
+def _product_form_context(extra=None):
+    from apps.shop.models import ProductCategory
+    ctx = {"all_categories": ProductCategory.objects.order_by("name")}
+    if extra:
+        ctx.update(extra)
+    return ctx
+
+
+@owner_required
+def product_create(request):
+    from .forms import ProductForm
+    if request.method == "POST":
+        form = ProductForm(_resolve_category(request.POST), request.FILES)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:products")
+    else:
+        form = ProductForm()
+    return render(request, "dashboard/products/form.html", _product_form_context({
+        "form": form,
+        "section": "products",
+        "action": "Create",
+    }))
+
+
+@owner_required
+def product_edit(request, pk):
+    from apps.shop.models import Product
+    from .forms import ProductForm
+    product = get_object_or_404(Product, pk=pk)
+    if request.method == "POST":
+        form = ProductForm(_resolve_category(request.POST), request.FILES, instance=product)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:products")
+    else:
+        form = ProductForm(instance=product)
+    return render(request, "dashboard/products/form.html", _product_form_context({
+        "form": form,
+        "product": product,
+        "current_category_name": product.category.name if product.category_id else "",
+        "section": "products",
+        "action": "Edit",
+    }))
+
+
+@owner_required
+@require_POST
+def product_delete(request, pk):
+    """Delete a product."""
+    from apps.shop.models import Product
+    product = get_object_or_404(Product, pk=pk)
+    product.delete()
+    return redirect("dashboard:products")
+
+
 @owner_required
 @require_POST
 def product_toggle_active(request, pk):
@@ -246,12 +326,13 @@ def product_toggle_active(request, pk):
 @owner_required
 def settings_view(request):
     """Edit site settings, hero, shop settings — all singletons in one page."""
-    from apps.pages.models import SiteConfig, HeroSection
+    from apps.pages.models import SiteConfig, HeroSection, ApproachSection
     from apps.booking.models import BookingSettings
     from apps.shop.models import ShopSettings
 
     site = SiteConfig.load()
     hero = HeroSection.load()
+    approach = ApproachSection.load()
     booking_settings = BookingSettings.load()
     shop_settings = ShopSettings.load()
 
@@ -291,16 +372,28 @@ def settings_view(request):
                         pass
             booking_settings.save()
 
+        elif section == "approach":
+            for field in ["kicker", "headline", "headline_accent", "body"]:
+                if field in request.POST:
+                    setattr(approach, field, request.POST[field])
+            approach.save()
+
         elif section == "shop":
             for field in ["kicker", "heading", "heading_emphasis",
                           "subheading", "free_shipping_note"]:
                 if field in request.POST:
                     setattr(shop_settings, field, request.POST[field])
-            for int_field in ["free_shipping_threshold_pence", "shipping_rate_pence"]:
-                if int_field in request.POST:
+            # £ decimal inputs → pence integers
+            from decimal import Decimal as _D, InvalidOperation
+            for input_name, model_attr in [
+                ("free_shipping_threshold", "free_shipping_threshold_pence"),
+                ("shipping_rate", "shipping_rate_pence"),
+            ]:
+                raw = request.POST.get(input_name, "").strip()
+                if raw:
                     try:
-                        setattr(shop_settings, int_field, int(request.POST[int_field]))
-                    except ValueError:
+                        setattr(shop_settings, model_attr, int(_D(raw) * 100))
+                    except (ValueError, InvalidOperation):
                         pass
             shop_settings.save()
 
@@ -309,6 +402,7 @@ def settings_view(request):
     return render(request, "dashboard/settings.html", {
         "site": site,
         "hero": hero,
+        "approach": approach,
         "booking_settings": booking_settings,
         "shop_settings": shop_settings,
         "section": "settings",

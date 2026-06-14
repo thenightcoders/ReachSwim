@@ -37,9 +37,9 @@
             <div style="color: var(--dash-text-muted); font-size: 0.8rem;">{{ u.email }}</div>
           </td>
           <td>
-            {% if u.is_owner %}
+            {% if u.role == "owner" %}
             <span class="dash-badge dash-badge--completed" style="background: rgba(139, 92, 246, 0.15); color: #7c3aed;">Owner</span>
-            {% elif u.is_staff %}
+            {% elif u.role == "staff" %}
             <span class="dash-badge dash-badge--completed" style="background: rgba(59, 130, 246, 0.15); color: #2563eb;">Staff</span>
             {% else %}
             <span class="dash-badge dash-badge--completed" style="background: rgba(100, 116, 139, 0.15); color: #475569;">Client</span>

@@ -1,5 +1,5 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% load pages_tags %}
+{% load payment_tags %}
 
 {% block title %}Orders{% endblock %}
 {% block topbar_title %}Orders{% endblock %}
@@ -48,7 +48,7 @@
             </span>
           {% endfor %}
         </td>
-        <td>&pound;{{ o.total_pence|pence_to_pounds }}</td>
+        <td>{{ o.total_pence|pence_to_pounds }}</td>
         <td><span class="dash-badge dash-badge--{{ o.status }}">{{ o.get_status_display }}</span></td>
       </tr>
       {% endfor %}

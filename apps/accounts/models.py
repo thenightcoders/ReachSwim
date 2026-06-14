@@ -63,14 +63,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.full_name.split()[0] if self.full_name else ""
 
     @property
-    def is_owner(self):
-        return self.role == self.ROLE_OWNER
-
-    @property
-    def is_client(self):
-        return self.role == self.ROLE_CLIENT
-
-    @property
     def can_access_dashboard(self):
         """Owner and staff can access the dashboard."""
         return self.role in (self.ROLE_OWNER, self.ROLE_STAFF)

@@ -77,6 +77,14 @@ class Product(models.Model):
         default=0,
         help_text="Display order within category.",
     )
+    shipping_override_pence = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Optional per-product shipping rate in pence. "
+            "Overrides the global shop rate when set. Leave blank to use shop default."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

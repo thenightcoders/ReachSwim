@@ -10,7 +10,10 @@ class UserManager(BaseUserManager):
     def _create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError("Email is required.")
-        email = self.normalize_email(email)
+        # Strip whitespace before normalization — without this, ' user@example.com '
+        # registers successfully (unique constraint passes) but can never be logged
+        # into because login strips and the stored value doesn't match.
+        email = self.normalize_email(email.strip())
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)

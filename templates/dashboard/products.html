@@ -1,61 +1,256 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% load pages_tags %}
+{% load payment_tags %}
 
 {% block title %}Products{% endblock %}
 {% block topbar_title %}Products{% endblock %}
 
+{% block extra_css %}
+<style>
+  .prod-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+    flex-shrink: 0;
+    border: 1px solid var(--dash-border);
+  }
+  .prod-thumb-placeholder {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: rgba(59,130,246,0.4);
+    background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+    border: 1px solid var(--dash-border);
+    flex-shrink: 0;
+  }
+  .prod-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .prod-name-cell__text { min-width: 0; }
+  .prod-name-cell__name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--dash-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .prod-name-cell__variant {
+    font-size: 0.78rem;
+    color: var(--dash-text-muted);
+    margin-top: 1px;
+  }
+  .prod-stock-form {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .prod-stock-input {
+    width: 56px;
+    padding: 0.28rem 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid var(--dash-border);
+    border-radius: 6px;
+    background: var(--dash-bg);
+    color: var(--dash-text);
+    transition: border-color 0.15s;
+  }
+  .prod-stock-input:focus {
+    outline: none;
+    border-color: var(--dash-accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  }
+  .prod-stock-save {
+    padding: 0.28rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid var(--dash-border);
+    border-radius: 6px;
+    background: var(--dash-card-bg);
+    color: var(--dash-text-muted);
+    cursor: not-allowed;
+    opacity: 0.45;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+  }
+  .prod-stock-save.is-dirty {
+    opacity: 1;
+    cursor: pointer;
+    background: var(--dash-accent);
+    border-color: var(--dash-accent);
+    color: #fff;
+  }
+  .prod-stock-save.is-dirty:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+  }
+  .prod-stock-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+  }
+  .prod-stock-badge--ok   { background: var(--dash-success-light); color: var(--dash-success); }
+  .prod-stock-badge--low  { background: var(--dash-warn-light); color: #b45309; }
+  .prod-stock-badge--out  { background: var(--dash-danger-light); color: var(--dash-danger); }
+
+  .prod-toggle-btn {
+    padding: 0.28rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .prod-toggle-btn--active {
+    background: var(--dash-success-light);
+    color: var(--dash-success);
+    border-color: rgba(22,163,74,0.2);
+  }
+  .prod-toggle-btn--active:hover {
+    background: var(--dash-danger-light);
+    color: var(--dash-danger);
+    border-color: rgba(220,38,38,0.2);
+  }
+  .prod-toggle-btn--hidden {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border-color: var(--dash-border);
+  }
+  .prod-toggle-btn--hidden:hover {
+    background: var(--dash-success-light);
+    color: var(--dash-success);
+    border-color: rgba(22,163,74,0.2);
+  }
+
+  tr.prod-row--inactive td {
+    opacity: 0.55;
+  }
+  tr.prod-row--inactive .prod-toggle-btn {
+    opacity: 1;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="dash-header">
-  <h1 class="dash-heading">Products</h1>
+  <div>
+    <h1 class="dash-heading">Products</h1>
+    <p class="dash-subheading">Manage shop inventory and stock levels.</p>
+  </div>
+  <a href="{% url 'dashboard:product_create' %}" class="dash-btn dash-btn--primary">+ Add product</a>
 </div>
 
-{% if products %}
-<div class="dash-table-wrap">
-  <table class="dash-table">
-    <thead>
-      <tr>
-        <th>Product</th>
-        <th>Category</th>
-        <th>Price</th>
-        <th>Stock</th>
-        <th>Active</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for p in products %}
-      <tr>
-        <td>
-          <strong>{{ p.name }}</strong>
-          {% if p.color %}<br><small class="dash-text--muted">{{ p.color }}</small>{% endif %}
-        </td>
-        <td>{{ p.category.name|default:"—" }}</td>
-        <td>&pound;{{ p.price_pence|pence_to_pounds }}</td>
-        <td>
-          <form method="post" action="{% url 'dashboard:product_update_stock' p.pk %}" class="dash-inline-form">
-            {% csrf_token %}
-            <input type="number" name="stock" value="{{ p.stock }}" min="0"
-                   class="dash-input dash-input--tiny">
-            <button class="dash-btn dash-btn--sm">Update</button>
-          </form>
-        </td>
-        <td>
-          <form method="post" action="{% url 'dashboard:product_toggle_active' p.pk %}">
-            {% csrf_token %}
-            <button class="dash-btn dash-btn--sm {% if p.is_active %}dash-btn--success{% else %}dash-btn--ghost{% endif %}">
-              {{ p.is_active|yesno:"Active,Inactive" }}
-            </button>
-          </form>
-        </td>
-        <td>
-          <a href="{% url 'admin:shop_product_change' p.pk %}" class="dash-link dash-link--sm">Edit in admin</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="dash-section">
+  {% if products %}
+  <div class="dash-table-wrap">
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Category</th>
+          <th>Price</th>
+          <th>Stock</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr class="{% if not p.is_active %}prod-row--inactive{% endif %}">
+
+          <!-- Name + thumbnail -->
+          <td>
+            <div class="prod-name-cell">
+              {% if p.image %}
+                <img src="{{ p.image.url }}" alt="{{ p.name }}" class="prod-thumb">
+              {% else %}
+                <div class="prod-thumb-placeholder">{{ p.name|first|upper }}</div>
+              {% endif %}
+              <div class="prod-name-cell__text">
+                <div class="prod-name-cell__name">{{ p.name }}</div>
+                {% if p.color %}<div class="prod-name-cell__variant">{{ p.color }}</div>{% endif %}
+              </div>
+            </div>
+          </td>
+
+          <!-- Category -->
+          <td>
+            <span class="dash-badge" style="background: var(--dash-accent-light); color: var(--dash-accent);">{{ p.category.name }}</span>
+          </td>
+
+          <!-- Price -->
+          <td style="font-weight: 600; font-size: 0.9rem;">{{ p.price_pence|pence_to_pounds }}</td>
+
+          <!-- Stock inline -->
+          <td>
+            <form method="post" action="{% url 'dashboard:product_update_stock' p.pk %}" class="prod-stock-form">
+              {% csrf_token %}
+              <input type="number" name="stock" value="{{ p.stock }}" min="0" class="prod-stock-input" data-original="{{ p.stock }}">
+              <button type="submit" class="prod-stock-save" disabled>Save</button>
+              <span class="prod-stock-badge {% if p.stock == 0 %}prod-stock-badge--out{% elif p.stock <= 3 %}prod-stock-badge--low{% else %}prod-stock-badge--ok{% endif %}">
+                {% if p.stock == 0 %}Out{% elif p.stock <= 3 %}Low{% else %}OK{% endif %}
+              </span>
+            </form>
+          </td>
+
+          <!-- Status toggle -->
+          <td>
+            <form method="post" action="{% url 'dashboard:product_toggle_active' p.pk %}" style="display:contents">
+              {% csrf_token %}
+              <button type="submit" class="prod-toggle-btn {% if p.is_active %}prod-toggle-btn--active{% else %}prod-toggle-btn--hidden{% endif %}"
+                      title="{{ p.is_active|yesno:'Click to hide,Click to show' }}">
+                {{ p.is_active|yesno:"Active,Hidden" }}
+              </button>
+            </form>
+          </td>
+
+          <!-- Actions -->
+          <td>
+            <a href="{% url 'dashboard:product_edit' p.pk %}" class="dash-btn dash-btn--sm dash-btn--ghost">Edit</a>
+            <form method="post" action="{% url 'dashboard:product_delete' p.pk %}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Delete {{ p.name }}? This cannot be undone.')">
+              {% csrf_token %}
+              <button type="submit" class="dash-btn dash-btn--sm dash-btn--ghost" style="color: var(--dash-danger);">Delete</button>
+            </form>
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="dash-empty">
+    No products yet.
+    <a href="{% url 'dashboard:product_create' %}" class="dash-link" style="color:var(--dash-accent);font-weight:600;">Add your first product →</a>
+  </div>
+  {% endif %}
 </div>
-{% else %}
-<p class="dash-empty">No products yet. Add them in the Django admin.</p>
-{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.prod-stock-input').forEach(input => {
+  const btn = input.closest('form').querySelector('.prod-stock-save');
+
+  input.addEventListener('input', () => {
+    const changed = input.value !== input.dataset.original;
+    btn.disabled = !changed;
+    btn.classList.toggle('is-dirty', changed);
+  });
+});
+</script>
 {% endblock %}

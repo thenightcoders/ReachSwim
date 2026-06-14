@@ -11,3 +11,12 @@ def pence_to_pounds(value):
         return f"£{int(value) / 100:.2f}"
     except (TypeError, ValueError):
         return "£0.00"
+
+
+@register.filter
+def pence_to_decimal(value):
+    """Convert pence (int) to X.XX string (no £ sign). For use in input values."""
+    try:
+        return f"{int(value) / 100:.2f}"
+    except (TypeError, ValueError):
+        return "0.00"

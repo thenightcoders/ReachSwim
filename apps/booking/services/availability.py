@@ -55,23 +55,6 @@ def get_booking_settings() -> BookingSettings:
     return BookingSettings.load()
 
 
-def _booking_count(
-    session_type_id: int,
-    location_id: int,
-    date: datetime.date,
-    start_time: datetime.time,
-) -> int:
-    """Count non-cancelled bookings for a specific slot."""
-    return Booking.objects.filter(
-        session_type_id=session_type_id,
-        location_id=location_id,
-        date=date,
-        start_time=start_time,
-    ).exclude(
-        status=Booking.STATUS_CANCELLED,
-    ).count()
-
-
 def _get_price(session_type_id: int, location_id: int) -> int:
     """Look up the price in pence for a session type at a location."""
     try:
@@ -163,7 +146,7 @@ def get_slots_for_date(
         if slot_dt <= cutoff:
             continue
 
-        taken = _booking_count(
+        taken = Booking.count_for_slot(
             session_type.id, location.id, date, sched.start_time,
         )
 

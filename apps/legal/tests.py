@@ -122,7 +122,7 @@ class LegalPageViewTest(TestCase):
             content="<p>Your data is safe.</p>",
             is_active=True,
         )
-        response = self.client.get(f"/legal/{page.slug}/")
+        response = self.client.get(reverse("legal:page", kwargs={"slug": page.slug}))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Privacy Policy")
 
@@ -133,11 +133,11 @@ class LegalPageViewTest(TestCase):
             content="Not published.",
             is_active=False,
         )
-        response = self.client.get("/legal/draft-page/")
+        response = self.client.get(reverse("legal:page", kwargs={"slug": "draft-page"}))
         self.assertEqual(response.status_code, 404)
 
     def test_unknown_slug_returns_404(self):
-        response = self.client.get("/legal/does-not-exist/")
+        response = self.client.get(reverse("legal:page", kwargs={"slug": "does-not-exist"}))
         self.assertEqual(response.status_code, 404)
 
 

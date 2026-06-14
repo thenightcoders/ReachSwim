@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static shop_tags %}
 
 {% block content %}
 <section class="hero">
@@ -121,7 +121,7 @@
   </div>
 </section>
 
-{% include "shop/partials/shop_section.html" %}
+{% shop_section %}
 
 <section class="section">
   <div class="container">

@@ -4,6 +4,7 @@ Authentication forms — login, registration, profile editing.
 from django import forms
 from django.contrib.auth import authenticate
 
+from .email_validator import validate_email_address
 from .models import User
 
 
@@ -86,7 +87,11 @@ class RegisterForm(forms.ModelForm):
         }
 
     def clean_email(self):
-        return self.cleaned_data["email"].strip().lower()
+        email = self.cleaned_data["email"].strip().lower()
+        result = validate_email_address(email)
+        if not result.valid:
+            raise forms.ValidationError(result.reason)
+        return email
 
     def clean(self):
         cleaned = super().clean()

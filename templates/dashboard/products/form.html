@@ -1,0 +1,371 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}{{ action }} Product — Admin{% endblock %}
+{% block topbar_title %}{{ action }} Product{% endblock %}
+
+{% block extra_css %}
+<style>
+  .cat-combo { position: relative; }
+
+  .cat-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--dash-border);
+    border-radius: 10px;
+    box-shadow: var(--dash-shadow-lg);
+    z-index: 200;
+    overflow: hidden;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .cat-dropdown.open { display: block; }
+
+  .cat-option {
+    padding: 0.6rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--dash-text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.1s, color 0.1s;
+    border-left: 2px solid transparent;
+  }
+  .cat-option + .cat-option { border-top: 1px solid var(--dash-border); }
+  .cat-option:hover, .cat-option.highlighted {
+    background: var(--dash-accent-light);
+    color: var(--dash-accent);
+    border-left-color: var(--dash-accent);
+  }
+  .cat-option--create {
+    color: var(--dash-accent);
+    font-weight: 500;
+    border-top: 1px solid var(--dash-border) !important;
+    font-style: normal;
+  }
+  .cat-option--create:hover, .cat-option--create.highlighted {
+    background: var(--dash-accent-light);
+    border-left-color: var(--dash-accent);
+  }
+  .cat-option--empty {
+    color: var(--dash-text-muted);
+    cursor: default;
+    font-style: italic;
+    font-size: 0.85rem;
+    font-weight: 400;
+    border-left-color: transparent !important;
+  }
+  .cat-option--empty:hover { background: none; color: var(--dash-text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <div>
+    <a href="{% url 'dashboard:products' %}" style="display: inline-flex; align-items: center; gap: 0.35rem; color: var(--dash-accent); text-decoration: none; margin-bottom: 0.5rem; font-size: 0.85rem; font-weight: 500;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Products
+    </a>
+    <h1 class="dash-heading">{{ action }} Product</h1>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+
+  <div style="display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; align-items: start; max-width: 960px;">
+
+    <!-- LEFT: main fields -->
+    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+
+      <!-- Core info -->
+      <div class="dash-settings-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+
+        <label class="dash-label" style="margin: 0;">
+          Product name
+          <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}"
+                 class="dash-input" style="margin-top: 0.4rem;"
+                 placeholder="e.g. Classic Silicone Cap"
+                 {% if action == 'Create' %}autofocus{% endif %}>
+          {% for e in form.name.errors %}<span style="color:var(--dash-danger);font-size:0.78rem;font-weight:500;">{{ e }}</span>{% endfor %}
+        </label>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <label class="dash-label" style="margin: 0;">
+            Category
+            <div class="cat-combo" style="margin-top: 0.4rem;">
+              <input type="text" name="category_name" id="id_category_name"
+                     value="{{ current_category_name|default:'' }}"
+                     class="dash-input" placeholder="e.g. Goggles"
+                     autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cat-dropdown">
+              <div id="cat-dropdown" class="cat-dropdown" role="listbox"></div>
+            </div>
+            <span class="dash-field-hint">Pick existing or type a new one to create it.</span>
+            {% for e in form.category.errors %}<span style="color:var(--dash-danger);font-size:0.78rem;font-weight:500;">{{ e }}</span>{% endfor %}
+          </label>
+          <label class="dash-label" style="margin: 0;">
+            Colour <small style="color:var(--dash-text-muted);font-weight:400;">(optional)</small>
+            <input type="text" name="color" value="{{ form.color.value|default:'' }}"
+                   class="dash-input" style="margin-top: 0.4rem;" placeholder="e.g. Reef Blue">
+          </label>
+        </div>
+
+        <label class="dash-label" style="margin: 0;">
+          Description <small style="color:var(--dash-text-muted);font-weight:400;">(optional)</small>
+          <textarea name="description" rows="3" class="dash-textarea" style="margin-top: 0.4rem;"
+                    placeholder="Short copy shown on the product card.">{{ form.description.value|default:'' }}</textarea>
+        </label>
+
+      </div>
+
+      <!-- Pricing + stock -->
+      <div class="dash-settings-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+        <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);padding-bottom:0.75rem;border-bottom:1px solid var(--dash-border);">Pricing & stock</div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <label class="dash-label" style="margin: 0;">
+            Price
+            <div class="dash-input-group" style="margin-top: 0.4rem;">
+              <span class="dash-input-group__prefix">£</span>
+              <input type="number" name="price" value="{{ form.price.value|default:'' }}"
+                     class="dash-input" step="0.01" min="0" placeholder="0.00">
+            </div>
+            {% for e in form.price.errors %}<span style="color:var(--dash-danger);font-size:0.78rem;font-weight:500;">{{ e }}</span>{% endfor %}
+          </label>
+          <label class="dash-label" style="margin: 0;">
+            Stock
+            <input type="number" name="stock" value="{{ form.stock.value|default:'0' }}"
+                   class="dash-input" min="0" style="margin-top: 0.4rem;">
+            <span class="dash-field-hint">0 = shown as out of stock</span>
+          </label>
+        </div>
+
+        <!-- Shipping override -->
+        <label class="dash-label" style="margin: 0;">
+          Shipping override
+          <div class="dash-input-group" style="margin-top: 0.4rem;">
+            <span class="dash-input-group__prefix">£</span>
+            <input type="number" name="shipping" value="{{ form.shipping.value|default:'' }}"
+                   class="dash-input" step="0.01" min="0" placeholder="Leave blank to use shop default">
+          </div>
+          <span class="dash-field-hint">Set only if this product ships at a different rate</span>
+          {% for e in form.shipping.errors %}<span style="color:var(--dash-danger);font-size:0.78rem;font-weight:500;">{{ e }}</span>{% endfor %}
+        </label>
+
+        <!-- Active toggle -->
+        <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;padding:0.875rem 1rem;border:1px solid var(--dash-border);border-radius:8px;background:var(--dash-bg);">
+          <input type="checkbox" name="is_active" {% if form.is_active.value %}checked{% endif %}
+                 style="width:18px;height:18px;accent-color:var(--dash-accent);cursor:pointer;flex-shrink:0;">
+          <span>
+            <strong style="font-size:0.9rem;">Visible in shop</strong><br>
+            <span style="font-size:0.8rem;color:var(--dash-text-muted);">Uncheck to hide this product without deleting it</span>
+          </span>
+        </label>
+      </div>
+
+      <!-- Advanced (collapsed) -->
+      <details style="background:var(--dash-card-bg);border:1px solid var(--dash-border);border-radius:var(--dash-radius-lg);box-shadow:var(--dash-shadow-sm);overflow:hidden;">
+        <summary style="padding:1rem 1.5rem;font-size:0.85rem;font-weight:600;color:var(--dash-text-muted);cursor:pointer;list-style:none;display:flex;align-items:center;gap:0.5rem;user-select:none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;" class="adv-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+          Advanced
+        </summary>
+        <div style="padding:0 1.5rem 1.5rem;display:flex;flex-direction:column;gap:1.25rem;border-top:1px solid var(--dash-border);padding-top:1.25rem;">
+          <label class="dash-label" style="margin:0;">
+            URL slug <small style="color:var(--dash-text-muted);font-weight:400;">(auto-generated from name)</small>
+            <input type="text" name="slug" id="id_slug" value="{{ form.slug.value|default:'' }}"
+                   class="dash-input" style="margin-top:0.4rem;">
+            {% for e in form.slug.errors %}<span style="color:var(--dash-danger);font-size:0.78rem;font-weight:500;">{{ e }}</span>{% endfor %}
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <label class="dash-label" style="margin:0;">
+              Gradient CSS class <small style="color:var(--dash-text-muted);font-weight:400;">(fallback when no photo)</small>
+              <input type="text" name="photo_class" value="{{ form.photo_class.value|default:'' }}"
+                     class="dash-input" style="margin-top:0.4rem;" placeholder="e.g. photo--tile">
+            </label>
+            <label class="dash-label" style="margin:0;">
+              Display order
+              <input type="number" name="order" value="{{ form.order.value|default:'0' }}"
+                     class="dash-input" min="0" style="margin-top:0.4rem;">
+              <span class="dash-field-hint">Lower number = shown first</span>
+            </label>
+          </div>
+        </div>
+      </details>
+
+    </div>
+
+    <!-- RIGHT: photo + actions -->
+    <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+      <!-- Photo upload -->
+      <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;">
+        <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);padding-bottom:0.75rem;border-bottom:1px solid var(--dash-border);">Photo</div>
+
+        <!-- Preview -->
+        <div id="photo-preview" style="width:100%;aspect-ratio:1;border-radius:10px;background:var(--dash-bg);border:2px dashed var(--dash-border);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;" onclick="document.getElementById('id_image').click()">
+          {% if product.image %}
+            <img src="{{ product.image.url }}" id="preview-img" style="width:100%;height:100%;object-fit:cover;display:block;">
+            <div id="preview-placeholder" style="display:none;flex-direction:column;align-items:center;gap:0.5rem;color:var(--dash-text-muted);">
+          {% else %}
+            <img id="preview-img" style="width:100%;height:100%;object-fit:cover;display:none;">
+            <div id="preview-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;color:var(--dash-text-muted);">
+          {% endif %}
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.35"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span style="font-size:0.78rem;text-align:center;">Click to upload<br>a photo</span>
+            </div>
+        </div>
+
+        <input type="file" name="image" id="id_image" accept="image/*" style="display:none;">
+
+        <button type="button" onclick="document.getElementById('id_image').click()"
+                class="dash-btn" style="width:100%;justify-content:center;">
+          {% if product.image %}Replace photo{% else %}Upload photo{% endif %}
+        </button>
+        <span class="dash-field-hint" style="text-align:center;">Square crop recommended · JPG or PNG</span>
+
+        {% if product.image %}
+        <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;color:var(--dash-text-muted);cursor:pointer;justify-content:center;">
+          <input type="checkbox" name="image-clear" style="accent-color:var(--dash-danger);">
+          Remove photo
+        </label>
+        {% endif %}
+      </div>
+
+      <!-- Save / Cancel -->
+      <button type="submit" class="dash-btn dash-btn--primary" style="width:100%;justify-content:center;padding:0.75rem;">
+        Save Product
+      </button>
+      <a href="{% url 'dashboard:products' %}" class="dash-btn dash-btn--ghost" style="width:100%;justify-content:center;">
+        Cancel
+      </a>
+
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // ── Category combobox ──────────────────────────────────────────────────────
+  (function () {
+    const CATS = [{% for cat in all_categories %}"{{ cat.name }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+    const input    = document.getElementById('id_category_name');
+    const dropdown = document.getElementById('cat-dropdown');
+    let hiIdx = -1;
+
+    function getOptions() {
+      return Array.from(dropdown.querySelectorAll('.cat-option:not(.cat-option--empty)'));
+    }
+
+    function highlight(idx) {
+      getOptions().forEach((o, i) => o.classList.toggle('highlighted', i === idx));
+      hiIdx = idx;
+    }
+
+    function render() {
+      const q = input.value.trim().toLowerCase();
+      const matches = CATS.filter(c => c.toLowerCase().includes(q));
+      const exact   = CATS.some(c => c.toLowerCase() === q);
+      hiIdx = -1;
+
+      let html = '';
+      if (matches.length === 0 && !q) {
+        html = '<div class="cat-option cat-option--empty">No categories yet — type to create one</div>';
+      } else {
+        matches.forEach(c => {
+          html += `<div class="cat-option" role="option">${c}</div>`;
+        });
+      }
+      if (q && !exact) {
+        html += `<div class="cat-option cat-option--create" role="option" data-create="1">+ Create "${input.value}"</div>`;
+      }
+
+      dropdown.innerHTML = html;
+      dropdown.querySelectorAll('.cat-option:not(.cat-option--empty)').forEach(opt => {
+        opt.addEventListener('mousedown', e => {
+          e.preventDefault();
+          // strip HTML tags for the create option
+          input.value = opt.dataset.create ? input.value : opt.textContent;
+          dropdown.classList.remove('open');
+          input.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
+
+    input.addEventListener('focus', () => {
+      render();
+      dropdown.classList.add('open');
+      input.setAttribute('aria-expanded', 'true');
+    });
+
+    input.addEventListener('input', () => { render(); dropdown.classList.add('open'); });
+
+    input.addEventListener('keydown', e => {
+      const opts = getOptions();
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlight(Math.min(hiIdx + 1, opts.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlight(Math.max(hiIdx - 1, 0));
+      } else if (e.key === 'Enter' && hiIdx >= 0) {
+        e.preventDefault();
+        opts[hiIdx].dispatchEvent(new MouseEvent('mousedown'));
+      } else if (e.key === 'Escape') {
+        dropdown.classList.remove('open');
+        input.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('click', e => {
+      if (!input.closest('.cat-combo').contains(e.target)) {
+        dropdown.classList.remove('open');
+        input.setAttribute('aria-expanded', 'false');
+      }
+    });
+  })();
+
+  // ── Live image preview
+  document.getElementById('id_image').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.getElementById('preview-img');
+      const placeholder = document.getElementById('preview-placeholder');
+      img.src = e.target.result;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Rotate chevron when details opens/closes
+  const details = document.querySelector('details');
+  const chevron = details.querySelector('.adv-chevron');
+  details.addEventListener('toggle', () => {
+    chevron.style.transform = details.open ? 'rotate(180deg)' : '';
+  });
+
+  // Auto-generate slug from name on create
+  {% if action == 'Create' %}
+  const nameInput = document.getElementById('id_name');
+  const slugInput = document.getElementById('id_slug');
+  let slugTouched = false;
+  slugInput.addEventListener('input', () => { slugTouched = true; });
+  nameInput.addEventListener('input', () => {
+    if (slugTouched) return;
+    slugInput.value = nameInput.value
+      .toLowerCase().trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  });
+  {% endif %}
+</script>
+{% endblock %}

@@ -112,3 +112,13 @@ class PaymentProviderInterface(ABC):
         Raises:
             WebhookSignatureError — signature is invalid; caller returns 400.
         """
+
+    @abstractmethod
+    def retrieve_completed_session(self, session_id: str) -> Optional[PaymentEvent]:
+        """
+        Look up a provider session by ID and return a PaymentEvent if it has
+        been paid, or None if payment is not complete or the session is unknown.
+
+        Used as a webhook fallback on the success page — called when the
+        webhook may not have fired yet.
+        """
