@@ -136,6 +136,17 @@ def get_slots_for_date(
 
     price = _get_price(session_type.id, location.id)
 
+    # Fetch owner's busy periods from Google Calendar once per date.
+    # Returns [] immediately if calendar is not connected — no overhead.
+    from apps.booking.services.google_calendar import get_busy_times
+    busy_periods = get_busy_times(date)
+
+    def _overlaps_busy(start: datetime.time, end: datetime.time) -> bool:
+        for busy_start, busy_end in busy_periods:
+            if start < busy_end and end > busy_start:
+                return True
+        return False
+
     slots = []
     for sched in schedules:
         # Check minimum advance time
@@ -144,6 +155,10 @@ def get_slots_for_date(
         )
         cutoff = now + datetime.timedelta(hours=settings.min_advance_hours)
         if slot_dt <= cutoff:
+            continue
+
+        # Block slots the owner has already filled in their personal calendar
+        if _overlaps_busy(sched.start_time, sched.end_time):
             continue
 
         taken = Booking.count_for_slot(

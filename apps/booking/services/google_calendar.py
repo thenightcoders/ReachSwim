@@ -1,78 +1,259 @@
 """
-Google Calendar service — stubs for OAuth2 flow and event CRUD.
+Google Calendar service — OAuth2 flow, event CRUD, freebusy.
 
-The owner connects their personal Gmail calendar via OAuth2.
-Confirmed bookings are written as calendar events; cancellations delete them.
-Blocked-off times on the calendar reduce available slots.
+Requires:
+    google-auth google-auth-oauthlib google-api-python-client
 
-Implementation requires:
-  pip install google-auth google-auth-oauthlib google-api-python-client
-
-Wired up when we have real credentials and the accounts app for the admin flow.
+Owner connects via /dashboard/google-calendar/connect/.
+Confirmed bookings create events; cancellations delete them.
+Freebusy API blocks slots the owner has already reserved in their calendar.
 """
-from typing import Optional
+import datetime
+import json
+import logging
+from typing import List, Optional, Tuple
 
-from apps.booking.models import Booking, GoogleCalendarConfig
+from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+
+SCOPES = ["https://www.googleapis.com/auth/calendar"]
+TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
 # ---------------------------------------------------------------------------
-# OAuth2 flow  (admin connects their Google account)
+# Internal helpers
 # ---------------------------------------------------------------------------
 
-def get_auth_url() -> str:
-    """Generate the Google OAuth2 consent URL for the owner."""
-    # TODO: build OAuth2 flow with google-auth-oauthlib
-    raise NotImplementedError("Google Calendar OAuth not yet configured.")
+def _load_config():
+    from apps.booking.models import GoogleCalendarConfig
+    return GoogleCalendarConfig.load()
 
 
-def handle_oauth_callback(code: str) -> None:
-    """Exchange the authorization code for tokens, store in GoogleCalendarConfig."""
-    # TODO: exchange code, store refresh token in GoogleCalendarConfig.credentials_json
-    raise NotImplementedError("Google Calendar OAuth not yet configured.")
+def _flow(redirect_uri: str):
+    from google_auth_oauthlib.flow import Flow
+
+    config = _load_config()
+    client_config = {
+        "web": {
+            "client_id": config.client_id,
+            "client_secret": config.client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": TOKEN_URI,
+            "redirect_uris": [redirect_uri],
+        }
+    }
+    return Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=redirect_uri)
+
+
+def _get_credentials():
+    """Return valid Credentials, refreshing the access token if expired."""
+    import google.oauth2.credentials
+    from google.auth.transport.requests import Request
+
+    config = _load_config()
+    if not config.is_connected or not config.credentials_json:
+        return None
+
+    data = json.loads(config.credentials_json)
+    creds = google.oauth2.credentials.Credentials(
+        token=data.get("token"),
+        refresh_token=data.get("refresh_token"),
+        token_uri=data.get("token_uri", TOKEN_URI),
+        client_id=data.get("client_id"),
+        client_secret=data.get("client_secret"),
+        scopes=data.get("scopes"),
+    )
+
+    if creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            data["token"] = creds.token
+            config.credentials_json = json.dumps(data)
+            config.save(update_fields=["credentials_json"])
+        except Exception as exc:
+            logger.error("Token refresh failed: %s", exc)
+            return None
+
+    return creds
+
+
+def _service():
+    from googleapiclient.discovery import build
+
+    creds = _get_credentials()
+    if creds is None:
+        return None
+    return build("calendar", "v3", credentials=creds, cache_discovery=False)
+
+
+# ---------------------------------------------------------------------------
+# OAuth2 flow
+# ---------------------------------------------------------------------------
+
+def get_auth_url(redirect_uri: str) -> tuple:
+    """
+    Build the Google consent URL.
+    Returns (auth_url, code_verifier) — store code_verifier in the session
+    and pass it back to handle_oauth_callback.
+    """
+    flow = _flow(redirect_uri)
+    auth_url, _ = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent",   # always return a refresh token
+    )
+    return auth_url, flow.code_verifier
+
+
+def handle_oauth_callback(code: str, redirect_uri: str, code_verifier: str = None) -> None:
+    """Exchange auth code for tokens; persist in GoogleCalendarConfig."""
+    flow = _flow(redirect_uri)
+    flow.fetch_token(code=code, code_verifier=code_verifier)
+    creds = flow.credentials
+
+    config = _load_config()
+    config.credentials_json = json.dumps({
+        "token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri,
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "scopes": list(creds.scopes or SCOPES),
+    })
+    if not config.calendar_id:
+        config.calendar_id = "primary"
+    config.is_connected = True
+    config.last_synced = timezone.now()
+    config.save()
+
+
+def disconnect() -> None:
+    """Wipe stored tokens and mark as disconnected."""
+    config = _load_config()
+    config.credentials_json = ""
+    config.is_connected = False
+    config.last_synced = None
+    config.save(update_fields=["credentials_json", "is_connected", "last_synced"])
 
 
 # ---------------------------------------------------------------------------
 # Event CRUD
 # ---------------------------------------------------------------------------
 
-def create_event(booking: Booking) -> Optional[str]:
+def create_event(booking) -> Optional[str]:
     """
-    Create a Google Calendar event for a confirmed booking.
-    Returns the event ID or None if calendar is not connected.
+    Create a calendar event for a confirmed booking.
+    Returns the Google event ID (stored on the booking), or None on failure.
     """
-    config = GoogleCalendarConfig.load()
+    config = _load_config()
     if not config.is_connected:
         return None
 
-    # TODO: build event dict, call calendar API, return event_id
-    # event = {
-    #     "summary": f"{booking.session_type.name} — {booking.client_name}",
-    #     "location": booking.location.address,
-    #     "start": {"dateTime": ..., "timeZone": "Europe/London"},
-    #     "end": {"dateTime": ..., "timeZone": "Europe/London"},
-    #     "description": f"Client: {booking.client_name}\nEmail: {booking.client_email}",
-    # }
-    raise NotImplementedError("Google Calendar API not yet configured.")
+    svc = _service()
+    if svc is None:
+        return None
+
+    try:
+        start_dt = datetime.datetime.combine(booking.date, booking.start_time)
+        end_dt = datetime.datetime.combine(booking.date, booking.end_time)
+
+        event = {
+            "summary": f"{booking.session_type.name} — {booking.client_name}",
+            "location": getattr(booking.location, "address", ""),
+            "description": (
+                f"Client: {booking.client_name}\n"
+                f"Email: {booking.client_email}\n"
+                f"Phone: {booking.client_phone}\n"
+                f"Notes: {booking.notes}"
+            ).strip(),
+            "start": {"dateTime": start_dt.isoformat(), "timeZone": "Europe/London"},
+            "end":   {"dateTime": end_dt.isoformat(),   "timeZone": "Europe/London"},
+        }
+
+        created = svc.events().insert(
+            calendarId=config.calendar_id or "primary",
+            body=event,
+        ).execute()
+
+        config.last_synced = timezone.now()
+        config.save(update_fields=["last_synced"])
+
+        return created.get("id")
+
+    except Exception as exc:
+        logger.error("create_event failed for booking %s: %s", booking.pk, exc)
+        return None
 
 
-def delete_event(booking: Booking) -> None:
-    """Delete the Google Calendar event for a cancelled booking."""
-    config = GoogleCalendarConfig.load()
+def delete_event(booking) -> None:
+    """Delete the calendar event for a cancelled booking."""
+    config = _load_config()
     if not config.is_connected or not booking.google_event_id:
         return
 
-    # TODO: call calendar API to delete event
-    raise NotImplementedError("Google Calendar API not yet configured.")
+    svc = _service()
+    if svc is None:
+        return
+
+    try:
+        svc.events().delete(
+            calendarId=config.calendar_id or "primary",
+            eventId=booking.google_event_id,
+        ).execute()
+        config.last_synced = timezone.now()
+        config.save(update_fields=["last_synced"])
+    except Exception as exc:
+        logger.error("delete_event failed for booking %s: %s", booking.pk, exc)
 
 
-def get_busy_times(date):
+# ---------------------------------------------------------------------------
+# Freebusy (two-way sync — blocks slots the owner reserved themselves)
+# ---------------------------------------------------------------------------
+
+def get_busy_times(date: datetime.date) -> List[Tuple[datetime.time, datetime.time]]:
     """
-    Fetch busy/blocked times from the owner's calendar for a given date.
-    Used by the availability service to exclude times the coach is unavailable.
+    Return (start_time, end_time) pairs for periods the owner is busy on `date`.
+    The availability service uses this to hide those slots from clients.
     """
-    config = GoogleCalendarConfig.load()
+    config = _load_config()
     if not config.is_connected:
         return []
 
-    # TODO: call freebusy API
-    raise NotImplementedError("Google Calendar API not yet configured.")
+    svc = _service()
+    if svc is None:
+        return []
+
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo("Europe/London")
+
+        day_start = datetime.datetime.combine(date, datetime.time.min).replace(tzinfo=tz)
+        day_end   = datetime.datetime.combine(date, datetime.time.max).replace(tzinfo=tz)
+
+        body = {
+            "timeMin": day_start.isoformat(),
+            "timeMax": day_end.isoformat(),
+            "timeZone": "Europe/London",
+            "items": [{"id": config.calendar_id or "primary"}],
+        }
+
+        result = svc.freebusy().query(body=body).execute()
+        cal_key = config.calendar_id or "primary"
+        busy_periods = (
+            result.get("calendars", {}).get(cal_key, {}).get("busy", [])
+        )
+
+        out = []
+        for period in busy_periods:
+            start = datetime.datetime.fromisoformat(period["start"])
+            end   = datetime.datetime.fromisoformat(period["end"])
+            start_local = start.astimezone(tz).time().replace(tzinfo=None)
+            end_local   = end.astimezone(tz).time().replace(tzinfo=None)
+            out.append((start_local, end_local))
+
+        return out
+
+    except Exception as exc:
+        logger.error("get_busy_times failed for %s: %s", date, exc)
+        return []

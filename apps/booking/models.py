@@ -241,14 +241,25 @@ class RecurringSchedule(models.Model):
 class GoogleCalendarConfig(SingletonModel):
     """OAuth credentials for the owner's Google Calendar."""
 
+    client_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="OAuth2 Client ID from Google Cloud Console.",
+    )
+    client_secret = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="OAuth2 Client Secret from Google Cloud Console.",
+    )
     calendar_id = models.CharField(
         max_length=255,
         blank=True,
-        help_text="Google Calendar ID (usually the Gmail address).",
+        default="primary",
+        help_text="Google Calendar ID — leave as 'primary' to use the main calendar.",
     )
     credentials_json = models.TextField(
         blank=True,
-        help_text="Stored OAuth2 refresh token (encrypted at rest in prod).",
+        help_text="Stored OAuth2 tokens (set automatically after connecting).",
     )
     is_connected = models.BooleanField(default=False)
     last_synced = models.DateTimeField(null=True, blank=True)

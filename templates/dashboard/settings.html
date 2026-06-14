@@ -14,11 +14,14 @@
 
   <!-- In-page tab bar -->
   <nav class="dash-tabs" role="tablist">
-    <button class="dash-tab active" onclick="switchTab(event, 'site')"   role="tab">General Info</button>
-    <button class="dash-tab"        onclick="switchTab(event, 'hero')"    role="tab">Hero Section</button>
+    <button class="dash-tab active" onclick="switchTab(event, 'site')"    role="tab">General Info</button>
+    <button class="dash-tab"        onclick="switchTab(event, 'hero')"     role="tab">Hero Section</button>
     <button class="dash-tab"        onclick="switchTab(event, 'approach')" role="tab">Approach Section</button>
-    <button class="dash-tab"        onclick="switchTab(event, 'booking')" role="tab">Booking Rules</button>
-    <button class="dash-tab"        onclick="switchTab(event, 'shop')"    role="tab">Shop Settings</button>
+    <button class="dash-tab"        onclick="switchTab(event, 'booking')"  role="tab">Booking Rules</button>
+    <button class="dash-tab"        onclick="switchTab(event, 'shop')"     role="tab">Shop Settings</button>
+    <button class="dash-tab"        onclick="switchTab(event, 'gcal')"     role="tab">
+      Google Calendar{% if gcal_config.is_connected %}&nbsp;✓{% endif %}
+    </button>
   </nav>
 
   <!-- Right Content Area -->
@@ -291,6 +294,79 @@
             <button class="dash-btn dash-btn--primary">Save Shop Configuration</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- TAB: Google Calendar -->
+    <div id="tab-gcal" class="dash-tab-content">
+      <div class="dash-settings-info">
+        <h3 class="dash-settings-title">Google Calendar</h3>
+        <p class="dash-settings-desc">
+          Connect your Google Calendar so confirmed bookings appear there automatically,
+          and events you add block those slots for clients.
+        </p>
+      </div>
+
+      <!-- Step 1 — credentials -->
+      <div class="dash-settings-card">
+        <h4 style="margin:0 0 .75rem; font-size:.875rem; font-weight:600; color:var(--dash-text);">Step 1 — Google Cloud credentials</h4>
+        <p style="margin:0 0 1rem; font-size:.8125rem; color:var(--dash-text-muted);">
+          Enter the Client ID and Client Secret from your Google Cloud project.
+          The callback URL to register there is:<br>
+          <code style="font-size:.8rem; background:rgba(255,255,255,.06); padding:.2em .4em; border-radius:4px;">
+            {{ request.scheme }}://{{ request.get_host }}/dashboard/google-calendar/callback/
+          </code>
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="_section" value="gcal">
+          <label class="dash-label">
+            Client ID
+            <input type="text" name="client_id" value="{{ gcal_config.client_id }}" class="dash-input" placeholder="123456789-abc.apps.googleusercontent.com">
+          </label>
+          <label class="dash-label">
+            Client Secret
+            <input type="password" name="client_secret" value="{{ gcal_config.client_secret }}" class="dash-input" placeholder="GOCSPX-…">
+          </label>
+          <label class="dash-label">
+            Calendar ID <small style="font-weight:normal; color:var(--dash-text-muted);">(leave as <code>primary</code> to use your main calendar)</small>
+            <input type="text" name="calendar_id" value="{{ gcal_config.calendar_id|default:'primary' }}" class="dash-input">
+          </label>
+          <div class="dash-settings-footer">
+            <button class="dash-btn dash-btn--primary">Save Credentials</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Step 2 — connect / status -->
+      <div class="dash-settings-card" style="margin-top:1rem;">
+        <h4 style="margin:0 0 .75rem; font-size:.875rem; font-weight:600; color:var(--dash-text);">Step 2 — Authorise with Google</h4>
+
+        {% if gcal_config.is_connected %}
+          <div style="display:flex; align-items:center; gap:.75rem; margin-bottom:1rem;">
+            <span style="display:inline-flex; align-items:center; gap:.375rem; font-size:.875rem; color:#4ade80; font-weight:600;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#22c55e" opacity=".2"/><path d="M4.5 8l2.5 2.5 4.5-4.5" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Connected
+            </span>
+            <span style="font-size:.8125rem; color:var(--dash-text-muted);">{{ gcal_config.calendar_id }}</span>
+          </div>
+          {% if gcal_config.last_synced %}
+            <p style="font-size:.8125rem; color:var(--dash-text-muted); margin:0 0 1rem;">Last synced {{ gcal_config.last_synced|date:"j M Y, H:i" }}</p>
+          {% endif %}
+          <form method="post" action="{% url 'dashboard:gcal_disconnect' %}">
+            {% csrf_token %}
+            <button class="dash-btn dash-btn--danger" type="submit" onclick="return confirm('Disconnect Google Calendar? Existing events will not be deleted.')">Disconnect</button>
+          </form>
+        {% else %}
+          <p style="font-size:.8125rem; color:var(--dash-text-muted); margin:0 0 1rem;">
+            Not connected. Save your credentials above first, then click the button below.
+          </p>
+          {% if gcal_config.client_id and gcal_config.client_secret %}
+            <a href="{% url 'dashboard:gcal_connect' %}" class="dash-btn dash-btn--primary">Connect Google Calendar</a>
+          {% else %}
+            <button class="dash-btn dash-btn--primary" disabled title="Save your Client ID and Client Secret first">Connect Google Calendar</button>
+          {% endif %}
+        {% endif %}
       </div>
     </div>
 

@@ -327,7 +327,7 @@ def product_toggle_active(request, pk):
 def settings_view(request):
     """Edit site settings, hero, shop settings — all singletons in one page."""
     from apps.pages.models import SiteConfig, HeroSection, ApproachSection
-    from apps.booking.models import BookingSettings
+    from apps.booking.models import BookingSettings, GoogleCalendarConfig
     from apps.shop.models import ShopSettings
 
     site = SiteConfig.load()
@@ -335,6 +335,7 @@ def settings_view(request):
     approach = ApproachSection.load()
     booking_settings = BookingSettings.load()
     shop_settings = ShopSettings.load()
+    gcal_config = GoogleCalendarConfig.load()
 
     if request.method == "POST":
         section = request.POST.get("_section")
@@ -397,6 +398,14 @@ def settings_view(request):
                         pass
             shop_settings.save()
 
+        elif section == "gcal":
+            for field in ["client_id", "client_secret", "calendar_id"]:
+                val = request.POST.get(field, "").strip()
+                if val:
+                    setattr(gcal_config, field, val)
+            gcal_config.save(update_fields=["client_id", "client_secret", "calendar_id"])
+            return redirect("/dashboard/settings/#gcal")
+
         return redirect("dashboard:settings")
 
     return render(request, "dashboard/settings.html", {
@@ -405,6 +414,7 @@ def settings_view(request):
         "approach": approach,
         "booking_settings": booking_settings,
         "shop_settings": shop_settings,
+        "gcal_config": gcal_config,
         "section": "settings",
     })
 
@@ -682,3 +692,53 @@ def user_delete(request, pk):
     if user_obj.pk != request.user.pk:
         user_obj.delete()
     return redirect("dashboard:user_list")
+
+
+# ---------------------------------------------------------------------------
+# Google Calendar OAuth
+# ---------------------------------------------------------------------------
+
+@owner_required
+def gcal_connect(request):
+    """Redirect owner to Google's consent page."""
+    from apps.booking.services.google_calendar import get_auth_url
+    from apps.booking.models import GoogleCalendarConfig
+
+    config = GoogleCalendarConfig.load()
+    if not config.client_id or not config.client_secret:
+        return redirect("dashboard:settings")
+
+    redirect_uri = request.build_absolute_uri("/dashboard/google-calendar/callback/")
+    auth_url, code_verifier = get_auth_url(redirect_uri)
+    # Stash the PKCE verifier in the session — needed in the callback
+    request.session["gcal_code_verifier"] = code_verifier
+    return redirect(auth_url)
+
+
+@owner_required
+def gcal_callback(request):
+    """Handle Google's OAuth2 redirect; exchange code for tokens."""
+    from apps.booking.services.google_calendar import handle_oauth_callback
+
+    code = request.GET.get("code")
+    if not code:
+        return redirect("dashboard:settings")
+
+    redirect_uri = request.build_absolute_uri("/dashboard/google-calendar/callback/")
+    code_verifier = request.session.pop("gcal_code_verifier", None)
+    try:
+        handle_oauth_callback(code, redirect_uri, code_verifier=code_verifier)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("Google Calendar callback failed: %s", exc)
+
+    return redirect("/dashboard/settings/#gcal")
+
+
+@owner_required
+@require_POST
+def gcal_disconnect(request):
+    """Wipe stored tokens."""
+    from apps.booking.services.google_calendar import disconnect
+    disconnect()
+    return redirect("/dashboard/settings/#gcal")

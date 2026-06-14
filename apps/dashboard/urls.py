@@ -43,4 +43,9 @@ urlpatterns = [
     path("users/create/", views.user_create, name="user_create"),
     path("users/<int:pk>/edit/", views.user_edit, name="user_edit"),
     path("users/<int:pk>/delete/", views.user_delete, name="user_delete"),
+
+    # Google Calendar OAuth
+    path("google-calendar/connect/", views.gcal_connect, name="gcal_connect"),
+    path("google-calendar/callback/", views.gcal_callback, name="gcal_callback"),
+    path("google-calendar/disconnect/", views.gcal_disconnect, name="gcal_disconnect"),
 ]

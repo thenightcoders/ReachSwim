@@ -200,7 +200,8 @@
     </div>
 
     <!-- RIGHT: photo + actions -->
-    <div style="display:flex;flex-direction:column;gap:1.25rem;">
+    {% url 'dashboard:products' as cancel_href %}
+    <div class="dash-form-sidebar">
 
       <!-- Photo upload -->
       <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;">
@@ -236,14 +237,7 @@
         {% endif %}
       </div>
 
-      <!-- Save / Cancel -->
-      <button type="submit" class="dash-btn dash-btn--primary" style="width:100%;justify-content:center;padding:0.75rem;">
-        Save Product
-      </button>
-      <a href="{% url 'dashboard:products' %}" class="dash-btn dash-btn--ghost" style="width:100%;justify-content:center;">
-        Cancel
-      </a>
-
+      {% include "dashboard/includes/form_actions.html" with submit_label="Save Product" %}
     </div>
   </div>
 </form>

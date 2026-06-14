@@ -1,99 +1,110 @@
 {% extends "dashboard/base_dashboard.html" %}
 
 {% block title %}{{ action }} Booking — Admin{% endblock %}
+{% block topbar_title %}{{ action }} Booking{% endblock %}
 
 {% block content %}
 <div class="dash-header">
   <div>
     {% if booking %}
-    <a href="{% url 'dashboard:booking_detail' booking.pk %}" class="dash-back" style="display: inline-block; color: var(--dash-accent); text-decoration: none; margin-bottom: 0.5rem; font-size: 0.85rem;">&larr; Back to Booking</a>
+    <a href="{% url 'dashboard:booking_detail' booking.pk %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
     {% else %}
-    <a href="{% url 'dashboard:bookings' %}" class="dash-back" style="display: inline-block; color: var(--dash-accent); text-decoration: none; margin-bottom: 0.5rem; font-size: 0.85rem;">&larr; Back to Bookings</a>
+    <a href="{% url 'dashboard:bookings' %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
     {% endif %}
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      {% if booking %}Back to Booking{% else %}Back to Bookings{% endif %}
+    </a>
     <h1 class="dash-heading">{{ action }} Booking</h1>
   </div>
 </div>
 
-<div class="dash-section" style="max-width: 800px;">
-  <form method="post" class="dash-dl" style="gap: 1.5rem;">
-    {% csrf_token %}
-    
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.session_type.id_for_label }}">{{ form.session_type.label }}</label>
-        {{ form.session_type }}
-        {% if form.session_type.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.session_type.errors }}</div>{% endif %}
+{% if booking %}{% url 'dashboard:booking_detail' booking.pk as cancel_href %}{% else %}{% url 'dashboard:bookings' as cancel_href %}{% endif %}
+<form method="post" style="max-width:860px;">
+  {% csrf_token %}
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+      <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label class="dash-label" style="margin:0;" for="{{ form.session_type.id_for_label }}">{{ form.session_type.label }}</label>
+            {{ form.session_type }}
+            {% if form.session_type.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.session_type.errors }}</div>{% endif %}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label class="dash-label" style="margin:0;" for="{{ form.location.id_for_label }}">{{ form.location.label }}</label>
+            {{ form.location }}
+            {% if form.location.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.location.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label class="dash-label" style="margin:0;" for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
+            {{ form.date }}
+            {% if form.date.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.date.errors }}</div>{% endif %}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label class="dash-label" style="margin:0;" for="{{ form.start_time.id_for_label }}">{{ form.start_time.label }}</label>
+            {{ form.start_time }}
+            {% if form.start_time.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.start_time.errors }}</div>{% endif %}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label class="dash-label" style="margin:0;" for="{{ form.end_time.id_for_label }}">{{ form.end_time.label }}</label>
+            {{ form.end_time }}
+            {% if form.end_time.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.end_time.errors }}</div>{% endif %}
+          </div>
+        </div>
+
       </div>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.location.id_for_label }}">{{ form.location.label }}</label>
-        {{ form.location }}
-        {% if form.location.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.location.errors }}</div>{% endif %}
+
+      <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
+        <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);padding-bottom:0.75rem;border-bottom:1px solid var(--dash-border);">Client</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label class="dash-label" style="margin:0;" for="{{ form.client_name.id_for_label }}">{{ form.client_name.label }}</label>
+            {{ form.client_name }}
+            {% if form.client_name.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.client_name.errors }}</div>{% endif %}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label class="dash-label" style="margin:0;" for="{{ form.client_email.id_for_label }}">{{ form.client_email.label }}</label>
+            {{ form.client_email }}
+            {% if form.client_email.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.client_email.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:0.4rem;">
+          <label class="dash-label" style="margin:0;" for="{{ form.client_phone.id_for_label }}">{{ form.client_phone.label }}</label>
+          {{ form.client_phone }}
+          {% if form.client_phone.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.client_phone.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
+        <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);padding-bottom:0.75rem;border-bottom:1px solid var(--dash-border);">Status & payment</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label class="dash-label" style="margin:0;" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+            {{ form.status }}
+            {% if form.status.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.status.errors }}</div>{% endif %}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label class="dash-label" style="margin:0;" for="{{ form.amount_pence.id_for_label }}">Amount (pence)</label>
+            {{ form.amount_pence }}
+            {% if form.amount_pence.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.amount_pence.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:0.4rem;">
+          <label class="dash-label" style="margin:0;" for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+          {{ form.notes }}
+          {% if form.notes.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.notes.errors }}</div>{% endif %}
+        </div>
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
-        {{ form.date }}
-        {% if form.date.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.date.errors }}</div>{% endif %}
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.start_time.id_for_label }}">{{ form.start_time.label }}</label>
-        {{ form.start_time }}
-        {% if form.start_time.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.start_time.errors }}</div>{% endif %}
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.end_time.id_for_label }}">{{ form.end_time.label }}</label>
-        {{ form.end_time }}
-        {% if form.end_time.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.end_time.errors }}</div>{% endif %}
-      </div>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.client_name.id_for_label }}">{{ form.client_name.label }}</label>
-        {{ form.client_name }}
-        {% if form.client_name.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.client_name.errors }}</div>{% endif %}
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.client_email.id_for_label }}">{{ form.client_email.label }}</label>
-        {{ form.client_email }}
-        {% if form.client_email.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.client_email.errors }}</div>{% endif %}
-      </div>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.client_phone.id_for_label }}">{{ form.client_phone.label }}</label>
-        {{ form.client_phone }}
-        {% if form.client_phone.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.client_phone.errors }}</div>{% endif %}
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
-        {{ form.status }}
-        {% if form.status.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.status.errors }}</div>{% endif %}
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ form.amount_pence.id_for_label }}">Amount (pence)</label>
-        {{ form.amount_pence }}
-        {% if form.amount_pence.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.amount_pence.errors }}</div>{% endif %}
-      </div>
-    </div>
-
-    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-      <label class="dash-label" for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
-      {{ form.notes }}
-      {% if form.notes.errors %}<div style="color: var(--dash-danger); font-size: 0.75rem;">{{ form.notes.errors }}</div>{% endif %}
-    </div>
-    
-    <div style="padding-top: 1rem; border-top: 1px solid var(--dash-border); display: flex; justify-content: flex-end; gap: 1rem;">
-      {% if booking %}
-      <a href="{% url 'dashboard:booking_detail' booking.pk %}" class="dash-btn dash-btn--ghost">Cancel</a>
-      {% else %}
-      <a href="{% url 'dashboard:bookings' %}" class="dash-btn dash-btn--ghost">Cancel</a>
-      {% endif %}
-      <button type="submit" class="dash-btn dash-btn--primary">Save Booking</button>
-    </div>
-  </form>
-</div>
+    {% include "dashboard/includes/form_actions.html" with submit_label="Save Booking" %}
+  </div>
+</form>
 {% endblock %}

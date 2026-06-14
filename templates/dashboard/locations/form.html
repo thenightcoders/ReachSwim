@@ -1,38 +1,117 @@
 {% extends "dashboard/base_dashboard.html" %}
 
 {% block title %}{{ action }} Location — Admin{% endblock %}
+{% block topbar_title %}{{ action }} Location{% endblock %}
 
 {% block content %}
 <div class="dash-header">
   <div>
-    <a href="{% url 'dashboard:location_list' %}" class="dash-back" style="display: inline-block; color: var(--dash-accent); text-decoration: none; margin-bottom: 0.5rem; font-size: 0.85rem;">&larr; Back to Locations</a>
+    <a href="{% url 'dashboard:location_list' %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Locations
+    </a>
     <h1 class="dash-heading">{{ action }} Location</h1>
   </div>
 </div>
 
-<div class="dash-section" style="max-width: 600px;">
-  <form method="post" class="dash-dl" style="gap: 1.5rem;">
-    {% csrf_token %}
-    
-    {% for field in form %}
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.help_text %}
-          <small style="color: var(--dash-text-muted); font-size: 0.75rem;">{{ field.help_text }}</small>
-        {% endif %}
-        {% if field.errors %}
-          <div style="color: var(--dash-danger); font-size: 0.75rem; font-weight: 500;">
-            {% for error in field.errors %}{{ error }}{% endfor %}
-          </div>
-        {% endif %}
+{% url 'dashboard:location_list' as cancel_href %}
+<form method="post" id="location-form">
+  {% csrf_token %}
+  <div style="display:grid;grid-template-columns:1fr 260px;gap:1.5rem;align-items:start;max-width:860px;">
+
+    <!-- LEFT -->
+    <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+      <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
+        <label class="dash-label" style="margin:0;">
+          Location name
+          <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}"
+                 class="dash-input" style="margin-top:0.4rem;" placeholder="e.g. Ironmonger Row Baths"
+                 {% if action == 'Create' %}autofocus{% endif %}>
+          {% for e in form.name.errors %}<span style="color:var(--dash-danger);font-size:0.78rem;font-weight:500;">{{ e }}</span>{% endfor %}
+        </label>
+        <label class="dash-label" style="margin:0;">
+          Address
+          <textarea name="address" rows="3" class="dash-textarea" style="margin-top:0.4rem;"
+                    placeholder="Full address including postcode">{{ form.address.value|default:'' }}</textarea>
+          {% for e in form.address.errors %}<span style="color:var(--dash-danger);font-size:0.78rem;font-weight:500;">{{ e }}</span>{% endfor %}
+        </label>
+        <label class="dash-label" style="margin:0;">
+          Description <small style="color:var(--dash-text-muted);font-weight:400;">(optional)</small>
+          <textarea name="description" rows="3" class="dash-textarea" style="margin-top:0.4rem;"
+                    placeholder="Briefly describe the venue for clients.">{{ form.description.value|default:'' }}</textarea>
+        </label>
       </div>
-    {% endfor %}
-    
-    <div style="padding-top: 1rem; border-top: 1px solid var(--dash-border); display: flex; justify-content: flex-end; gap: 1rem;">
-      <a href="{% url 'dashboard:location_list' %}" class="dash-btn dash-btn--ghost">Cancel</a>
-      <button type="submit" class="dash-btn dash-btn--primary">Save Location</button>
+
+      <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;">
+        <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);padding-bottom:0.75rem;border-bottom:1px solid var(--dash-border);">Facilities</div>
+        <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;padding:0.875rem 1rem;border:1px solid rgba(255,255,255,0.6);border-radius:8px;background:rgba(255,255,255,0.5);">
+          <input type="checkbox" name="has_parking" {% if form.has_parking.value %}checked{% endif %} style="width:18px;height:18px;accent-color:var(--dash-accent);cursor:pointer;flex-shrink:0;">
+          <span><strong style="font-size:0.9rem;">Parking available</strong><br><span style="font-size:0.8rem;color:var(--dash-text-muted);">Clients will see a parking badge on this location</span></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;padding:0.875rem 1rem;border:1px solid rgba(255,255,255,0.6);border-radius:8px;background:rgba(255,255,255,0.5);">
+          <input type="checkbox" name="has_hoist" {% if form.has_hoist.value %}checked{% endif %} style="width:18px;height:18px;accent-color:var(--dash-accent);cursor:pointer;flex-shrink:0;">
+          <span><strong style="font-size:0.9rem;">Pool hoist</strong><br><span style="font-size:0.8rem;color:var(--dash-text-muted);">Marks this venue as accessible — hoist available</span></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;padding:0.875rem 1rem;border:1px solid rgba(255,255,255,0.6);border-radius:8px;background:rgba(255,255,255,0.5);">
+          <input type="checkbox" name="is_active" {% if form.is_active.value %}checked{% endif %} style="width:18px;height:18px;accent-color:var(--dash-accent);cursor:pointer;flex-shrink:0;">
+          <span><strong style="font-size:0.9rem;">Active</strong><br><span style="font-size:0.8rem;color:var(--dash-text-muted);">Inactive locations won't appear in booking</span></span>
+        </label>
+      </div>
+
+      <details style="background:rgba(255,255,255,0.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.55);border-radius:var(--dash-radius-lg);box-shadow:var(--dash-shadow-md);overflow:hidden;">
+        <summary style="padding:1rem 1.5rem;font-size:0.85rem;font-weight:600;color:var(--dash-text-muted);cursor:pointer;list-style:none;display:flex;align-items:center;gap:0.5rem;user-select:none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;" class="adv-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+          Advanced
+        </summary>
+        <div style="padding:1.25rem 1.5rem 1.5rem;display:flex;flex-direction:column;gap:1.25rem;border-top:1px solid var(--dash-border);">
+          <label class="dash-label" style="margin:0;">
+            URL slug <small style="color:var(--dash-text-muted);font-weight:400;">(auto-generated from name)</small>
+            <input type="text" name="slug" id="id_slug" value="{{ form.slug.value|default:'' }}" class="dash-input" style="margin-top:0.4rem;">
+            {% for e in form.slug.errors %}<span style="color:var(--dash-danger);font-size:0.78rem;font-weight:500;">{{ e }}</span>{% endfor %}
+          </label>
+          <label class="dash-label" style="margin:0;">
+            Display order
+            <input type="number" name="order" value="{{ form.order.value|default:'0' }}" class="dash-input" min="0" style="margin-top:0.4rem;">
+            <span class="dash-field-hint">Lower number = shown first</span>
+          </label>
+        </div>
+      </details>
+
     </div>
-  </form>
-</div>
+
+    <!-- RIGHT: tips + actions -->
+    <div class="dash-form-sidebar">
+      <div class="dash-settings-card" style="padding:1.25rem;display:flex;flex-direction:column;gap:0.75rem;">
+        <div style="font-family:var(--font-display);font-weight:600;font-size:0.85rem;color:var(--dash-text);">Tips</div>
+        <ul style="margin:0;padding:0 0 0 1rem;display:flex;flex-direction:column;gap:0.5rem;color:var(--dash-text-muted);font-size:0.8rem;line-height:1.4;">
+          <li>Add the full postcode so clients can easily navigate.</li>
+          <li>Tick the hoist badge if the pool has lifting equipment — important for accessibility.</li>
+          <li>Prices per location are set from the session type settings after saving.</li>
+        </ul>
+      </div>
+      {% include "dashboard/includes/form_actions.html" with submit_label="Save Location" %}
+    </div>
+
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const details = document.querySelector('details');
+  const chevron = details.querySelector('.adv-chevron');
+  details.addEventListener('toggle', () => { chevron.style.transform = details.open ? 'rotate(180deg)' : ''; });
+
+  {% if action == 'Create' %}
+  const nameInput = document.getElementById('id_name');
+  const slugInput = document.getElementById('id_slug');
+  let slugTouched = false;
+  slugInput.addEventListener('input', () => { slugTouched = true; });
+  nameInput.addEventListener('input', () => {
+    if (slugTouched) return;
+    slugInput.value = nameInput.value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-');
+  });
+  {% endif %}
+</script>
 {% endblock %}

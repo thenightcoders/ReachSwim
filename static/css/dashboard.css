@@ -494,13 +494,15 @@ body.dash-body {
   width: 100%;
   padding: 0.625rem 0.875rem;
   font-size: 0.95rem;
+  font-family: var(--font-sans);
   line-height: 1.5;
   color: var(--dash-text);
-  background-color: #fff;
+  background-color: rgba(255, 255, 255, 0.85);
   border: 1px solid var(--dash-border);
   border-radius: 8px;
   transition: all 0.2s ease;
   box-shadow: 0 1px 2px rgba(0,0,0,0.02) inset;
+  box-sizing: border-box;
 }
 
 .dash-input:focus, .dash-textarea:focus {
@@ -584,6 +586,21 @@ body.dash-body {
 .dash-btn--ghost:hover {
   background: var(--dash-sidebar-active-bg);
   color: var(--dash-text);
+}
+
+.dash-btn--dark {
+  background: #1e293b;
+  border-color: #1e293b;
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.18);
+}
+
+.dash-btn--dark:hover {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.22);
+  transform: translateY(-1px);
 }
 
 /* --- Money / pence input wrapper --- */
@@ -908,14 +925,25 @@ body.dash-body {
 }
 
 .dash-settings-card {
-  background: var(--dash-card-bg);
-  border: 1px solid var(--dash-border);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: var(--dash-radius-lg);
-  box-shadow: var(--dash-shadow-sm);
+  box-shadow: var(--dash-shadow-md);
   padding: 2rem;
 }
 
 .dash-settings-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Sticky sidebar used on all form pages */
+.dash-form-sidebar {
+  position: sticky;
+  top: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;

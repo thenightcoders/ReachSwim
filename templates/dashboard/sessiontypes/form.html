@@ -1,38 +1,32 @@
 {% extends "dashboard/base_dashboard.html" %}
 
 {% block title %}{{ action }} Session Type — Admin{% endblock %}
+{% block topbar_title %}{{ action }} Session Type{% endblock %}
 
 {% block content %}
 <div class="dash-header">
   <div>
-    <a href="{% url 'dashboard:sessiontype_list' %}" class="dash-back" style="display: inline-block; color: var(--dash-accent); text-decoration: none; margin-bottom: 0.5rem; font-size: 0.85rem;">&larr; Back to Session Types</a>
+    <a href="{% url 'dashboard:sessiontype_list' %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Session Types
+    </a>
     <h1 class="dash-heading">{{ action }} Session Type</h1>
   </div>
 </div>
 
-<div class="dash-section" style="max-width: 600px;">
-  <form method="post" class="dash-dl" style="gap: 1.5rem;">
-    {% csrf_token %}
-    
+{% url 'dashboard:sessiontype_list' as cancel_href %}
+<form method="post" style="max-width:680px;">
+  {% csrf_token %}
+  <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
     {% for field in form %}
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <label class="dash-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <label class="dash-label" style="margin:0;" for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {% if field.help_text %}
-          <small style="color: var(--dash-text-muted); font-size: 0.75rem;">{{ field.help_text }}</small>
-        {% endif %}
-        {% if field.errors %}
-          <div style="color: var(--dash-danger); font-size: 0.75rem; font-weight: 500;">
-            {% for error in field.errors %}{{ error }}{% endfor %}
-          </div>
-        {% endif %}
+        {% if field.help_text %}<small style="color:var(--dash-text-muted);font-size:0.75rem;">{{ field.help_text }}</small>{% endif %}
+        {% if field.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;font-weight:500;">{% for e in field.errors %}{{ e }}{% endfor %}</div>{% endif %}
       </div>
     {% endfor %}
-    
-    <div style="padding-top: 1rem; border-top: 1px solid var(--dash-border); display: flex; justify-content: flex-end; gap: 1rem;">
-      <a href="{% url 'dashboard:sessiontype_list' %}" class="dash-btn dash-btn--ghost">Cancel</a>
-      <button type="submit" class="dash-btn dash-btn--primary">Save Session Type</button>
-    </div>
-  </form>
-</div>
+  </div>
+  {% include "dashboard/includes/form_actions.html" with submit_label="Save Session Type" %}
+</form>
 {% endblock %}

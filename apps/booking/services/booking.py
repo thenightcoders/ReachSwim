@@ -94,12 +94,19 @@ def create_booking(
 def confirm_booking(booking: Booking, payment_intent_id: str = "") -> Booking:
     """Mark a booking as confirmed after successful payment."""
     from apps.booking.services.email import send_booking_confirmation
+    from apps.booking.services import google_calendar
 
     booking.status = Booking.STATUS_CONFIRMED
     if payment_intent_id:
         booking.stripe_payment_intent_id = payment_intent_id
     booking.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
     send_booking_confirmation(booking)
+
+    event_id = google_calendar.create_event(booking)
+    if event_id:
+        booking.google_event_id = event_id
+        booking.save(update_fields=["google_event_id"])
+
     return booking
 
 
@@ -116,6 +123,7 @@ def cancel_booking(
     and a cancellation email would be confusing.
     """
     from apps.booking.services.email import send_booking_cancellation
+    from apps.booking.services import google_calendar
 
     # Capture old status before we overwrite it — the email decision depends
     # on whether the booking was actually confirmed, not on STATUS_CANCELLED.
@@ -130,6 +138,8 @@ def cancel_booking(
 
     if notify_client and was_confirmed:
         send_booking_cancellation(booking)
+
+    google_calendar.delete_event(booking)
 
     return booking
 
