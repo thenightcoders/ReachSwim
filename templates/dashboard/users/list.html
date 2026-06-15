@@ -1,18 +1,18 @@
 {% extends "dashboard/base_dashboard.html" %}
 
-{% block title %}Users — Admin{% endblock %}
-{% block topbar_title %}Users{% endblock %}
+{% block title %}Clients — Admin{% endblock %}
+{% block topbar_title %}Clients{% endblock %}
 
 {% block content %}
 <div class="dash-header">
   <div>
-    <h1 class="dash-heading">Users</h1>
+    <h1 class="dash-heading">Clients</h1>
     <p class="dash-subheading">Manage clients, staff, and owners.</p>
   </div>
   <div>
     <a href="{% url 'dashboard:user_create' %}" class="dash-btn dash-btn--primary">
       <svg class="dash-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M12 14c-6.1 0-8 4-8 4v2h16v-2s-1.9-4-8-4z"></path></svg>
-      Add User
+      Add Client
     </a>
   </div>
 </div>

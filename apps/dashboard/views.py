@@ -52,7 +52,10 @@ def home(request):
 
     pending_orders = Order.objects.filter(status="pending").count()
 
-    total_clients = User.objects.filter(role="client").count()
+    # Count unique client emails across all bookings — includes guest checkouts,
+    # not just registered User accounts with role=client.
+    from apps.booking.models import Booking as _Booking
+    total_clients = _Booking.objects.values("client_email").distinct().count()
 
     unread_messages = ContactMessage.objects.filter(is_read=False).count()
 

@@ -1833,6 +1833,34 @@ body[data-has-hero="False"] .site-nav {
   padding: 14px 24px;
 }
 
+.checkout-terms {
+  margin-bottom: 16px;
+}
+
+.checkout-terms-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.checkout-terms-label input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+
+.checkout-terms-label a {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
 .checkout-secure-note {
   font-size: 13px;
   color: var(--ink-3);

@@ -1,16 +1,16 @@
 {% extends "dashboard/base_dashboard.html" %}
 
-{% block title %}{{ action }} User — Admin{% endblock %}
-{% block topbar_title %}{{ action }} User{% endblock %}
+{% block title %}{{ action }} Client — Admin{% endblock %}
+{% block topbar_title %}{{ action }} Client{% endblock %}
 
 {% block content %}
 <div class="dash-header">
   <div>
     <a href="{% url 'dashboard:user_list' %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      Back to Users
+      Back to Clients
     </a>
-    <h1 class="dash-heading">{{ action }} User</h1>
+    <h1 class="dash-heading">{{ action }} Client</h1>
   </div>
 </div>
 

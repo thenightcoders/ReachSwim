@@ -77,6 +77,13 @@
                    placeholder="07700 900000"
                    value="{% if user.is_authenticated %}{{ user.phone|default:'' }}{% endif %}">
           </div>
+          <div class="form-group checkout-terms">
+            <label class="checkout-terms-label">
+              <input type="checkbox" name="terms_accepted" required>
+              I agree to the <a href="/legal/terms/" target="_blank" rel="noopener">Terms &amp; Conditions</a>
+              and <a href="/legal/privacy-policy/" target="_blank" rel="noopener">Privacy Policy</a>.
+            </label>
+          </div>
           <button type="submit" class="btn btn-primary checkout-pay-btn">
             Pay {{ cart_total|pence_to_pounds }}
           </button>

@@ -1,9 +1,13 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 
 app_name = "booking"
 
 urlpatterns = [
+    # Redirect legacy /booking/ to canonical /book/
+    path("booking/", RedirectView.as_view(url="/book/", permanent=True), name="page_redirect"),
+
     # Full page
     path("book/", views.booking_page, name="page"),
 

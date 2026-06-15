@@ -185,9 +185,18 @@ def checkout(request: HttpRequest) -> HttpResponse:
     email = request.POST.get("client_email", "").strip()
     phone = request.POST.get("client_phone", "").strip()
 
+    terms_accepted = request.POST.get("terms_accepted")
+
     if not name or not email:
         return render(request, "payments/checkout.html", {
             "error": "Name and email are required.",
+            "cart": cart_svc.get_cart(request),
+            "cart_total": cart_svc.cart_total_pence(request),
+        })
+
+    if not terms_accepted:
+        return render(request, "payments/checkout.html", {
+            "error": "You must accept the Terms & Conditions to proceed.",
             "cart": cart_svc.get_cart(request),
             "cart_total": cart_svc.cart_total_pence(request),
         })

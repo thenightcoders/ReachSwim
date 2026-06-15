@@ -90,9 +90,13 @@
             {% if form.status.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.status.errors }}</div>{% endif %}
           </div>
           <div style="display:flex;flex-direction:column;gap:0.4rem;">
-            <label class="dash-label" style="margin:0;" for="{{ form.amount_pence.id_for_label }}">Amount (pence)</label>
+            <label class="dash-label" style="margin:0;" for="{{ form.amount_pence.id_for_label }}">
+              Amount (pence)
+              <span id="amount-pence-preview" style="font-weight:400;font-size:0.78rem;color:var(--dash-text-muted);margin-left:0.4rem;"></span>
+            </label>
             {{ form.amount_pence }}
             {% if form.amount_pence.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.amount_pence.errors }}</div>{% endif %}
+            <span class="dash-field-hint">e.g. 4500 = £45.00</span>
           </div>
         </div>
 
@@ -107,4 +111,24 @@
     {% include "dashboard/includes/form_actions.html" with submit_label="Save" %}
   </div>
 </form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var input = document.getElementById("{{ form.amount_pence.id_for_label }}");
+  var preview = document.getElementById("amount-pence-preview");
+  if (!input || !preview) return;
+  function update() {
+    var val = parseInt(input.value, 10);
+    if (!isNaN(val) && val >= 0) {
+      preview.textContent = "= £" + (val / 100).toFixed(2);
+    } else {
+      preview.textContent = "";
+    }
+  }
+  input.addEventListener("input", update);
+  update(); // run on load for edit forms
+})();
+</script>
 {% endblock %}
