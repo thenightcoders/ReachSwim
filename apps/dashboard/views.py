@@ -401,10 +401,14 @@ def order_refund(request, pk):
             # Accept both pence (integer) and pounds (decimal like "12.50").
             # Use Decimal — float arithmetic loses precision on amounts like
             # £12.57 (float("12.57") * 100 = 1256.9999...).
-            from decimal import Decimal, InvalidOperation
+            # to_integral_value(ROUND_HALF_UP) avoids int() truncation for
+            # sub-penny inputs (e.g. "12.576" → 1258, not 1257).
+            from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
             raw = custom_amount.replace("£", "").strip()
             if "." in raw:
-                amount_pence = int(Decimal(raw) * 100)
+                amount_pence = int(
+                    (Decimal(raw) * 100).to_integral_value(rounding=ROUND_HALF_UP)
+                )
             else:
                 amount_pence = int(raw)
         except (InvalidOperation, ValueError, TypeError):
@@ -618,6 +622,17 @@ def settings_view(request):
     shop_settings = ShopSettings.load()
     gcal_config = GoogleCalendarConfig.load()
 
+    # Build the formset factory once — used in both the POST (reminders section)
+    # and GET (render) paths to avoid duplicating the factory definition.
+    from apps.payments.models import PaymentReminderRule
+    from django.forms import modelformset_factory
+    ReminderFormSet = modelformset_factory(
+        PaymentReminderRule,
+        fields=["delay_hours", "delay_anchor", "is_active"],
+        can_delete=True,
+        extra=0,
+    )
+
     if request.method == "POST":
         section = request.POST.get("_section")
 
@@ -669,8 +684,9 @@ def settings_view(request):
                           "subheading", "free_shipping_note"]:
                 if field in request.POST:
                     setattr(shop_settings, field, request.POST[field])
-            # £ decimal inputs → pence integers
-            from decimal import Decimal as _D, InvalidOperation
+            # £ decimal inputs → pence integers.  ROUND_HALF_UP avoids int()
+            # truncation for sub-penny inputs.
+            from decimal import Decimal as _D, ROUND_HALF_UP, InvalidOperation
             for input_name, model_attr in [
                 ("free_shipping_threshold", "free_shipping_threshold_pence"),
                 ("shipping_rate", "shipping_rate_pence"),
@@ -678,7 +694,11 @@ def settings_view(request):
                 raw = request.POST.get(input_name, "").strip()
                 if raw:
                     try:
-                        setattr(shop_settings, model_attr, int(_D(raw) * 100))
+                        setattr(
+                            shop_settings,
+                            model_attr,
+                            int((_D(raw) * 100).to_integral_value(rounding=ROUND_HALF_UP)),
+                        )
                     except (ValueError, InvalidOperation):
                         pass
             shop_settings.save()
@@ -698,14 +718,6 @@ def settings_view(request):
             return redirect("/dashboard/settings/#gcal")
 
         elif section == "reminders":
-            from apps.payments.models import PaymentReminderRule
-            from django.forms import modelformset_factory
-            ReminderFormSet = modelformset_factory(
-                PaymentReminderRule,
-                fields=["delay_hours", "delay_anchor", "is_active"],
-                can_delete=True,
-                extra=0,
-            )
             formset = ReminderFormSet(request.POST, prefix="reminder_rules",
                                       queryset=PaymentReminderRule.objects.all())
             if formset.is_valid():
@@ -714,14 +726,6 @@ def settings_view(request):
 
         return redirect("dashboard:settings")
 
-    from apps.payments.models import PaymentReminderRule
-    from django.forms import modelformset_factory
-    ReminderFormSet = modelformset_factory(
-        PaymentReminderRule,
-        fields=["delay_hours", "delay_anchor", "is_active"],
-        can_delete=True,
-        extra=0,
-    )
     reminder_formset = ReminderFormSet(
         prefix="reminder_rules",
         queryset=PaymentReminderRule.objects.all(),

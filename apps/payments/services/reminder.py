@@ -11,16 +11,20 @@ nothing here calls send_mail or touches templates directly.
 
 async_send behaviour
 --------------------
-  async_send=False (default, used by the django_q2 task):
+  async_send=False (default):
     SMTP call is synchronous.  PaymentReminder is only created on success.
-    If SMTP fails the record is withheld — the DB constraint doesn't block
-    a retry on the next task run.
+    Used by:
+      • The django_q2 task (task worker is the background context; blocking
+        on SMTP is fine and lets us write the record only on confirmed delivery)
+      • The dashboard manual-send view (owner needs immediate feedback)
 
-  async_send=True (used by the dashboard manual-send view):
-    SMTP is dispatched in a daemon thread and the PaymentReminder is
-    written optimistically.  The HTTP response is not held up by SMTP.
-    On failure the log records it, but a second manual send is needed.
-    Acceptable trade-off for a low-volume owner action.
+  async_send=True:
+    Email is enqueued via django_q2 async_task and the PaymentReminder is
+    written optimistically before SMTP completes.  Use this from service code
+    that must not block on SMTP — e.g. a booking confirmation flow that wants
+    to send a reminder as a side effect.
+    On SMTP failure the task is retried by the qcluster worker; the optimistic
+    DB record means the next automatic run won't double-send via the constraint.
 """
 import logging
 
@@ -78,9 +82,9 @@ def send_payment_reminder_email(
       can retry.
 
     async_send=True:
-      Sends in a background daemon thread and writes the PaymentReminder
-      optimistically.  Use from HTTP views where SMTP latency must not
-      hold up the response.
+      Enqueues the email via django_q2 async_task and writes the
+      PaymentReminder optimistically.  Use from service code where SMTP
+      latency must not block the caller.
 
     Returns the created PaymentReminder on success, None otherwise.
     Callers must have already confirmed the booking is still pending.

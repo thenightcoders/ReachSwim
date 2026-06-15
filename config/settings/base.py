@@ -236,5 +236,3 @@ Q_CLUSTER = {
     "orm":         "default", # use Django's DB as the broker — no Redis needed
     "catch_up":    False,     # don't replay missed scheduled runs on restart
 }
-# Q_CLUSTER is harmless when django_q is not in INSTALLED_APPS — Django
-# simply ignores it.

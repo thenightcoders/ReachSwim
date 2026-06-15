@@ -561,6 +561,7 @@ class Refund(models.Model):
     stripe_refund_id = models.CharField(
         max_length=255,
         blank=True,
+        db_index=True,  # looked up on every charge.refund.updated webhook
         help_text="Stripe re_xxx identifier.",
     )
     amount_pence = models.PositiveIntegerField(

@@ -69,8 +69,13 @@ def send_pending_payment_reminders() -> dict:
             # Fire when fewer than delay_hours remain before the session starts.
             fire_before = now + datetime.timedelta(hours=rule.delay_hours)
 
-            # Coarse SQL filter on date — SQLite cannot combine DateField +
-            # TimeField into a single datetime for comparison.
+            # Coarse SQL filter on date — SQLite cannot combine a DateField and
+            # a TimeField into a single datetime in a WHERE clause.
+            # TODO (PostgreSQL): replace the two-step approach below with a
+            # single annotated filter once we switch to PostgreSQL:
+            #   .annotate(session_dt=ExpressionWrapper(
+            #       F("date") + F("start_time"), output_field=DateTimeField()
+            #   )).filter(session_dt__lte=fire_before, session_dt__gte=now)
             candidates = list(
                 base_qs.filter(
                     date__lte=fire_before.date(),

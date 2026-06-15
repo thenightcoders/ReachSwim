@@ -6,6 +6,7 @@ Public API:
   send_booking_confirmation(booking, *, async_send=False)
   send_booking_cancellation(booking, *, async_send=False)
   send_payment_reminder(booking, payment_link, *, async_send=False)
+  send_refund_email(order, refund, *, order_item=None, async_send=False)
 
 All functions:
   - Render HTML + plain-text templates from templates/emails/
@@ -14,13 +15,17 @@ All functions:
   - Swallow SMTP exceptions and log them — a broken mail config must never
     kill a booking flow or block an HTTP response
 
-async_send=True dispatches in a daemon thread (fire-and-forget, no return
-value).  Use it from service code that doesn't need to know whether the mail
-arrived.  Leave it False (default) when the caller checks the bool return —
-e.g. the Django admin bulk-resend action.
+async_send=True dispatches via django_q2 (async_task) — the message is
+serialised to the DB and a qcluster worker picks it up.  Tasks are retried
+on failure, visible in the django_q admin, and survive process restarts.
+Leave it False (default) when the caller needs to check the bool return —
+e.g. the dashboard manual-send view that shows a success/failure flash.
+
+Task entry points (_task_*) accept only primitive PKs — no model instances —
+so django_q2's pickle-based serialisation never breaks on non-picklable
+objects or stale in-memory state.
 """
 import logging
-import threading
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -86,23 +91,62 @@ def _send(
         return False
 
 
-def _send_async(*, subject: str, to: str, html_template: str, txt_template: str, context: dict) -> None:
-    """
-    Dispatch _send() in a daemon thread — fire-and-forget.
-    The thread is a daemon so it won't block process shutdown.
-    Result is not available to the caller; failures are logged inside _send().
-    """
-    threading.Thread(
-        target=_send,
-        kwargs=dict(
-            subject=subject,
-            to=to,
-            html_template=html_template,
-            txt_template=txt_template,
-            context=context,
-        ),
-        daemon=True,
-    ).start()
+# ---------------------------------------------------------------------------
+# django_q2 task entry points — accept only PKs, never model instances
+# ---------------------------------------------------------------------------
+
+def _task_booking_confirmation(booking_pk: int) -> None:
+    """django_q2 task: send booking confirmation email. Accepts PK only."""
+    from apps.booking.models import Booking
+    try:
+        booking = Booking.objects.select_related("session_type", "location").get(pk=booking_pk)
+    except Booking.DoesNotExist:
+        logger.warning("_task_booking_confirmation: booking %s not found — skipping.", booking_pk)
+        return
+    send_booking_confirmation(booking, async_send=False)
+
+
+def _task_booking_cancellation(booking_pk: int) -> None:
+    """django_q2 task: send booking cancellation email. Accepts PK only."""
+    from apps.booking.models import Booking
+    try:
+        booking = Booking.objects.select_related("session_type", "location").get(pk=booking_pk)
+    except Booking.DoesNotExist:
+        logger.warning("_task_booking_cancellation: booking %s not found — skipping.", booking_pk)
+        return
+    send_booking_cancellation(booking, async_send=False)
+
+
+def _task_payment_reminder(booking_pk: int, payment_link: str) -> None:
+    """django_q2 task: send payment reminder email. Accepts PK only."""
+    from apps.booking.models import Booking
+    try:
+        booking = Booking.objects.select_related("session_type", "location").get(pk=booking_pk)
+    except Booking.DoesNotExist:
+        logger.warning("_task_payment_reminder: booking %s not found — skipping.", booking_pk)
+        return
+    send_payment_reminder(booking, payment_link, async_send=False)
+
+
+def _task_refund_email(order_pk: int, refund_pk: int, order_item_pk: int | None) -> None:
+    """django_q2 task: send refund confirmation email. Accepts PKs only."""
+    from apps.payments.models import Order, OrderItem, Refund
+    try:
+        order  = Order.objects.get(pk=order_pk)
+        refund = Refund.objects.get(pk=refund_pk)
+        order_item = (
+            OrderItem.objects.select_related("booking").get(pk=order_item_pk)
+            if order_item_pk is not None
+            else None
+        )
+    except (Order.DoesNotExist, Refund.DoesNotExist, OrderItem.DoesNotExist):
+        logger.warning(
+            "_task_refund_email: record not found "
+            "(order_pk=%s refund_pk=%s order_item_pk=%s) — skipping.",
+            order_pk, refund_pk, order_item_pk,
+        )
+        return
+    send_refund_email(order, refund, order_item=order_item, async_send=False)
 
 
 # ---------------------------------------------------------------------------
@@ -118,20 +162,23 @@ def send_booking_confirmation(booking, *, async_send: bool = False) -> bool | No
 
     Returns True/False when async_send=False, None when async_send=True.
     """
+    if async_send:
+        from django_q.tasks import async_task
+        async_task(
+            "apps.booking.services.email._task_booking_confirmation",
+            booking.pk,
+        )
+        return None
+
     context = _booking_context(booking)
     subject = f"Booking confirmed — {context['session_type_name']} on {context['date_str']}"
-    kwargs  = dict(
+    return _send(
         subject=subject,
         to=booking.client_email,
         html_template="emails/booking_confirmation.html",
         txt_template="emails/booking_confirmation.txt",
         context=context,
     )
-
-    if async_send:
-        _send_async(**kwargs)
-        return None
-    return _send(**kwargs)
 
 
 def send_booking_cancellation(booking, *, async_send: bool = False) -> bool | None:
@@ -142,20 +189,23 @@ def send_booking_cancellation(booking, *, async_send: bool = False) -> bool | No
 
     Returns True/False when async_send=False, None when async_send=True.
     """
+    if async_send:
+        from django_q.tasks import async_task
+        async_task(
+            "apps.booking.services.email._task_booking_cancellation",
+            booking.pk,
+        )
+        return None
+
     context = _booking_context(booking)
     subject = f"Booking cancelled — {context['session_type_name']} on {context['date_str']}"
-    kwargs  = dict(
+    return _send(
         subject=subject,
         to=booking.client_email,
         html_template="emails/booking_cancellation.html",
         txt_template="emails/booking_cancellation.txt",
         context=context,
     )
-
-    if async_send:
-        _send_async(**kwargs)
-        return None
-    return _send(**kwargs)
 
 
 def send_refund_email(order, refund, *, order_item=None, async_send: bool = False) -> bool | None:
@@ -177,6 +227,16 @@ def send_refund_email(order, refund, *, order_item=None, async_send: bool = Fals
 
     Returns True/False when async_send=False, None when async_send=True.
     """
+    if async_send:
+        from django_q.tasks import async_task
+        async_task(
+            "apps.booking.services.email._task_refund_email",
+            order.pk,
+            refund.pk,
+            order_item.pk if order_item is not None else None,
+        )
+        return None
+
     client_name = order.client_name
     client_first_name = client_name.split()[0] if client_name else "there"
 
@@ -200,7 +260,7 @@ def send_refund_email(order, refund, *, order_item=None, async_send: bool = Fals
     else:
         subject = f"Refund of {context['refund_amount_str']} processed — order #{order.order_number}"
 
-    kwargs = dict(
+    return _send(
         subject=subject,
         to=order.client_email,
         html_template="emails/booking_refund.html",
@@ -208,38 +268,40 @@ def send_refund_email(order, refund, *, order_item=None, async_send: bool = Fals
         context=context,
     )
 
-    if async_send:
-        _send_async(**kwargs)
-        return None
-    return _send(**kwargs)
-
 
 def send_payment_reminder(booking, payment_link: str, *, async_send: bool = False) -> bool | None:
     """
     Send a payment-reminder email to a client whose booking is pending payment.
 
     Called by apps.payments.services.reminder.send_payment_reminder_email().
-    Uses async_send=True from the django_q2 task and from the dashboard manual
-    send view — neither caller needs to block on SMTP.
+    async_send=True is used when the caller is a service/task that must not
+    block on SMTP — the task is enqueued via django_q2 and retried on failure.
+    async_send=False (default) is used by the django_q2 task worker itself
+    and by the dashboard manual-send view (where the owner needs an immediate
+    success/failure response).
 
     Returns True/False when async_send=False, None when async_send=True.
     """
+    if async_send:
+        from django_q.tasks import async_task
+        async_task(
+            "apps.booking.services.email._task_payment_reminder",
+            booking.pk,
+            payment_link,
+        )
+        return None
+
     context = _booking_context(booking)
     context["payment_link"] = payment_link
 
     subject = f"Complete your booking — {context['session_type_name']} on {context['date_str']}"
-    kwargs  = dict(
+    return _send(
         subject=subject,
         to=booking.client_email,
         html_template="emails/payment_reminder.html",
         txt_template="emails/payment_reminder.txt",
         context=context,
     )
-
-    if async_send:
-        _send_async(**kwargs)
-        return None
-    return _send(**kwargs)
 
 
 # ---------------------------------------------------------------------------

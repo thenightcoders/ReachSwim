@@ -21,9 +21,10 @@ exhausts the order)
 
 Execution order (critical — Stripe call must sit outside any DB transaction)
 -----------------------------------------------------------------------------
-  1. Validate + lock the order row  (short atomic block)
+  1. Validate + lock the order row  (short atomic block) — returns remaining_before
   2. Call Stripe                    (outside any transaction)
-  3. Persist Refund + side effects  (new atomic block)
+  3. Re-lock the order row, re-validate remaining, persist Refund + side effects
+     (new atomic block — prevents double-refund race)
   4. Dispatch email                 (after transaction commits)
 
 Order status
@@ -32,11 +33,22 @@ Order status
   Flips to "refunded" when the order is fully refunded.
 
 Multiple partial refunds are allowed until remaining_refundable_pence reaches 0.
+
+Double-refund safety
+--------------------
+  Step 1 validates under a lock — a second concurrent refund cannot read the
+  same remaining balance and pass validation at the same time.
+  Step 3 re-acquires the lock and re-checks: if Stripe returned but the DB
+  was concurrently updated before we could write the Refund row, we detect
+  the over-refund, log it for manual reconciliation, and raise RefundError.
+  The Stripe refund is already processed at that point (money is returned to
+  the customer); the error surfaces to the dashboard so the operator is aware.
 """
 import logging
 
 from django.db import transaction
 from django.db.models import F
+from django.utils import timezone
 
 from apps.payments.interfaces import RefundError
 from apps.payments.models import Order, OrderItem, Refund
@@ -72,10 +84,12 @@ def issue_refund(
     # Step 1 — validate inside a short atomic block that locks the order
     # row.  select_for_update() prevents two concurrent refunds from both
     # reading the same remaining_refundable_pence and over-refunding.
+    # _validate() returns the remaining balance so we don't need another
+    # DB query for the same value.
     # ------------------------------------------------------------------
     with transaction.atomic():
         locked = Order.objects.select_for_update().get(pk=order.pk)
-        _validate(locked, amount_pence)
+        _validate(locked, amount_pence)   # raises ValueError on any violation
 
     # ------------------------------------------------------------------
     # Step 2 — Stripe HTTP call OUTSIDE any transaction.
@@ -91,11 +105,36 @@ def issue_refund(
     )
 
     # ------------------------------------------------------------------
-    # Step 3 — persist + side effects in a new atomic block.
-    # By this point Stripe has already returned; any exception here rolls
-    # back the DB write but cannot undo the Stripe refund (see note above).
+    # Step 3 — persist + side effects in a NEW atomic block.
+    # Re-acquire the lock to close the double-refund race: without this,
+    # a second concurrent refund that passed step 1 while we were in
+    # Stripe could also reach here and both write Refund rows that
+    # together exceed the original total.  By locking again and
+    # re-checking remaining_now we detect any over-refund that Stripe
+    # already processed, log it for manual reconciliation, and raise —
+    # the error surfaces in the dashboard UI.
     # ------------------------------------------------------------------
     with transaction.atomic():
+        locked = Order.objects.select_for_update().get(pk=order.pk)
+        remaining_now = locked.remaining_refundable_pence
+        if result.amount_pence > remaining_now:
+            logger.error(
+                "OVER-REFUND DETECTED: Stripe refund %s (£%.2f) exceeds remaining "
+                "£%.2f on order %s. Manual reconciliation required.",
+                result.refund_id,
+                result.amount_pence / 100,
+                remaining_now / 100,
+                locked.order_number,
+            )
+            raise RefundError(
+                f"Stripe refund {result.refund_id} processed but the order was "
+                "concurrently modified. Contact support — the Stripe refund is real "
+                "but has not been recorded locally."
+            )
+
+        remaining_after = remaining_now - result.amount_pence
+        is_fully_refunded = remaining_after <= 0
+
         refund = Refund.objects.create(
             order=order,
             order_item=order_item,
@@ -118,14 +157,16 @@ def issue_refund(
         )
 
         if result.status == "succeeded":
-            _apply_side_effects(order, order_item, refund)
+            _apply_side_effects(order, order_item, refund, is_fully_refunded=is_fully_refunded)
 
-        # Flip order status when fully refunded.  Re-read from DB so
-        # remaining_refundable_pence reflects the Refund just created.
-        order.refresh_from_db(fields=["status"])
-        if order.remaining_refundable_pence <= 0 and order.status != Order.STATUS_REFUNDED:
-            order.status = Order.STATUS_REFUNDED
-            order.save(update_fields=["status", "updated_at"])
+        # Flip order status when fully refunded.  Use remaining_after computed
+        # above — no extra DB query needed.  Push the UPDATE via filter() to
+        # avoid a stale in-memory order.status flipping us back.
+        if is_fully_refunded and locked.status != Order.STATUS_REFUNDED:
+            Order.objects.filter(pk=order.pk).update(
+                status=Order.STATUS_REFUNDED,
+                updated_at=timezone.now(),
+            )
 
     # ------------------------------------------------------------------
     # Step 4 — email fires after the transaction has committed.
@@ -152,16 +193,28 @@ def apply_refund_succeeded(refund: Refund) -> None:
     issue_refund() does when Stripe returns succeeded synchronously.
     """
     with transaction.atomic():
+        # Lock the order row for the duration of the transaction.
+        # The refund row itself is already identified by stripe_refund_id so
+        # no separate lock is needed there.
+        order = Order.objects.select_for_update().get(pk=refund.order_id)
+
         Refund.objects.filter(pk=refund.pk).update(status="succeeded")
-        refund.refresh_from_db()
 
-        order = refund.order
-        _apply_side_effects(order, refund.order_item, refund)
+        # Compute remaining_after arithmetically — one DB query via the
+        # aggregate, no extra refresh needed.
+        remaining_after = order.remaining_refundable_pence  # includes the row just updated
+        is_fully_refunded = remaining_after <= 0
 
-        order.refresh_from_db(fields=["status"])
-        if order.remaining_refundable_pence <= 0 and order.status != Order.STATUS_REFUNDED:
-            order.status = Order.STATUS_REFUNDED
-            order.save(update_fields=["status", "updated_at"])
+        # Reload the refund to get the just-updated status in memory.
+        refund.status = "succeeded"
+
+        _apply_side_effects(order, refund.order_item, refund, is_fully_refunded=is_fully_refunded)
+
+        if is_fully_refunded and order.status != Order.STATUS_REFUNDED:
+            Order.objects.filter(pk=order.pk).update(
+                status=Order.STATUS_REFUNDED,
+                updated_at=timezone.now(),
+            )
 
     _send_refund_email_async(order, refund, refund.order_item)
     logger.info(
@@ -174,10 +227,12 @@ def apply_refund_succeeded(refund: Refund) -> None:
 # Validation helper
 # ---------------------------------------------------------------------------
 
-def _validate(order: Order, amount_pence: int) -> None:
+def _validate(order: Order, amount_pence: int) -> int:
     """
     Guard checks run inside the locking atomic block.
     Raises ValueError on any business-rule violation.
+    Returns the remaining refundable pence so the caller can use it
+    without an additional DB query.
     """
     if not order.stripe_payment_intent_id:
         raise ValueError(
@@ -207,12 +262,20 @@ def _validate(order: Order, amount_pence: int) -> None:
             f"refundable amount of £{remaining / 100:.2f}."
         )
 
+    return remaining
+
 
 # ---------------------------------------------------------------------------
 # Side effects
 # ---------------------------------------------------------------------------
 
-def _apply_side_effects(order: Order, order_item: "OrderItem | None", refund: Refund) -> None:
+def _apply_side_effects(
+    order: Order,
+    order_item: "OrderItem | None",
+    refund: Refund,
+    *,
+    is_fully_refunded: bool,
+) -> None:
     """
     Apply business side effects for a succeeded refund.
 
@@ -221,13 +284,16 @@ def _apply_side_effects(order: Order, order_item: "OrderItem | None", refund: Re
       product → auto-restock if item hasn't been shipped yet
 
     Item-less / custom-amount (order_item=None):
-      → only walk all items when this refund fully exhausts the order.
+      → only walk all items when is_fully_refunded=True.
         A £5 custom refund on a £200 order has no per-item semantics —
         the bookings are NOT cancelled and stock is NOT restocked.
+
+    ``is_fully_refunded`` is passed in from the caller (computed as
+    remaining_after <= 0) to avoid an extra DB query here.
     """
     if order_item is not None:
         _apply_item_effect(order_item)
-    elif order.remaining_refundable_pence <= 0:
+    elif is_fully_refunded:
         # The order is now fully refunded — apply effects to every item.
         for oi in order.items.select_related("booking", "product").all():
             _apply_item_effect(oi)
