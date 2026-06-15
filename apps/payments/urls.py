@@ -25,4 +25,7 @@ urlpatterns = [
 
     # Stripe webhook
     path("webhooks/stripe/", views.stripe_webhook, name="stripe_webhook"),
+
+    # Payment reminder resume link (from email)
+    path("pay/resume/<str:token>/", views.resume_payment, name="resume_payment"),
 ]

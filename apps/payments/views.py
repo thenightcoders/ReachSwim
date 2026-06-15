@@ -7,13 +7,16 @@ Zero business logic.  Zero ORM calls.  Zero Stripe imports.
 import json
 import logging
 
+from django.conf import settings
+from django.core import signing
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from apps.booking.models import SessionPricing
 from apps.payments.interfaces import WebhookSignatureError
+from apps.payments.models import Order
 from apps.payments.services import cart as cart_svc
 from apps.payments.services.checkout import (
     cancel_pending_order,
@@ -289,7 +292,11 @@ def payment_cancel(request: HttpRequest) -> HttpResponse:
 def stripe_webhook(request: HttpRequest) -> HttpResponse:
     """
     Receive Stripe webhook events.
-    400 = bad signature.  200 = everything else.
+    400 = bad signature.  200 = everything else (Stripe retries on non-2xx).
+
+    Handled event types:
+      checkout.session.completed → confirm_order()
+      charge.refund.updated      → _handle_refund_update()
     """
     try:
         event = StripeService().parse_webhook(request.body, request.META)
@@ -299,4 +306,101 @@ def stripe_webhook(request: HttpRequest) -> HttpResponse:
     if event is not None:
         confirm_order(event)
 
+    # parse_webhook() returns None for every unhandled event type (signature
+    # was valid).  Route any additional event types we care about here.
+    try:
+        raw = json.loads(request.body)
+        if raw.get("type") == "charge.refund.updated":
+            _handle_refund_update(raw)
+    except Exception:
+        logger.exception("Error routing secondary webhook event")
+
     return HttpResponse(status=200)
+
+
+def _handle_refund_update(raw_event: dict) -> None:
+    """
+    Handle charge.refund.updated — fired when an async Stripe refund
+    (e.g. ACH) transitions from pending to succeeded or failed.
+
+    Updates the Refund record status.  On succeeded, applies side effects
+    (booking cancellation / stock restock) and flips the order status.
+    """
+    from apps.payments.models import Refund
+    from apps.payments.services.refund import apply_refund_succeeded
+
+    try:
+        refund_data = raw_event["data"]["object"]
+        stripe_refund_id = refund_data["id"]
+        new_status       = refund_data["status"]
+    except (KeyError, TypeError):
+        logger.warning("charge.refund.updated: unexpected payload shape — ignoring.")
+        return
+
+    try:
+        refund = Refund.objects.select_related("order", "order_item").get(
+            stripe_refund_id=stripe_refund_id
+        )
+    except Refund.DoesNotExist:
+        # Refund issued outside the dashboard (e.g. Stripe dashboard) — ignore.
+        logger.info(
+            "charge.refund.updated: no local Refund record for %s — ignoring.",
+            stripe_refund_id,
+        )
+        return
+
+    if refund.status == new_status:
+        return  # idempotent — already up to date
+
+    if new_status == "succeeded":
+        apply_refund_succeeded(refund)
+    else:
+        # pending → failed, or any other transition: just update the status.
+        Refund.objects.filter(pk=refund.pk).update(status=new_status)
+        logger.info(
+            "Refund %s status updated via webhook: %s → %s",
+            stripe_refund_id, refund.status, new_status,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Payment reminder resume  (client clicks link from reminder email)
+# ---------------------------------------------------------------------------
+
+def resume_payment(request: HttpRequest, token: str) -> HttpResponse:
+    """
+    Decode a signed payment-reminder token, create a fresh Stripe Checkout
+    session for the associated Order, and redirect the client to Stripe.
+
+    GET /pay/resume/<token>/
+
+    The token encodes the Order reference and expires after REMINDER_LINK_MAX_AGE
+    seconds.  No authentication required — the signed token is the credential.
+    """
+    from apps.payments.services.reminder import REMINDER_LINK_MAX_AGE
+
+    try:
+        order_ref = signing.loads(
+            token, salt="payment-reminder", max_age=REMINDER_LINK_MAX_AGE
+        )
+    except signing.SignatureExpired:
+        return render(request, "payments/link_expired.html", status=410)
+    except signing.BadSignature:
+        return render(request, "payments/link_expired.html", status=410)
+
+    order = get_object_or_404(Order, reference=order_ref)
+
+    if order.status == Order.STATUS_PAID:
+        return render(request, "payments/already_paid.html", {"order": order})
+
+    # Only pending orders can be resumed.  Cancelled, refunded, and expired
+    # orders must not create new Stripe sessions.
+    if order.status != Order.STATUS_PENDING:
+        return render(request, "payments/link_expired.html", status=410)
+
+    # Create a fresh Stripe Checkout session using SITE_URL so the
+    # success/cancel URLs are correct even though there is no live request
+    # origin to derive them from.
+    origin = settings.SITE_URL.rstrip("/")
+    session = create_checkout_session(request, order, origin=origin)
+    return redirect(session.redirect_url, permanent=False)

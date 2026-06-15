@@ -1,0 +1,266 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load payment_tags %}
+
+{% block title %}Order #{{ order.order_number }}{% endblock %}
+{% block topbar_title %}Order #{{ order.order_number }}{% endblock %}
+
+{% block content %}
+
+<div class="dash-header" style="margin-bottom:2rem;">
+  <div>
+    <a href="{% url 'dashboard:orders' %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      All Orders
+    </a>
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <h1 class="dash-heading" style="margin:0;">Order <span style="color:var(--dash-text-muted);">#{{ order.order_number }}</span></h1>
+      <span class="dash-badge dash-badge--{{ order.status }}">{{ order.get_status_display }}</span>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 300px;gap:1.5rem;align-items:start;max-width:1100px;">
+
+  <!-- LEFT COLUMN -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    <!-- Client Card -->
+    <div class="dash-settings-card" style="padding:0;overflow:hidden;">
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.7);">
+        <span style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);">Client</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+        <div style="padding:0.875rem 1.5rem;border-right:1px solid rgba(226,232,240,0.5);">
+          <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--dash-text-muted);font-weight:700;margin-bottom:0.3rem;">Name</div>
+          <div style="font-size:0.92rem;font-weight:500;color:var(--dash-text);">{{ order.client_name }}</div>
+        </div>
+        <div style="padding:0.875rem 1.5rem;">
+          <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--dash-text-muted);font-weight:700;margin-bottom:0.3rem;">Email</div>
+          <a href="mailto:{{ order.client_email }}" style="font-size:0.92rem;font-weight:500;color:var(--dash-accent);text-decoration:none;">{{ order.client_email }}</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Items -->
+    <div class="dash-settings-card" style="padding:0;overflow:hidden;">
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.7);">
+        <span style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);">Line Items</span>
+      </div>
+
+      {% for item in order.items.all %}
+      <div style="padding:1rem 1.5rem;{% if not forloop.last %}border-bottom:1px solid rgba(226,232,240,0.5);{% endif %}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+
+          <!-- Item info -->
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;flex-wrap:wrap;">
+              <span style="font-size:0.9rem;font-weight:600;color:var(--dash-text);">{{ item.label }}</span>
+              {% if item.is_booking %}
+              <span class="dash-tag" style="font-size:0.7rem;background:rgba(219,234,254,0.7);color:#1d4ed8;">Session</span>
+              {% if item.booking %}
+              <a href="{% url 'dashboard:booking_detail' item.booking.pk %}" style="font-size:0.72rem;color:var(--dash-accent);text-decoration:none;">View booking →</a>
+              {% endif %}
+              {% else %}
+              <span class="dash-tag" style="font-size:0.7rem;background:rgba(233,213,255,0.7);color:#7e22ce;">Product</span>
+              {% if item.quantity > 1 %}
+              <span style="font-size:0.75rem;color:var(--dash-text-muted);">× {{ item.quantity }}</span>
+              {% endif %}
+              {% endif %}
+            </div>
+
+            {% if item.is_booking and item.booking %}
+            <div style="font-size:0.78rem;color:var(--dash-text-muted);">
+              {{ item.booking.date|date:"l j F Y" }} &nbsp;·&nbsp; {{ item.booking.start_time|time:"H:i" }}–{{ item.booking.end_time|time:"H:i" }}
+              &nbsp;·&nbsp; {{ item.booking.location.name }}
+            </div>
+            {% endif %}
+
+            {% if item.is_product %}
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.35rem;">
+              {% if item.shipped %}
+              <span style="font-size:0.72rem;font-weight:600;color:#15803d;background:#f0fdf4;border:1px solid #86efac;padding:0.15rem 0.5rem;border-radius:4px;">Shipped</span>
+              {% else %}
+              <span style="font-size:0.72rem;color:var(--dash-text-muted);">Not yet shipped</span>
+              {% endif %}
+              <form method="post" action="{% url 'dashboard:order_item_ship' order.pk item.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="dash-btn dash-btn--sm dash-btn--ghost" style="font-size:0.72rem;padding:0.2rem 0.5rem;">
+                  {% if item.shipped %}Unmark shipped{% else %}Mark shipped{% endif %}
+                </button>
+              </form>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Price + refund button -->
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem;min-width:120px;">
+            <div style="font-family:var(--font-display);font-size:1rem;font-weight:700;color:var(--dash-text);">
+              {{ item.line_total_pence|pence_to_pounds }}
+            </div>
+
+            {% if item.refunded_pence > 0 %}
+            <div style="font-size:0.75rem;color:#15803d;font-weight:600;">
+              −{{ item.refunded_pence|pence_to_pounds }} refunded
+            </div>
+            {% endif %}
+
+            {% if item.refundable_pence > 0 and order.stripe_payment_intent_id %}
+            <form method="post" action="{% url 'dashboard:order_refund' order.pk %}"
+                  onsubmit="return confirm('Refund {{ item.refundable_pence|pence_to_pounds }} for \'{{ item.label }}\'?')">
+              {% csrf_token %}
+              <input type="hidden" name="order_item_pk" value="{{ item.pk }}">
+              <button type="submit" class="dash-btn dash-btn--sm" style="font-size:0.75rem;background:rgba(5,150,105,0.1);color:#065f46;border-color:rgba(5,150,105,0.3);white-space:nowrap;">
+                Refund {{ item.refundable_pence|pence_to_pounds }}
+              </button>
+            </form>
+            {% elif item.refundable_pence == 0 and item.refunded_pence > 0 %}
+            <span style="font-size:0.72rem;color:var(--dash-text-muted);">Fully refunded</span>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Totals row -->
+      <div style="padding:1rem 1.5rem;background:rgba(248,250,252,0.8);border-top:1px solid rgba(226,232,240,0.7);">
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.35rem;">
+          <span style="font-size:0.82rem;color:var(--dash-text-muted);">Subtotal</span>
+          <span style="font-size:0.82rem;color:var(--dash-text);">{{ order.subtotal_pence|pence_to_pounds }}</span>
+        </div>
+        {% if order.discount_pence %}
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.35rem;">
+          <span style="font-size:0.82rem;color:var(--dash-text-muted);">Discount{% if order.voucher_code %} ({{ order.voucher_code }}){% endif %}</span>
+          <span style="font-size:0.82rem;color:#15803d;">−{{ order.discount_pence|pence_to_pounds }}</span>
+        </div>
+        {% endif %}
+        <div style="display:flex;justify-content:space-between;padding-top:0.5rem;border-top:1px solid rgba(226,232,240,0.7);">
+          <span style="font-size:0.9rem;font-weight:700;color:var(--dash-text);">Total</span>
+          <span style="font-family:var(--font-display);font-size:1rem;font-weight:700;color:var(--dash-text);">{{ order.total_pence|pence_to_pounds }}</span>
+        </div>
+        {% if order.total_refunded_pence %}
+        <div style="display:flex;justify-content:space-between;margin-top:0.35rem;">
+          <span style="font-size:0.82rem;color:var(--dash-text-muted);">Total refunded</span>
+          <span style="font-size:0.82rem;color:#15803d;font-weight:600;">−{{ order.total_refunded_pence|pence_to_pounds }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:0.2rem;">
+          <span style="font-size:0.82rem;font-weight:600;color:var(--dash-text);">Remaining</span>
+          <span style="font-size:0.82rem;font-weight:700;color:var(--dash-text);">{{ order.remaining_refundable_pence|pence_to_pounds }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Refund history -->
+    {% if refunds %}
+    <div class="dash-settings-card" style="padding:0;overflow:hidden;">
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.7);">
+        <span style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);">Refund History</span>
+      </div>
+      {% for r in refunds %}
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;padding:0.875rem 1.5rem;{% if not forloop.last %}border-bottom:1px solid rgba(226,232,240,0.4);{% endif %}">
+        <div>
+          <div style="font-family:var(--font-display);font-size:0.95rem;font-weight:700;color:#064e3b;">{{ r.amount_display }}</div>
+          {% if r.order_item %}<div style="font-size:0.78rem;color:var(--dash-text-muted);margin-top:0.15rem;">{{ r.order_item.label }}</div>{% endif %}
+          {% if r.notes %}<div style="font-size:0.75rem;color:var(--dash-text-muted);font-style:italic;margin-top:0.1rem;">{{ r.notes }}</div>{% endif %}
+        </div>
+        <div style="text-align:right;white-space:nowrap;">
+          <div style="font-size:0.78rem;color:var(--dash-text);">{{ r.created_at|date:"j M Y" }} {{ r.created_at|time:"H:i" }}</div>
+          {% if r.initiated_by %}<div style="font-size:0.72rem;color:var(--dash-text-muted);">by {{ r.initiated_by.get_full_name|default:r.initiated_by.email }}</div>{% endif %}
+          {% if r.stripe_refund_id %}<div style="font-size:0.7rem;color:var(--dash-text-muted);font-family:monospace;">{{ r.stripe_refund_id }}</div>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- RIGHT SIDEBAR -->
+  <div style="position:sticky;top:calc(64px + 1.5rem);display:flex;flex-direction:column;gap:1rem;">
+
+    <!-- Order meta -->
+    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);margin-bottom:1rem;">Order Details</div>
+      <div style="display:flex;flex-direction:column;gap:0.6rem;">
+        <div style="display:flex;justify-content:space-between;font-size:0.82rem;">
+          <span style="color:var(--dash-text-muted);">Placed</span>
+          <span style="color:var(--dash-text);font-weight:500;">{{ order.created_at|date:"j M Y H:i" }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.82rem;">
+          <span style="color:var(--dash-text-muted);">Status</span>
+          <span class="dash-badge dash-badge--{{ order.status }}" style="font-size:0.72rem;">{{ order.get_status_display }}</span>
+        </div>
+        {% if order.stripe_payment_intent_id %}
+        <div style="font-size:0.72rem;color:var(--dash-text-muted);margin-top:0.2rem;font-family:monospace;word-break:break-all;">{{ order.stripe_payment_intent_id }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Refund controls -->
+    {% if order.stripe_payment_intent_id and order.remaining_refundable_pence > 0 %}
+    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);margin-bottom:0.875rem;">Refund</div>
+
+      <div style="padding:0.75rem;border-radius:8px;background:rgba(239,246,255,0.8);border:1px solid rgba(147,197,253,0.5);margin-bottom:1rem;">
+        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-accent);margin-bottom:0.25rem;">Remaining</div>
+        <div style="font-family:var(--font-display);font-size:1.2rem;font-weight:700;color:var(--dash-text);">{{ order.remaining_refundable_display }}</div>
+      </div>
+
+      <!-- Refund full remaining -->
+      <form method="post" action="{% url 'dashboard:order_refund' order.pk %}"
+            onsubmit="return confirm('Refund the full remaining {{ order.remaining_refundable_display }} for order #{{ order.order_number }}?')"
+            style="margin-bottom:0.875rem;">
+        {% csrf_token %}
+        <input type="hidden" name="refund_all" value="1">
+        <input type="text" name="notes" placeholder="Internal note (optional)" class="dash-input" style="margin-bottom:0.5rem;font-size:0.82rem;">
+        <button class="dash-btn" style="width:100%;justify-content:center;gap:0.5rem;background:rgba(5,150,105,0.1);color:#065f46;border-color:rgba(5,150,105,0.3);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          Refund remaining {{ order.remaining_refundable_display }}
+        </button>
+      </form>
+
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.875rem;">
+        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
+        <span style="font-size:0.72rem;color:var(--dash-text-muted);font-weight:500;letter-spacing:0.04em;">OR</span>
+        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
+      </div>
+
+      <!-- Custom amount -->
+      <form method="post" action="{% url 'dashboard:order_refund' order.pk %}"
+            onsubmit="return confirm('Issue a custom refund for order #{{ order.order_number }}?')">
+        {% csrf_token %}
+        <label class="dash-label" style="font-size:0.78rem;margin-bottom:0.35rem;">Custom amount (£)</label>
+        <input type="text" name="amount_pence" placeholder="e.g. 15.00" class="dash-input" style="margin-bottom:0.4rem;" required>
+        <input type="text" name="notes" placeholder="Internal note (optional)" class="dash-input" style="margin-bottom:0.5rem;font-size:0.82rem;">
+        <button class="dash-btn" style="width:100%;justify-content:center;font-size:0.83rem;">
+          Refund custom amount
+        </button>
+      </form>
+    </div>
+    {% elif order.remaining_refundable_pence == 0 and order.total_refunded_pence > 0 %}
+    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
+      <div style="padding:0.875rem;border-radius:8px;background:#f0fdf4;border:1px solid #86efac;text-align:center;">
+        <div style="font-size:0.75rem;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem;">Fully Refunded</div>
+        <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:#064e3b;">{{ order.total_refunded_pence|pence_to_pounds }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Danger zone -->
+    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;border:1px solid rgba(239,68,68,0.25);background:rgba(254,242,242,0.6);">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:0.85rem;color:var(--dash-danger);margin-bottom:0.875rem;text-transform:uppercase;letter-spacing:0.04em;">Danger Zone</div>
+      <form method="post" action="{% url 'dashboard:order_delete' order.pk %}"
+            onsubmit="return confirm('Delete order #{{ order.order_number }}? This cannot be undone.')">
+        {% csrf_token %}
+        <button type="submit" class="dash-btn dash-btn--danger" style="width:100%;justify-content:center;gap:0.5rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          Delete Order
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

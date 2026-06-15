@@ -168,6 +168,106 @@
 
     </div>
 
+    <!-- Refund -->
+    {% if order %}
+    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <span style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);">Refund</span>
+        <a href="{% url 'dashboard:order_detail' order.pk %}" style="font-size:0.75rem;color:var(--dash-accent);text-decoration:none;">Order #{{ order.order_number }} →</a>
+      </div>
+
+      {% if booking_item_refund %}
+      <div style="padding:0.875rem;border-radius:8px;background:#f0fdf4;border:1px solid #86efac;">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#15803d;margin-bottom:0.3rem;">Session refunded</div>
+        <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:#064e3b;">{{ booking_item_refund.amount_display }}</div>
+        <div style="font-size:0.75rem;color:#6b7280;margin-top:0.25rem;">{{ booking_item_refund.created_at|date:"j M Y, H:i" }}</div>
+      </div>
+      {% if remaining_pence > 0 %}
+      <div style="margin-top:0.625rem;font-size:0.75rem;color:var(--dash-text-muted);">
+        £{{ remaining_pence|pence_to_pounds }} still refundable on the order.
+        <a href="{% url 'dashboard:order_detail' order.pk %}" style="color:var(--dash-accent);">Manage →</a>
+      </div>
+      {% endif %}
+
+      {% elif can_refund %}
+      <div style="padding:0.75rem;border-radius:8px;background:rgba(239,246,255,0.8);border:1px solid rgba(147,197,253,0.5);margin-bottom:0.875rem;">
+        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-accent);margin-bottom:0.25rem;">Session price</div>
+        <div style="font-family:var(--font-display);font-weight:700;font-size:1.1rem;color:var(--dash-text);">{{ booking.amount_pence|pence_to_pounds }}</div>
+      </div>
+
+      <form method="post" action="{% url 'dashboard:booking_issue_refund' booking.pk %}"
+            onsubmit="return confirm('Refund {{ booking.amount_pence|pence_to_pounds }} for this session to {{ booking.client_email }}?')">
+        {% csrf_token %}
+        <input type="text" name="notes" placeholder="Internal note (optional)" class="dash-input" style="margin-bottom:0.5rem;font-size:0.82rem;">
+        <button class="dash-btn" style="width:100%;justify-content:center;gap:0.5rem;background:rgba(5,150,105,0.1);color:#065f46;border-color:rgba(5,150,105,0.3);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          Refund {{ booking.amount_pence|pence_to_pounds }}
+        </button>
+      </form>
+      <div style="margin-top:0.5rem;font-size:0.73rem;color:var(--dash-text-muted);text-align:center;">
+        More options on the <a href="{% url 'dashboard:order_detail' order.pk %}" style="color:var(--dash-accent);">order page</a>
+      </div>
+
+      {% else %}
+      <div style="font-size:0.82rem;color:var(--dash-text-muted);">
+        No refund available.
+        {% if order %}<a href="{% url 'dashboard:order_detail' order.pk %}" style="color:var(--dash-accent);">View order →</a>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Payment Reminder -->
+    {% if booking.status == "pending" %}
+    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);margin-bottom:1rem;">Payment Reminder</div>
+
+      {% if last_reminder %}
+      <div style="padding:0.75rem;border-radius:8px;background:rgba(239,246,255,0.8);border:1px solid rgba(147,197,253,0.5);margin-bottom:0.875rem;">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-accent);margin-bottom:0.3rem;">Last sent</div>
+        <div style="font-size:0.82rem;color:var(--dash-text);">{{ last_reminder.sent_at|date:"j M Y" }} at {{ last_reminder.sent_at|time:"H:i" }}</div>
+        <div style="font-size:0.78rem;color:var(--dash-text-muted);margin-top:0.2rem;">
+          {{ last_reminder.get_source_display }}{% if last_reminder.sent_by %} · {{ last_reminder.sent_by.get_full_name|default:last_reminder.sent_by.email }}{% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if reminder_confirm %}
+      <div style="padding:0.75rem;border-radius:8px;background:rgba(254,243,199,0.9);border:1px solid #fcd34d;margin-bottom:0.75rem;font-size:0.82rem;color:#92400e;">
+        A reminder was already sent. Resend anyway?
+      </div>
+      <form method="post" action="{% url 'dashboard:send_reminder' booking.pk %}" style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
+        {% csrf_token %}
+        <input type="hidden" name="confirmed" value="1">
+        <button class="dash-btn dash-btn--primary" style="flex:1;justify-content:center;font-size:0.82rem;">Yes, resend</button>
+      </form>
+      <a href="{% url 'dashboard:booking_detail' booking.pk %}" class="dash-btn" style="width:100%;justify-content:center;font-size:0.82rem;text-align:center;display:block;margin-top:0.25rem;">Cancel</a>
+
+      {% else %}
+      <form method="post" action="{% url 'dashboard:send_reminder' booking.pk %}">
+        {% csrf_token %}
+        <button class="dash-btn" style="width:100%;justify-content:center;gap:0.5rem;font-size:0.85rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          {% if last_reminder %}Resend reminder{% else %}Send reminder{% endif %}
+        </button>
+      </form>
+      {% endif %}
+
+      {% if reminders %}
+      <div style="margin-top:1rem;border-top:1px solid var(--dash-border);padding-top:0.875rem;">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-text-muted);margin-bottom:0.5rem;">History</div>
+        {% for r in reminders %}
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0.3rem 0;{% if not forloop.last %}border-bottom:1px solid rgba(226,232,240,0.5);{% endif %}">
+          <span style="font-size:0.78rem;color:var(--dash-text);">{{ r.sent_at|date:"j M, H:i" }}</span>
+          <span style="font-size:0.72rem;color:var(--dash-text-muted);">{{ r.get_source_display }}{% if r.rule %} · {{ r.rule }}{% endif %}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+    {% endif %}
+
     <!-- Danger zone -->
     <div class="dash-settings-card" style="padding:1.25rem 1.5rem;border:1px solid rgba(239,68,68,0.25);background:rgba(254,242,242,0.6);">
       <div style="font-family:var(--font-display);font-weight:600;font-size:0.85rem;color:var(--dash-danger);margin-bottom:0.875rem;text-transform:uppercase;letter-spacing:0.04em;">Danger Zone</div>

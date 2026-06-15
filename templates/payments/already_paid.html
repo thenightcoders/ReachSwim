@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Already paid — {{ site_config.site_name }}{% endblock %}
+
+{% block content %}
+<section style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:3rem 1rem;">
+  <div style="max-width:480px;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:1.25rem;">✓</div>
+    <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:0.75rem;">You're all set</h1>
+    <p style="color:#64748b;margin-bottom:2rem;">
+      This booking has already been paid. See you in the water!
+    </p>
+    <a href="/" class="btn btn--primary">Back to home</a>
+  </div>
+</section>
+{% endblock %}

@@ -188,13 +188,19 @@ def _create_product_order_item(order, item):
 # Step 2: Create Stripe session
 # ---------------------------------------------------------------------------
 
-def create_checkout_session(request, order: Order):
+def create_checkout_session(request, order: Order, *, origin: str = ""):
     """
     Create a Stripe Checkout session for an Order.
     Returns the PaymentSession with the redirect URL.
+
+    Pass ``origin`` explicitly (e.g. settings.SITE_URL) when generating a
+    session outside a live HTTP request — the payment-reminder resume view
+    does this so the success/cancel URLs resolve correctly.
+    Falls back to deriving the origin from ``request`` when omitted.
     """
-    scheme = "https" if request.is_secure() else "http"
-    origin = f"{scheme}://{request.get_host()}"
+    if not origin:
+        scheme = "https" if request.is_secure() else "http"
+        origin = f"{scheme}://{request.get_host()}"
     success_url = origin + "/payments/success/?session_id={CHECKOUT_SESSION_ID}"
     cancel_url = origin + "/payments/cancel/"
 

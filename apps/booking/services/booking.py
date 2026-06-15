@@ -102,7 +102,7 @@ def confirm_booking(booking: Booking, payment_intent_id: str = "") -> Booking:
     if payment_intent_id:
         booking.stripe_payment_intent_id = payment_intent_id
     booking.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
-    send_booking_confirmation(booking)
+    send_booking_confirmation(booking, async_send=True)
 
     event_id = google_calendar.create_event(booking)
     if event_id:
@@ -139,7 +139,7 @@ def cancel_booking(
     ])
 
     if notify_client and was_confirmed:
-        send_booking_cancellation(booking)
+        send_booking_cancellation(booking, async_send=True)
 
     google_calendar.delete_event(booking)
 

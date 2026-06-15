@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Link expired — {{ site_config.site_name }}{% endblock %}
+
+{% block content %}
+<section style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:3rem 1rem;">
+  <div style="max-width:480px;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:1.25rem;">⏱</div>
+    <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:0.75rem;">This link has expired</h1>
+    <p style="color:#64748b;margin-bottom:2rem;">
+      Payment links are valid for 7 days. Please get in touch and we'll send you a fresh one.
+    </p>
+    <a href="{% url 'legal:contact' %}" class="btn btn--primary">Contact us</a>
+  </div>
+</section>
+{% endblock %}

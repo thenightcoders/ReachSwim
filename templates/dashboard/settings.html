@@ -20,6 +20,7 @@
   <button class="settings-tab" onclick="switchTab(event,'booking')">Booking Rules</button>
   <button class="settings-tab" onclick="switchTab(event,'shop')">Shop</button>
   <button class="settings-tab" onclick="switchTab(event,'gcal')">Google Calendar{% if gcal_config.is_connected %} ·{% endif %}</button>
+  <button class="settings-tab" onclick="switchTab(event,'reminders')">Reminders</button>
 </div>
 
 <!-- ── General ── -->
@@ -245,6 +246,62 @@
   </div>
 </div>
 
+<!-- ── Reminders ── -->
+<div id="tab-reminders" class="settings-panel">
+  <div class="settings-section">
+    <div class="settings-section__head">
+      <h2 class="settings-section__title">Payment Reminder Schedule</h2>
+      <p class="settings-section__desc">
+        Define when automated reminder emails go out to clients who haven't paid.
+        Each rule fires once per booking. Mix both anchor types freely — add as many as you want.
+      </p>
+    </div>
+
+    <form method="post" id="reminders-form">
+      {% csrf_token %}
+      <input type="hidden" name="_section" value="reminders">
+      {{ reminder_formset.management_form }}
+
+      <div style="display:grid;grid-template-columns:90px 1fr 60px 60px;gap:0.5rem;padding:0.4rem 0;border-bottom:2px solid rgba(226,232,240,0.8);margin-bottom:0.25rem;">
+        <span style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-text-muted);">Hours</span>
+        <span style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-text-muted);">Anchor</span>
+        <span style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-text-muted);text-align:center;">Active</span>
+        <span style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-text-muted);text-align:center;">Delete</span>
+      </div>
+
+      <div id="reminder-rules-list">
+        {% for form in reminder_formset %}
+        <div class="reminder-rule-row" style="display:grid;grid-template-columns:90px 1fr 60px 60px;gap:0.5rem;align-items:center;padding:0.5rem 0;border-bottom:1px solid rgba(226,232,240,0.5);">
+          {{ form.id }}
+          {{ form.delay_hours }}
+          {{ form.delay_anchor }}
+          <div style="text-align:center;">{{ form.is_active }}</div>
+          <div style="text-align:center;">{{ form.DELETE }}</div>
+        </div>
+        {% empty %}
+        <p style="font-size:0.85rem;color:var(--dash-text-muted);padding:0.75rem 0;" id="no-rules-msg">No rules yet — add one below.</p>
+        {% endfor %}
+      </div>
+
+      <div id="reminder-rule-empty" style="display:none;" aria-hidden="true">
+        <div class="reminder-rule-row" style="display:grid;grid-template-columns:90px 1fr 60px 60px;gap:0.5rem;align-items:center;padding:0.5rem 0;border-bottom:1px solid rgba(226,232,240,0.5);">
+          {{ reminder_formset.empty_form.id }}
+          {{ reminder_formset.empty_form.delay_hours }}
+          {{ reminder_formset.empty_form.delay_anchor }}
+          <div style="text-align:center;">{{ reminder_formset.empty_form.is_active }}</div>
+          <div style="text-align:center;">{{ reminder_formset.empty_form.DELETE }}</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:0.75rem;align-items:center;margin-top:1rem;">
+        <button type="button" id="add-reminder-rule" class="dash-btn" style="font-size:0.82rem;">+ Add rule</button>
+        <div style="flex:1;"></div>
+        <button type="submit" class="dash-btn dash-btn--primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -269,5 +326,25 @@
     const hash = window.location.hash.replace('#', '');
     switchTab(null, (hash && document.getElementById('tab-' + hash)) ? hash : 'site');
   });
+
+  // Reminder rules — dynamic row cloning
+  (function () {
+    const list  = document.getElementById('reminder-rules-list');
+    const empty = document.getElementById('reminder-rule-empty');
+    const mgmt  = document.getElementById('id_reminder_rules-TOTAL_FORMS');
+    if (!list || !empty || !mgmt) return;
+
+    document.getElementById('add-reminder-rule').addEventListener('click', function () {
+      const noMsg = document.getElementById('no-rules-msg');
+      if (noMsg) noMsg.style.display = 'none';
+
+      const idx = parseInt(mgmt.value, 10);
+      const tpl = empty.innerHTML.replace(/__prefix__/g, String(idx));
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = tpl;
+      list.appendChild(wrapper.firstElementChild);
+      mgmt.value = idx + 1;
+    });
+  })();
 </script>
 {% endblock %}

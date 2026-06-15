@@ -5,6 +5,7 @@ Order + OrderItem group one or more bookings into a single checkout.
 PaymentRecord logs every Stripe event for audit.
 Voucher handles discount codes.
 PackagePurchase tracks multi-session bundles.
+PaymentReminderRule + PaymentReminder handle pending-payment email nudges.
 """
 import uuid
 
@@ -74,6 +75,23 @@ class Order(models.Model):
     def total_display(self):
         return f"£{self.total_pence / 100:.2f}"
 
+    @property
+    def total_refunded_pence(self) -> int:
+        """Sum of all succeeded refunds against this order."""
+        result = self.refunds.filter(status="succeeded").aggregate(
+            total=models.Sum("amount_pence")
+        )
+        return result["total"] or 0
+
+    @property
+    def remaining_refundable_pence(self) -> int:
+        """Amount still available to refund (always >= 0)."""
+        return max(0, self.total_pence - self.total_refunded_pence)
+
+    @property
+    def remaining_refundable_display(self) -> str:
+        return f"£{self.remaining_refundable_pence / 100:.2f}"
+
 
 class OrderItem(models.Model):
     """
@@ -139,6 +157,13 @@ class OrderItem(models.Model):
     # --- Common fields ---
     price_pence = models.PositiveIntegerField()
     label = models.CharField(max_length=255)
+
+    # --- Fulfilment (products only) ---
+    shipped = models.BooleanField(
+        default=False,
+        help_text="Mark True once a physical product has been dispatched. "
+                  "Auto-restock is skipped for shipped items on refund.",
+    )
 
     class Meta:
         ordering = ["item_type", "label"]
@@ -374,3 +399,205 @@ class PackagePurchase(models.Model):
         if self.sessions_remaining == 0:
             PackagePurchase.objects.filter(pk=self.pk).update(is_active=False)
             self.is_active = False
+
+
+# =============================================================================
+# Payment reminder rules  (owner-configurable schedule)
+# =============================================================================
+
+class PaymentReminderRule(models.Model):
+    """
+    One entry in the owner-defined reminder schedule.
+
+    Two anchor types:
+    • ANCHOR_CREATED  — fires N hours after the booking was created.
+    • ANCHOR_SESSION  — fires when fewer than N hours remain before the session.
+
+    The django_q2 task evaluates all active rules independently on each run.
+    Each rule fires at most once per booking (enforced via PaymentReminder's
+    unique constraint).
+    """
+
+    ANCHOR_CREATED = "created"
+    ANCHOR_SESSION = "session"
+    ANCHOR_CHOICES = [
+        (ANCHOR_CREATED, "After booking created"),
+        (ANCHOR_SESSION, "Before session date"),
+    ]
+
+    delay_hours = models.PositiveIntegerField(
+        help_text="Number of hours relative to the chosen anchor.",
+    )
+    delay_anchor = models.CharField(
+        max_length=10,
+        choices=ANCHOR_CHOICES,
+        default=ANCHOR_CREATED,
+    )
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text="Display order in settings.",
+    )
+
+    class Meta:
+        ordering = ["order", "delay_anchor", "delay_hours"]
+        verbose_name = "Payment reminder rule"
+        verbose_name_plural = "Payment reminder rules"
+
+    def __str__(self):
+        anchor_label = self.get_delay_anchor_display()
+        if self.delay_anchor == self.ANCHOR_CREATED:
+            return f"+{self.delay_hours}h {anchor_label.lower()}"
+        return f"{self.delay_hours}h {anchor_label.lower()}"
+
+
+# =============================================================================
+# Payment reminder log  (immutable audit — one row per email sent)
+# =============================================================================
+
+class PaymentReminder(models.Model):
+    """
+    Immutable record of every payment-reminder email sent.
+
+    Never updated — only created.  Mirrors the same append-only philosophy
+    as PaymentRecord.
+
+    source=auto  → sent by the django_q2 task, rule is set.
+    source=manual → sent by the owner from the dashboard, rule is null,
+                    sent_by is the User who clicked the button.
+    """
+
+    SOURCE_AUTO   = "auto"
+    SOURCE_MANUAL = "manual"
+    SOURCE_CHOICES = [
+        (SOURCE_AUTO,   "Automated"),
+        (SOURCE_MANUAL, "Manual"),
+    ]
+
+    booking = models.ForeignKey(
+        "booking.Booking",
+        on_delete=models.CASCADE,
+        related_name="payment_reminders",
+    )
+    rule = models.ForeignKey(
+        PaymentReminderRule,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reminders",
+        help_text="Which rule triggered this send. Null for manual sends.",
+    )
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES)
+    sent_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="The owner who manually triggered this send.",
+    )
+    email_sent_to = models.EmailField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-sent_at"]
+        verbose_name = "Payment reminder"
+        verbose_name_plural = "Payment reminders"
+        constraints = [
+            # Each rule fires at most once per booking.
+            # Manual sends (rule=None) are unconstrained.
+            models.UniqueConstraint(
+                fields=["booking", "rule"],
+                condition=models.Q(rule__isnull=False),
+                name="unique_reminder_per_rule_per_booking",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.get_source_display()} reminder → "
+            f"{self.email_sent_to} ({self.sent_at:%d %b %Y %H:%M})"
+        )
+
+
+# =============================================================================
+# Refund  (owner-initiated via dashboard — one row per Stripe refund)
+# =============================================================================
+
+class Refund(models.Model):
+    """
+    Immutable audit record for every refund issued through the dashboard.
+
+    One row per Stripe refund.  Never updated after creation — mirrors the
+    same append-only philosophy as PaymentRecord and PaymentReminder.
+
+    The corresponding Order is flipped to STATUS_REFUNDED by the refund service
+    after this record is written.
+    """
+
+    REASON_REQUESTED  = "requested_by_customer"
+    REASON_DUPLICATE  = "duplicate"
+    REASON_FRAUDULENT = "fraudulent"
+    REASON_CHOICES = [
+        (REASON_REQUESTED,  "Requested by customer"),
+        (REASON_DUPLICATE,  "Duplicate charge"),
+        (REASON_FRAUDULENT, "Fraudulent charge"),
+    ]
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="refunds",
+    )
+    order_item = models.ForeignKey(
+        "OrderItem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="refunds",
+        help_text="The specific line item this refund covers. "
+                  "Null for custom-amount or full-order refunds.",
+    )
+    stripe_refund_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Stripe re_xxx identifier.",
+    )
+    amount_pence = models.PositiveIntegerField(
+        help_text="Actual amount refunded (may differ from order total for partial refunds).",
+    )
+    reason = models.CharField(
+        max_length=30,
+        choices=REASON_CHOICES,
+        default=REASON_REQUESTED,
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Internal notes visible only in the dashboard.",
+    )
+    status = models.CharField(
+        max_length=20,
+        default="pending",
+        help_text="Stripe refund status: succeeded | pending | failed.",
+    )
+    initiated_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="The owner who clicked Refund in the dashboard.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Refund"
+        verbose_name_plural = "Refunds"
+
+    def __str__(self):
+        return f"Refund {self.stripe_refund_id or '—'} — £{self.amount_pence / 100:.2f} ({self.status})"
+
+    @property
+    def amount_display(self) -> str:
+        return f"£{self.amount_pence / 100:.2f}"

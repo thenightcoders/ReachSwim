@@ -1,0 +1,25 @@
+Hi {{ client_first_name }},
+
+We've processed a refund for your order. The funds should appear back on
+your original payment method within 5–10 business days, depending on your bank.
+
+  Amount refunded:  {{ refund_amount_str }}{% if stripe_refund_id %}
+  Refund ID:        {{ stripe_refund_id }}{% endif %}
+
+{% if session_type_name %}
+Booking details:
+
+  Session:    {{ session_type_name }}
+  Location:   {{ location_name }}
+  Date:       {{ date_str }}
+  Time:       {{ time_str }}
+  Reference:  {{ reference }}
+{% else %}
+Order: #{{ order_number }}{% if item_label %}
+Item:  {{ item_label }}{% endif %}
+
+{% endif %}
+If you have any questions, just reply to this email.
+
+ReachSwim
+https://reachswim.co.uk

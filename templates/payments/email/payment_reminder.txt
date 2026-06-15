@@ -1,0 +1,20 @@
+{% load pages_tags %}Hi {{ booking.client_name }},
+
+Just a quick nudge — your booking is still waiting for payment.
+
+SESSION DETAILS
+───────────────
+Type:      {{ booking.session_type.name }}
+Location:  {{ booking.location.name }}
+Date:      {{ booking.date|date:"l j F Y" }}
+Time:      {{ booking.start_time|time:"H:i" }}–{{ booking.end_time|time:"H:i" }}
+Amount:    £{{ booking.amount_pence|pence_to_pounds }}
+
+To complete your payment, click the link below:
+
+{{ payment_link }}
+
+This link expires in 7 days. If you have any questions, just reply to this email.
+
+See you in the water,
+The ReachSwim Team

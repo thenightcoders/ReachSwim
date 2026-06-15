@@ -123,6 +123,7 @@ def booking_detail(request, pk):
         cancel_booking,
         complete_booking,
     )
+    from apps.payments.models import Order
 
     booking = get_object_or_404(Booking, pk=pk)
 
@@ -142,10 +143,133 @@ def booking_detail(request, pk):
             booking.save(update_fields=["notes", "updated_at"])
         return redirect("dashboard:booking_detail", pk=pk)
 
+    reminders = booking.payment_reminders.select_related("rule", "sent_by").order_by("-sent_at")
+    last_reminder = reminders.first()
+
+    # Pop the confirm flag that send_reminder sets when a resend needs confirmation.
+    reminder_confirm = request.session.pop(f"reminder_confirm_{pk}", False)
+
+    # Refund context — resolve associated paid order (if any).
+    booking_order_item = booking.order_items.select_related("order").first()
+    order = booking_order_item.order if booking_order_item else None
+
+    # Has THIS specific booking item already been successfully refunded?
+    booking_item_refund = (
+        booking_order_item.refunds.filter(status="succeeded").first()
+        if booking_order_item else None
+    )
+    remaining_pence = order.remaining_refundable_pence if order else 0
+    can_refund = (
+        order is not None
+        and bool(order.stripe_payment_intent_id)
+        and remaining_pence > 0
+        and booking_item_refund is None
+    )
+
     return render(request, "dashboard/booking_detail.html", {
         "booking": booking,
         "section": "bookings",
+        "reminders": reminders,
+        "last_reminder": last_reminder,
+        "reminder_confirm": reminder_confirm,
+        "order": order,
+        "booking_order_item": booking_order_item,
+        "booking_item_refund": booking_item_refund,
+        "can_refund": can_refund,
+        "remaining_pence": remaining_pence,
     })
+
+@owner_required
+@require_POST
+def send_reminder(request, pk):
+    """
+    Manually send a payment-reminder email for a pending booking.
+
+    First POST (no ``confirmed`` field): if a reminder was already sent,
+    redirect back with a warning so the owner can confirm the resend.
+    Second POST (``confirmed=1``): send unconditionally.
+    """
+    from django.contrib import messages as dj_messages
+    from apps.booking.models import Booking
+    from apps.payments.services.reminder import send_payment_reminder_email
+    from apps.payments.models import PaymentReminder
+
+    booking = get_object_or_404(Booking, pk=pk)
+
+    if booking.status != Booking.STATUS_PENDING:
+        dj_messages.error(request, "Only pending bookings can receive a payment reminder.")
+        return redirect("dashboard:booking_detail", pk=pk)
+
+    last = booking.payment_reminders.order_by("-sent_at").first()
+    confirmed = request.POST.get("confirmed") == "1"
+
+    if last and not confirmed:
+        # Store a flag in session so the template shows the confirm banner.
+        request.session[f"reminder_confirm_{pk}"] = True
+        return redirect("dashboard:booking_detail", pk=pk)
+
+    result = send_payment_reminder_email(
+        booking,
+        source=PaymentReminder.SOURCE_MANUAL,
+        sent_by=request.user,
+    )
+
+    if result:
+        dj_messages.success(request, f"Reminder sent to {booking.client_email}.")
+    else:
+        dj_messages.error(
+            request,
+            "Could not send reminder — this booking has no associated order yet. "
+            "Was it created manually without going through checkout?"
+        )
+
+    # Clear the confirm flag if it was set.
+    request.session.pop(f"reminder_confirm_{pk}", None)
+    return redirect("dashboard:booking_detail", pk=pk)
+
+
+@owner_required
+@require_POST
+def booking_issue_refund(request, pk):
+    """
+    Shortcut: issue a refund for the single booking item from the booking detail page.
+    Redirects to booking_detail on completion.
+    POSTs to order_refund internally so all refund logic stays in one place.
+    """
+    from django.contrib import messages as dj_messages
+    from apps.booking.models import Booking
+    from apps.payments.interfaces import RefundError
+    from apps.payments.models import OrderItem
+    from apps.payments.services.refund import issue_refund as _issue_refund
+
+    booking = get_object_or_404(Booking, pk=pk)
+    order_item = booking.order_items.select_related("order").first()
+
+    if not order_item:
+        dj_messages.error(request, "This booking has no associated order — nothing to refund.")
+        return redirect("dashboard:booking_detail", pk=pk)
+
+    order = order_item.order
+    notes = request.POST.get("notes", "").strip()
+
+    try:
+        refund = _issue_refund(
+            order,
+            amount_pence=order_item.line_total_pence,
+            order_item=order_item,
+            initiated_by=request.user,
+            notes=notes,
+        )
+        dj_messages.success(
+            request,
+            f"Refund of {refund.amount_display} processed. "
+            f"Stripe ID: {refund.stripe_refund_id}",
+        )
+    except (ValueError, RefundError) as exc:
+        dj_messages.error(request, str(exc))
+
+    return redirect("dashboard:booking_detail", pk=pk)
+
 
 @owner_required
 @require_POST
@@ -201,6 +325,128 @@ def booking_edit(request, pk):
 # ---------------------------------------------------------------------------
 # Orders
 # ---------------------------------------------------------------------------
+
+@owner_required
+def order_detail(request, pk):
+    """Order detail — shows line items, refund history, and refund controls."""
+    from apps.payments.models import Order
+
+    order = get_object_or_404(
+        Order.objects.prefetch_related(
+            "items__booking__session_type",
+            "items__booking__location",
+            "items__product",
+            "items__refunds",
+            "refunds__initiated_by",
+            "refunds__order_item",
+        ),
+        pk=pk,
+    )
+
+    # Annotate each item with its total already-refunded amount.
+    for item in order.items.all():
+        item.refunded_pence = sum(
+            r.amount_pence for r in item.refunds.all() if r.status == "succeeded"
+        )
+        item.refundable_pence = max(0, item.line_total_pence - item.refunded_pence)
+
+    return render(request, "dashboard/order_detail.html", {
+        "order": order,
+        "section": "orders",
+        "refunds": order.refunds.order_by("-created_at"),
+    })
+
+
+@owner_required
+@require_POST
+def order_refund(request, pk):
+    """
+    Issue a refund against an order.
+
+    Three modes, distinguished by POST fields:
+      order_item_pk  → refund that specific line item (full item price)
+      amount_pence   → custom-amount refund (no item attachment)
+      refund_all=1   → refund the full remaining balance
+    """
+    from django.contrib import messages as dj_messages
+    from apps.payments.interfaces import RefundError
+    from apps.payments.models import Order, OrderItem
+    from apps.payments.services.refund import issue_refund as _issue_refund
+
+    order = get_object_or_404(Order, pk=pk)
+    notes = request.POST.get("notes", "").strip()
+
+    order_item = None
+    amount_pence = None
+
+    order_item_pk = request.POST.get("order_item_pk", "").strip()
+    custom_amount = request.POST.get("amount_pence", "").strip()
+    refund_all    = request.POST.get("refund_all") == "1"
+
+    if order_item_pk:
+        order_item = get_object_or_404(OrderItem, pk=order_item_pk, order=order)
+        # Refund the remaining un-refunded portion of this item.
+        item_refunded = sum(
+            r.amount_pence
+            for r in order_item.refunds.filter(status="succeeded")
+        )
+        amount_pence = max(0, order_item.line_total_pence - item_refunded)
+        if amount_pence == 0:
+            dj_messages.error(request, f"'{order_item.label}' has already been fully refunded.")
+            return redirect("dashboard:order_detail", pk=pk)
+    elif refund_all:
+        amount_pence = order.remaining_refundable_pence
+    elif custom_amount:
+        try:
+            # Accept both pence (integer) and pounds (decimal like "12.50").
+            # Use Decimal — float arithmetic loses precision on amounts like
+            # £12.57 (float("12.57") * 100 = 1256.9999...).
+            from decimal import Decimal, InvalidOperation
+            raw = custom_amount.replace("£", "").strip()
+            if "." in raw:
+                amount_pence = int(Decimal(raw) * 100)
+            else:
+                amount_pence = int(raw)
+        except (InvalidOperation, ValueError, TypeError):
+            dj_messages.error(request, "Invalid refund amount.")
+            return redirect("dashboard:order_detail", pk=pk)
+    else:
+        dj_messages.error(request, "No refund amount specified.")
+        return redirect("dashboard:order_detail", pk=pk)
+
+    try:
+        refund = _issue_refund(
+            order,
+            amount_pence=amount_pence,
+            order_item=order_item,
+            initiated_by=request.user,
+            notes=notes,
+        )
+        dj_messages.success(
+            request,
+            f"Refund of {refund.amount_display} processed. "
+            f"Stripe ID: {refund.stripe_refund_id}",
+        )
+    except (ValueError, RefundError) as exc:
+        dj_messages.error(request, str(exc))
+
+    return redirect("dashboard:order_detail", pk=pk)
+
+
+@owner_required
+@require_POST
+def order_item_ship(request, order_pk, item_pk):
+    """Mark a product order item as shipped (toggles shipped flag)."""
+    from django.contrib import messages as dj_messages
+    from apps.payments.models import OrderItem
+
+    item = get_object_or_404(OrderItem, pk=item_pk, order_id=order_pk, item_type="product")
+    item.shipped = not item.shipped
+    item.save(update_fields=["shipped"])
+    state = "shipped" if item.shipped else "unshipped"
+    dj_messages.success(request, f"'{item.label}' marked as {state}.")
+    return redirect("dashboard:order_detail", pk=order_pk)
+
 
 @owner_required
 @require_POST
@@ -451,7 +697,35 @@ def settings_view(request):
             ])
             return redirect("/dashboard/settings/#gcal")
 
+        elif section == "reminders":
+            from apps.payments.models import PaymentReminderRule
+            from django.forms import modelformset_factory
+            ReminderFormSet = modelformset_factory(
+                PaymentReminderRule,
+                fields=["delay_hours", "delay_anchor", "is_active"],
+                can_delete=True,
+                extra=0,
+            )
+            formset = ReminderFormSet(request.POST, prefix="reminder_rules",
+                                      queryset=PaymentReminderRule.objects.all())
+            if formset.is_valid():
+                formset.save()
+            return redirect("/dashboard/settings/#reminders")
+
         return redirect("dashboard:settings")
+
+    from apps.payments.models import PaymentReminderRule
+    from django.forms import modelformset_factory
+    ReminderFormSet = modelformset_factory(
+        PaymentReminderRule,
+        fields=["delay_hours", "delay_anchor", "is_active"],
+        can_delete=True,
+        extra=0,
+    )
+    reminder_formset = ReminderFormSet(
+        prefix="reminder_rules",
+        queryset=PaymentReminderRule.objects.all(),
+    )
 
     return render(request, "dashboard/settings.html", {
         "site": site,
@@ -460,6 +734,7 @@ def settings_view(request):
         "booking_settings": booking_settings,
         "shop_settings": shop_settings,
         "gcal_config": gcal_config,
+        "reminder_formset": reminder_formset,
         "section": "settings",
     })
 

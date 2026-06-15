@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "apps.payments",
     "apps.shop",
     "apps.dashboard",
+    "django_q",   # task queue — django-q2 is in requirements.txt
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -218,6 +219,22 @@ LOGGING = {
         "django": {"handlers": _handlers, "level": "INFO", "propagate": False},
         "django.core.mail": {"handlers": ["console"], "level": _log_level, "propagate": False},
         "apps.booking": {"handlers": _handlers, "level": _log_level, "propagate": False},
+        "apps.payments": {"handlers": _handlers, "level": _log_level, "propagate": False},
     },
 }
 
+# ---------------------------------------------------------------------------
+# django_q2 — task queue (only active when django-q2 is installed)
+# ---------------------------------------------------------------------------
+Q_CLUSTER = {
+    "name":        "reachswim",
+    "workers":     1,
+    "timeout":     120,       # seconds before a task is considered stuck
+    "retry":       180,       # seconds before a failed task is retried
+    "queue_limit": 50,
+    "bulk":        10,
+    "orm":         "default", # use Django's DB as the broker — no Redis needed
+    "catch_up":    False,     # don't replay missed scheduled runs on restart
+}
+# Q_CLUSTER is harmless when django_q is not in INSTALLED_APPS — Django
+# simply ignores it.

@@ -8,3 +8,4 @@ git+https://git.ksol.io/karolyi/py3-validate-email@v1.0.12
 google-auth>=2.29
 google-auth-oauthlib>=1.2
 google-api-python-client>=2.127
+django-q2>=1.6
