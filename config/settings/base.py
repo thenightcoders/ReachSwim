@@ -184,6 +184,16 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SITE_URL = os.getenv("SITE_URL", "").rstrip("/")
 
 # ---------------------------------------------------------------------------
+# WebAuthn (Passkeys)
+# rp_id   = the domain (no scheme, no port). Must exactly match the browser origin.
+# origin  = full origin the browser presents credentials for.
+# Override both in .env for production.
+# ---------------------------------------------------------------------------
+WEBAUTHN_RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
+WEBAUTHN_RP_NAME = os.getenv("WEBAUTHN_RP_NAME", "ReachSwim")
+WEBAUTHN_ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:8000")
+
+# ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
 _log_level = "DEBUG" if DEBUG else "INFO"

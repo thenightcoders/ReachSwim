@@ -1,46 +1,123 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Log in — {{ site_config.site_name }}{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/passkey.js' %}" defer></script>
+{% endblock %}
 
 {% block content %}
 <section class="section">
   <div class="container auth-container">
     <div class="auth-card">
       <h1 class="h-display auth-title">Log in</h1>
-      <p class="auth-sub">Welcome back. Enter your email and password.</p>
 
-      {% if form.non_field_errors %}
-      <div class="auth-error">
-        {% for error in form.non_field_errors %}
-        <p>{{ error }}</p>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <form method="post" class="auth-form">
+      {# ------------------------------------------------------------------ #}
+      {# 1. Magic link — primary method                                       #}
+      {# ------------------------------------------------------------------ #}
+      <form
+        id="magic-link-form"
+        action="{% url 'accounts:magic_link_send' %}"
+        method="post"
+        class="auth-form"
+      >
         {% csrf_token %}
         {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
         <div class="form-group">
-          <label for="id_email" class="form-label">Email</label>
-          {{ form.email }}
-          {% if form.email.errors %}
-          <p class="form-error">{{ form.email.errors.0 }}</p>
-          {% endif %}
-        </div>
-
-        <div class="form-group">
-          <label for="id_password" class="form-label">Password</label>
-          {{ form.password }}
-          {% if form.password.errors %}
-          <p class="form-error">{{ form.password.errors.0 }}</p>
-          {% endif %}
+          <label for="magic-email" class="form-label">Email address</label>
+          <input
+            type="email"
+            name="email"
+            id="magic-email"
+            class="form-input"
+            placeholder="you@example.com"
+            autocomplete="email"
+            required
+            autofocus
+          >
         </div>
 
         <button type="submit" class="btn btn-primary btn-lg auth-submit">
-          Log in
-          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Email me a login link
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
         </button>
+        <p class="auth-method-note">We'll send a one-click link — no password needed. Expires in 15&nbsp;minutes.</p>
       </form>
+
+      <div class="auth-divider"><span>or</span></div>
+
+      {# ------------------------------------------------------------------ #}
+      {# 2. Passkey — secondary method                                        #}
+      {# ------------------------------------------------------------------ #}
+      <button
+        id="passkey-auth-btn"
+        class="btn btn-ghost btn-lg btn-full"
+        data-challenge-url="{% url 'accounts:passkey_auth_challenge' %}"
+        data-complete-url="{% url 'accounts:passkey_auth_complete' %}{% if next %}?next={{ next }}{% endif %}"
+        data-csrf="{{ csrf_token }}"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <ellipse cx="9" cy="9" rx="4" ry="4"/>
+          <path d="M13 9h8M17 7v4M21 7v4"/>
+        </svg>
+        Sign in with a passkey
+      </button>
+      <p class="auth-method-note">Face ID, Touch ID, or a hardware security key.</p>
+
+      <p id="passkey-error" class="form-error" style="display:none; margin-top: 4px;"></p>
+
+      <div class="auth-divider"><span>or</span></div>
+
+      {# ------------------------------------------------------------------ #}
+      {# 3. Password — fallback, tucked away                                  #}
+      {# ------------------------------------------------------------------ #}
+      <div class="auth-password-section" id="password-section" {% if not form.errors %}style="display:none"{% endif %}>
+        <form method="post" class="auth-form">
+          {% csrf_token %}
+          <input type="hidden" name="auth_method" value="password">
+          {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+          {% if form.non_field_errors %}
+          <div class="auth-error">
+            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+          </div>
+          {% endif %}
+
+          <div class="form-group">
+            <label for="id_email" class="form-label">Email</label>
+            {{ form.email }}
+            {% if form.email.errors %}<p class="form-error">{{ form.email.errors.0 }}</p>{% endif %}
+          </div>
+
+          <div class="form-group">
+            <label for="id_password" class="form-label">Password</label>
+            {{ form.password }}
+            {% if form.password.errors %}<p class="form-error">{{ form.password.errors.0 }}</p>{% endif %}
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg auth-submit">
+            Log in with password
+          </button>
+        </form>
+      </div>
+
+      <p class="auth-password-toggle">
+        <button
+          type="button"
+          class="auth-text-btn"
+          id="toggle-password"
+          onclick="
+            var s = document.getElementById('password-section');
+            var showing = s.style.display !== 'none';
+            s.style.display = showing ? 'none' : 'block';
+            this.textContent = showing ? 'Use password instead' : 'Hide password form';
+          "
+        >{% if form.errors %}Hide password form{% else %}Use password instead{% endif %}</button>
+      </p>
 
       <p class="auth-footer">
         Don't have an account? <a href="{% url 'accounts:register' %}">Create one</a>

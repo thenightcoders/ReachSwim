@@ -6,6 +6,9 @@ Roles:
   staff  — future coaches/assistants. Limited dashboard access.
   client — swimmers. Can view their own bookings + profile.
 """
+import secrets
+from datetime import timedelta
+
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 from django.utils import timezone
@@ -66,3 +69,71 @@ class User(AbstractBaseUser, PermissionsMixin):
     def can_access_dashboard(self):
         """Owner and staff can access the dashboard."""
         return self.role in (self.ROLE_OWNER, self.ROLE_STAFF)
+
+
+class MagicLinkToken(models.Model):
+    """
+    Single-use time-limited token for passwordless email login.
+
+    On creation any previous unused tokens for that user are deleted —
+    only one pending link at a time.
+    """
+
+    EXPIRY_MINUTES = 15
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="magic_tokens",
+    )
+    token = models.CharField(max_length=43, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"MagicLink({self.user.email}, used={self.used})"
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(minutes=self.EXPIRY_MINUTES)
+
+    @classmethod
+    def create_for_user(cls, user):
+        """Invalidate old pending tokens, issue a fresh one."""
+        cls.objects.filter(user=user, used=False).delete()
+        return cls.objects.create(
+            user=user,
+            token=secrets.token_urlsafe(32),  # 43 chars, 256 bits — more than enough
+        )
+
+
+class WebAuthnCredential(models.Model):
+    """
+    A stored passkey credential for a user.
+    One user can have multiple credentials (phone, laptop, hardware key).
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="passkeys",
+    )
+    # Raw credential bytes from the authenticator — stored as BinaryField
+    credential_id = models.BinaryField(unique=True)
+    public_key = models.BinaryField()
+    sign_count = models.PositiveIntegerField(default=0)
+    # AAGUID identifies the authenticator model (optional, informational)
+    aaguid = models.CharField(max_length=36, blank=True)
+    # Human-readable label the user can set ("iPhone", "YubiKey", etc.)
+    name = models.CharField(max_length=100, default="Passkey")
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.email} — {self.name}"

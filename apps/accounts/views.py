@@ -1,28 +1,43 @@
 """
 Account views — login, logout, register, profile.
 
+Auth methods (priority order):
+  1. Magic link — email a single-use signed token
+  2. Passkey — WebAuthn discoverable credentials (Face ID, YubiKey, etc.)
+  3. Password — classic email + password fallback
+
 Thin HTTP layer. Forms do the validation, views just wire things up.
 """
+import base64
+import json
+
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import LoginForm, RegisterForm, ProfileForm, ChangePasswordForm, ChangeEmailForm
 
 
 def login_view(request):
-    """Email + password login."""
+    """
+    Combined login page — three sections:
+      1. Magic link (primary)
+      2. Passkey (secondary)
+      3. Password form (fallback, collapsed)
+    """
     if request.user.is_authenticated:
         return _post_login_redirect(request.user)
 
-    if request.method == "POST":
+    # Password form only handles POST when the password section is submitted
+    if request.method == "POST" and request.POST.get("auth_method") == "password":
         form = LoginForm(request.POST, request=request)
         if form.is_valid():
             user = form.get_user()
-            login(request, user)
-            # Respect ?next= param, otherwise redirect by role
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
             next_url = request.GET.get("next") or request.POST.get("next")
             if next_url:
                 return redirect(next_url)
@@ -183,4 +198,219 @@ def _post_login_redirect(user):
         return redirect("pages:home")
     if user.can_access_dashboard:
         return redirect("dashboard:home")
+    return redirect("accounts:profile")
+
+
+# ---------------------------------------------------------------------------
+# Magic Link
+# ---------------------------------------------------------------------------
+
+def magic_link_send_view(request):
+    """
+    POST — accept an email, send a magic link if the account exists.
+    Always renders the "check your email" page regardless — no enumeration.
+    """
+    if request.method != "POST":
+        return redirect("accounts:login")
+
+    email = request.POST.get("email", "").strip().lower()
+
+    if email:
+        from .models import User
+        from .services.magic_link import send_magic_link
+        try:
+            user = User.objects.get(email=email, is_active=True)
+            send_magic_link(user, request)
+        except User.DoesNotExist:
+            pass  # silent — don't leak whether the email exists
+        except Exception:
+            pass  # don't expose email backend errors to the browser
+
+    return render(request, "accounts/magic_link_sent.html", {"email": email})
+
+
+def magic_link_verify_view(request):
+    """GET — verify token param, log the user in."""
+    from .services.magic_link import verify_magic_link
+
+    token_str = request.GET.get("token", "")
+    user, error = verify_magic_link(token_str)
+
+    if error:
+        messages.error(request, error)
+        return redirect("accounts:login")
+
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    messages.success(request, f"Welcome back, {user.first_name or user.email}!")
+    next_url = request.GET.get("next", "")
+    if next_url:
+        return redirect(next_url)
+    return _post_login_redirect(user)
+
+
+# ---------------------------------------------------------------------------
+# Passkey (WebAuthn)
+# ---------------------------------------------------------------------------
+
+def passkey_auth_challenge_view(request):
+    """
+    POST — generate a WebAuthn authentication challenge.
+    No credentials list — discoverable flow, no username needed.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    from .services.passkey import generate_authentication_options
+    import webauthn
+
+    options = generate_authentication_options()
+    # Stash raw challenge bytes in session (base64 so it survives JSON serialisation)
+    request.session["passkey_auth_challenge"] = base64.b64encode(options.challenge).decode()
+
+    return JsonResponse(json.loads(webauthn.options_to_json(options)))
+
+
+def passkey_auth_complete_view(request):
+    """
+    POST — verify the authenticator assertion, look up the credential, log in.
+    Body: JSON credential from navigator.credentials.get()
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    challenge_b64 = request.session.pop("passkey_auth_challenge", None)
+    if not challenge_b64:
+        return JsonResponse({"error": "No active challenge. Start over."}, status=400)
+
+    challenge_bytes = base64.b64decode(challenge_b64)
+
+    try:
+        body = request.body.decode()
+        cred_data = json.loads(body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    # Look up which credential this is — credential_id arrives as base64url
+    raw_id_b64 = cred_data.get("rawId") or cred_data.get("id", "")
+    # Add padding before decoding
+    padding = 4 - len(raw_id_b64) % 4
+    if padding != 4:
+        raw_id_b64 += "=" * padding
+    credential_id_bytes = base64.urlsafe_b64decode(raw_id_b64)
+
+    from .models import WebAuthnCredential
+    try:
+        stored = WebAuthnCredential.objects.select_related("user").get(
+            credential_id=credential_id_bytes
+        )
+    except WebAuthnCredential.DoesNotExist:
+        return JsonResponse({"error": "Unknown credential"}, status=400)
+
+    from .services.passkey import verify_authentication
+    try:
+        verification = verify_authentication(
+            body,
+            challenge_bytes,
+            stored.public_key,
+            stored.sign_count,
+        )
+    except Exception as exc:
+        return JsonResponse({"error": f"Authentication failed: {exc}"}, status=400)
+
+    stored.sign_count = verification.new_sign_count
+    stored.last_used_at = timezone.now()
+    stored.save(update_fields=["sign_count", "last_used_at"])
+
+    user = stored.user
+    if not user.is_active:
+        return JsonResponse({"error": "Account is disabled"}, status=403)
+
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+
+    from django.urls import reverse
+    next_url = request.GET.get("next", "")
+    if not next_url:
+        from django.conf import settings
+        if user.email == getattr(settings, "ADMIN_EMAIL", ""):
+            next_url = reverse("pages:home")
+        elif user.can_access_dashboard:
+            next_url = reverse("dashboard:home")
+        else:
+            next_url = reverse("accounts:profile")
+
+    return JsonResponse({"success": True, "redirect": next_url})
+
+
+@login_required
+def passkey_register_challenge_view(request):
+    """
+    POST — generate a WebAuthn registration challenge for the logged-in user.
+    Used from the profile page to add a new passkey.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    from .services.passkey import generate_registration_options
+    import webauthn
+
+    options = generate_registration_options(request.user)
+    request.session["passkey_register_challenge"] = base64.b64encode(options.challenge).decode()
+
+    return JsonResponse(json.loads(webauthn.options_to_json(options)))
+
+
+@login_required
+def passkey_register_complete_view(request):
+    """
+    POST — verify the attestation and store the new credential.
+    Body: JSON credential from navigator.credentials.create(), plus optional `name` field.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    challenge_b64 = request.session.pop("passkey_register_challenge", None)
+    if not challenge_b64:
+        return JsonResponse({"error": "No active challenge. Refresh and try again."}, status=400)
+
+    challenge_bytes = base64.b64decode(challenge_b64)
+
+    try:
+        body = request.body.decode()
+        payload = json.loads(body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    # Extract optional user-supplied name before passing to verify (it's not part of spec JSON)
+    passkey_name = payload.pop("name", "Passkey") or "Passkey"
+
+    from .services.passkey import verify_registration
+    try:
+        verification = verify_registration(json.dumps(payload), challenge_bytes)
+    except Exception as exc:
+        return JsonResponse({"error": f"Registration failed: {exc}"}, status=400)
+
+    from .models import WebAuthnCredential
+    WebAuthnCredential.objects.create(
+        user=request.user,
+        credential_id=verification.credential_id,
+        public_key=verification.credential_public_key,
+        sign_count=verification.sign_count,
+        aaguid=str(verification.aaguid) if verification.aaguid else "",
+        name=passkey_name[:100],
+    )
+
+    return JsonResponse({"success": True})
+
+
+@login_required
+@require_POST
+def passkey_delete_view(request, pk):
+    """POST — remove a passkey credential owned by the logged-in user."""
+    from .models import WebAuthnCredential
+    try:
+        cred = WebAuthnCredential.objects.get(pk=pk, user=request.user)
+        cred.delete()
+        messages.success(request, "Passkey removed.")
+    except WebAuthnCredential.DoesNotExist:
+        messages.error(request, "Passkey not found.")
     return redirect("accounts:profile")

@@ -124,6 +124,52 @@
   </div>
 </div>
 
+<!-- Passkeys -->
+{% load static %}
+<div id="passkeys" class="acc-card">
+  <div class="acc-card__header">
+    <h2 class="acc-card__title">Passkeys</h2>
+    <button
+      id="add-passkey-btn"
+      class="acc-btn acc-btn--primary acc-btn--sm"
+      data-challenge-url="{% url 'accounts:passkey_register_challenge' %}"
+      data-complete-url="{% url 'accounts:passkey_register_complete' %}"
+      data-csrf="{{ csrf_token }}"
+    >+ Add passkey</button>
+  </div>
+  <div class="acc-card__body">
+    <p class="acc-body-hint">Passkeys let you log in with Face ID, Touch ID, or a hardware key — no password required.</p>
+
+    <p id="passkey-reg-status" class="acc-body-hint" style="display:none"></p>
+
+    {% if request.user.passkeys.all %}
+    <ul class="passkey-list">
+      {% for key in request.user.passkeys.all %}
+      <li class="passkey-item">
+        <div class="passkey-item__info">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <ellipse cx="9" cy="9" rx="4" ry="4"/>
+            <path d="M13 9h8M17 7v4M21 7v4"/>
+          </svg>
+          <div>
+            <span class="passkey-item__name">{{ key.name }}</span>
+            <span class="passkey-item__meta">Added {{ key.created_at|date:"j N Y" }}{% if key.last_used_at %} · Last used {{ key.last_used_at|date:"j N Y" }}{% endif %}</span>
+          </div>
+        </div>
+        <form method="post" action="{% url 'accounts:passkey_delete' key.pk %}" onsubmit="return confirm('Remove this passkey?')">
+          {% csrf_token %}
+          <button type="submit" class="acc-btn acc-btn--danger acc-btn--sm">Remove</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="passkey-empty">No passkeys registered yet.</p>
+    {% endif %}
+  </div>
+</div>
+<script src="{% static 'js/passkey.js' %}" defer></script>
+
 <script>
 (function () {
   // Sidebar active state:

@@ -9,3 +9,4 @@ google-auth>=2.29
 google-auth-oauthlib>=1.2
 google-api-python-client>=2.127
 django-q2>=1.6
+webauthn>=2.1
