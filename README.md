@@ -74,9 +74,10 @@ python manage.py runserver --settings=config.settings.dev
 ### Seed data
 
 ```bash
-python manage.py shell -c "from apps.pages.seed import seed; seed()"
-python manage.py shell -c "from apps.booking.seed import seed; seed()"
-python manage.py shell -c "from apps.legal.seed import seed; seed()"
+python manage.py shell < apps/accounts/seed.py
+python manage.py shell < apps/pages/seed.py
+python manage.py shell < apps/booking/seed.py
+python manage.py shell < apps/legal/seed.py
 ```
 
 ### Reset database

@@ -750,7 +750,57 @@ def settings_view(request):
 @owner_required
 def account_view(request):
     """Personal account settings for the logged-in staff/owner."""
-    return render(request, "dashboard/account.html", {"section": "account"})
+    from apps.accounts.forms import ProfileForm, ChangePasswordForm, ChangeEmailForm
+    from django.contrib.auth import update_session_auth_hash
+    from django.contrib import messages as django_messages
+
+    def _dash(form):
+        """Swap widget CSS classes to dashboard style."""
+        for field in form.fields.values():
+            w = field.widget
+            attrs = w.attrs
+            attrs["class"] = attrs.get("class", "").replace("form-input", "").strip() + " dash-input"
+            attrs["class"] = attrs["class"].strip()
+        return form
+
+    user = request.user
+    profile_form = _dash(ProfileForm(instance=user))
+    password_form = _dash(ChangePasswordForm(user=user))
+    email_form = _dash(ChangeEmailForm(user=user))
+
+    if request.method == "POST":
+        section = request.POST.get("_section")
+
+        if section == "profile":
+            profile_form = _dash(ProfileForm(request.POST, instance=user))
+            if profile_form.is_valid():
+                profile_form.save()
+                django_messages.success(request, "Profile updated.")
+                return redirect("dashboard:account")
+
+        elif section == "email":
+            email_form = _dash(ChangeEmailForm(request.POST, user=user))
+            if email_form.is_valid():
+                user.email = email_form.cleaned_data["new_email"]
+                user.save(update_fields=["email"])
+                django_messages.success(request, "Email updated.")
+                return redirect("dashboard:account")
+
+        elif section == "password":
+            password_form = _dash(ChangePasswordForm(request.POST, user=user))
+            if password_form.is_valid():
+                user.set_password(password_form.cleaned_data["new_password"])
+                user.save()
+                update_session_auth_hash(request, user)
+                django_messages.success(request, "Password updated.")
+                return redirect("dashboard:account")
+
+    return render(request, "dashboard/account.html", {
+        "section": "account",
+        "profile_form": profile_form,
+        "password_form": password_form,
+        "email_form": email_form,
+    })
 
 
 # ---------------------------------------------------------------------------
