@@ -744,6 +744,16 @@ def settings_view(request):
 
 
 # ---------------------------------------------------------------------------
+# Account (current user's own settings — passkeys, etc.)
+# ---------------------------------------------------------------------------
+
+@owner_required
+def account_view(request):
+    """Personal account settings for the logged-in staff/owner."""
+    return render(request, "dashboard/account.html", {"section": "account"})
+
+
+# ---------------------------------------------------------------------------
 # Messages (contact form)
 # ---------------------------------------------------------------------------
 

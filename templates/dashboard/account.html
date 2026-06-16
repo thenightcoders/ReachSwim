@@ -1,0 +1,67 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load static %}
+
+{% block title %}My Account{% endblock %}
+{% block topbar_title %}My Account{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <div>
+    <h1 class="dash-heading">My Account</h1>
+    <p class="dash-subheading">{{ request.user.email }}</p>
+  </div>
+</div>
+
+<!-- Passkeys -->
+<div class="dash-settings-card" style="max-width:680px;">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.5rem 1.5rem 1rem;">
+    <div>
+      <h2 style="font-size:1rem;font-weight:600;color:var(--dash-text);margin:0 0 0.25rem;">Passkeys</h2>
+      <p style="font-size:0.8125rem;color:var(--dash-text-muted);margin:0;">Log in with Face ID, Touch ID, or a hardware key — no password needed.</p>
+    </div>
+    <button
+      id="add-passkey-btn"
+      class="dash-btn dash-btn--primary"
+      style="white-space:nowrap;"
+      data-challenge-url="{% url 'accounts:passkey_register_challenge' %}"
+      data-complete-url="{% url 'accounts:passkey_register_complete' %}"
+      data-csrf="{{ csrf_token }}"
+    >+ Add passkey</button>
+  </div>
+
+  <p id="passkey-reg-status" style="display:none;font-size:0.8125rem;padding:0 1.5rem 0.75rem;"></p>
+
+  <div style="border-top:1px solid rgba(255,255,255,0.07);padding:1rem 1.5rem;display:flex;flex-direction:column;gap:0.5rem;">
+    {% with passkeys=request.user.passkeys.all %}
+    {% if passkeys %}
+      {% for key in passkeys %}
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:0.5rem;">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity:0.5;flex-shrink:0;">
+            <ellipse cx="9" cy="9" rx="4" ry="4"/>
+            <path d="M13 9h8M17 7v4M21 7v4"/>
+          </svg>
+          <div>
+            <span style="font-size:0.875rem;font-weight:500;color:var(--dash-text);">{{ key.name }}</span>
+            <span style="display:block;font-size:0.75rem;color:var(--dash-text-muted);">
+              Added {{ key.created_at|date:"j N Y" }}{% if key.last_used_at %} · Last used {{ key.last_used_at|date:"j N Y" }}{% endif %}
+            </span>
+          </div>
+        </div>
+        <form method="post" action="{% url 'accounts:passkey_delete' key.pk %}" onsubmit="return confirm('Remove this passkey?')">
+          {% csrf_token %}
+          <button type="submit" class="dash-btn dash-btn--danger" style="font-size:0.8rem;padding:0.3rem 0.7rem;">Remove</button>
+        </form>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p style="font-size:0.8125rem;color:var(--dash-text-muted);margin:0.25rem 0;">No passkeys registered yet.</p>
+    {% endif %}
+    {% endwith %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/passkey.js' %}" defer></script>
+{% endblock %}

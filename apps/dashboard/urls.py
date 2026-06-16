@@ -23,6 +23,7 @@ urlpatterns = [
     path("products/<int:pk>/delete/", views.product_delete, name="product_delete"),
     path("products/<int:pk>/stock/", views.product_update_stock, name="product_update_stock"),
     path("products/<int:pk>/toggle/", views.product_toggle_active, name="product_toggle_active"),
+    path("account/", views.account_view, name="account"),
     path("settings/", views.settings_view, name="settings"),
     path("messages/", views.messages_view, name="messages"),
     path("messages/<int:pk>/read/", views.message_mark_read, name="message_mark_read"),
