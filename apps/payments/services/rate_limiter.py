@@ -2,8 +2,8 @@
 Cache-based rate limiter for sensitive endpoints.
 
 One responsibility: check whether an action key has exceeded its limit.
-Uses Django's cache backend — works with any configured cache (memcached,
-Redis, or the default per-process in-memory cache in dev).
+Uses Django's cache backend — works with any configured cache (db, memcached,
+or the default per-process in-memory cache in dev).
 """
 from django.core.cache import cache
 
