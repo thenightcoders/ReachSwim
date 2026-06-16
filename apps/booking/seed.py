@@ -121,35 +121,64 @@ for st_slug, loc_slug, price in pricing_data:
     print(f"  {status}: {obj}")
 
 # --- Packages ---
+# Package.location is a required FK — price depends on (session_type, location) combo.
 packages = [
     {
-        "name": "5-Pack Private Sessions",
+        "name": "5-Pack Private Sessions (London Fields)",
         "session_type_slug": "private",
+        "location_slug": "london-fields",
         "session_count": 5,
         "price_pence": 24000,  # £240 instead of £275 (save £35)
         "order": 0,
     },
     {
-        "name": "10-Pack Private Sessions",
+        "name": "10-Pack Private Sessions (London Fields)",
         "session_type_slug": "private",
+        "location_slug": "london-fields",
         "session_count": 10,
         "price_pence": 44000,  # £440 instead of £550 (save £110)
         "order": 1,
     },
     {
-        "name": "5-Pack Group Sessions",
+        "name": "5-Pack Private Sessions (Clissold)",
+        "session_type_slug": "private",
+        "location_slug": "clissold",
+        "session_count": 5,
+        "price_pence": 22000,  # £220 instead of £250 (save £30)
+        "order": 2,
+    },
+    {
+        "name": "10-Pack Private Sessions (Clissold)",
+        "session_type_slug": "private",
+        "location_slug": "clissold",
+        "session_count": 10,
+        "price_pence": 40000,  # £400 instead of £500 (save £100)
+        "order": 3,
+    },
+    {
+        "name": "5-Pack Group Sessions (London Fields)",
         "session_type_slug": "small-group",
+        "location_slug": "london-fields",
         "session_count": 5,
         "price_pence": 10000,  # £100 instead of £125 (save £25)
-        "order": 2,
+        "order": 4,
+    },
+    {
+        "name": "5-Pack Group Sessions (Clissold)",
+        "session_type_slug": "small-group",
+        "location_slug": "clissold",
+        "session_count": 5,
+        "price_pence": 9000,   # £90 instead of £110 (save £20)
+        "order": 5,
     },
 ]
 
 for data in packages:
     st = SessionType.objects.get(slug=data.pop("session_type_slug"))
+    loc = Location.objects.get(slug=data.pop("location_slug"))
     obj, created = Package.objects.update_or_create(
         name=data["name"],
-        defaults={**data, "session_type": st},
+        defaults={**data, "session_type": st, "location": loc},
     )
     status = "created" if created else "updated"
     print(f"  {status}: {obj.name}")

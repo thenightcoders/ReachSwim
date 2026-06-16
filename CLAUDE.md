@@ -105,10 +105,11 @@ python manage.py runserver --settings=config.settings.dev
 # Reset DB + create superuser
 bash scripts/reset_db.sh
 
-# Seed data
-python manage.py shell -c "from apps.pages.seed import seed; seed()"
-python manage.py shell -c "from apps.booking.seed import seed; seed()"
-python manage.py shell -c "from apps.legal.seed import seed; seed()"
+# Seed data (run in order)
+python manage.py shell < apps/accounts/seed.py
+python manage.py shell < apps/pages/seed.py
+python manage.py shell < apps/booking/seed.py
+python manage.py shell < apps/legal/seed.py
 ```
 
 ## Commit History

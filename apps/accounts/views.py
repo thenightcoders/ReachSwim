@@ -174,7 +174,13 @@ def change_email_view(request):
 
 
 def _post_login_redirect(user):
-    """Redirect owner/staff to dashboard, clients to profile."""
+    """Redirect after login based on role.
+    ADMIN_EMAIL lands on the homepage — no forced destination, goes wherever they want.
+    Owner/staff → dashboard. Client → profile.
+    """
+    from django.conf import settings
+    if user.email == getattr(settings, "ADMIN_EMAIL", ""):
+        return redirect("pages:home")
     if user.can_access_dashboard:
         return redirect("dashboard:home")
     return redirect("accounts:profile")
