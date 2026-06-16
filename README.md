@@ -116,5 +116,5 @@ Priority items:
 1. **`expire_orders` management command** — abandoned Stripe checkouts currently leave slots blocked indefinitely
 2. **`PackagePurchase.use_session()` race fix** — before the package purchase flow ships
 3. **`user` FK on `Booking`** — needed for client self-service cancellation
-4. **Run `createcachetable` on first deploy** — prod uses Django's DB cache backend; run `python manage.py createcachetable` once to create the `django_cache` table
+4. **Redis cache (future)** — `SingletonModel.load()` currently hits the DB on every request; add Redis + re-introduce `cache.get/set` in `SingletonModel` and wire `CACHES` in `prod.py` when traffic warrants it
 5. **Google Calendar integration** — `GoogleCalendarConfig` and `apps.booking.services.google_calendar` are stubbed; OAuth2 flow not yet wired

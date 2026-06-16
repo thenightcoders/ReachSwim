@@ -22,15 +22,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 _csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
 
-# ---------------------------------------------------------------------------
-# Cache — database-backed (shared across all gunicorn workers)
-# ---------------------------------------------------------------------------
-# LocMemCache is per-process, so SingletonModel.save() on worker A wouldn't
-# bust worker B's cache. DatabaseCache writes to a DB table all workers share.
-# Run once after deploy: python manage.py createcachetable
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": "django_cache",
-    }
-}
+# TODO: add Redis cache when traffic warrants it — wire up SingletonModel
+# caching (cache.get/set with 5 min TTL, busted on save) and point CACHES
+# at redis://... via env var. Rate limiter (payments/services/rate_limiter.py)
+# will also benefit from a shared cache across gunicorn workers.
