@@ -1,48 +1,47 @@
-{% extends "base.html" %}
-{% block title %}Change email — {{ site_config.site_name }}{% endblock %}
+{% extends "accounts/base_account.html" %}
 
-{% block content %}
-<section class="section">
-  <div class="container">
-    <div class="auth-wrap">
+{% block acc_title %}Change Email{% endblock %}
+{% block acc_topbar_title %}Change Email{% endblock %}
+{% block nav_settings_active %}active{% endblock %}
 
-      {% if messages %}
-      {% for message in messages %}
-      <div class="alert alert--{{ message.tags }}">{{ message }}</div>
-      {% endfor %}
+{% block acc_content %}
+<div class="acc-card" style="max-width: 520px">
+  <div class="acc-card__header">
+    <h2 class="acc-card__title">Change Email Address</h2>
+  </div>
+  <div class="acc-card__body">
+    <p style="font-size:0.875rem;color:var(--acc-text-muted);margin:0 0 1.25rem">
+      Current: <strong style="color:var(--acc-text)">{{ request.user.email }}</strong>
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="acc-alert acc-alert--error">{{ form.non_field_errors }}</div>
       {% endif %}
 
-      <h1 class="h-display auth-title">Change email</h1>
-      <p class="auth-sub">Current: <strong>{{ request.user.email }}</strong></p>
-
-      <form method="post" class="auth-form">
-        {% csrf_token %}
-
-        {% if form.non_field_errors %}
-        <div class="alert alert--error">{{ form.non_field_errors }}</div>
+      <div class="acc-form-group" style="margin-bottom:1rem">
+        <label class="acc-label" for="id_new_email">New email address</label>
+        {{ form.new_email }}
+        {% if form.new_email.errors %}
+        <p class="acc-form-error">{{ form.new_email.errors.0 }}</p>
         {% endif %}
+      </div>
 
-        <div class="form-group">
-          <label for="id_new_email" class="form-label">New email address</label>
-          {{ form.new_email }}
-          {% if form.new_email.errors %}
-          <p class="form-error">{{ form.new_email.errors.0 }}</p>
-          {% endif %}
-        </div>
+      <div class="acc-form-group" style="margin-bottom:1.25rem">
+        <label class="acc-label" for="id_current_password">Current password (to confirm)</label>
+        {{ form.current_password }}
+        {% if form.current_password.errors %}
+        <p class="acc-form-error">{{ form.current_password.errors.0 }}</p>
+        {% endif %}
+      </div>
 
-        <div class="form-group">
-          <label for="id_current_password" class="form-label">Current password (to confirm)</label>
-          {{ form.current_password }}
-          {% if form.current_password.errors %}
-          <p class="form-error">{{ form.current_password.errors.0 }}</p>
-          {% endif %}
-        </div>
-
-        <button type="submit" class="btn btn-ghost btn-sm">Update email</button>
-      </form>
-
-      <p class="auth-switch"><a href="{% url 'accounts:profile' %}">← Back to profile</a></p>
-    </div>
+      <div class="acc-form-actions">
+        <button type="submit" class="acc-btn acc-btn--primary">Update email</button>
+        <a href="{% url 'accounts:profile' %}" class="acc-btn acc-btn--ghost">Cancel</a>
+      </div>
+    </form>
   </div>
-</section>
+</div>
 {% endblock %}

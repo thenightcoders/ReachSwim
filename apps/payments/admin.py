@@ -167,13 +167,13 @@ class PaymentRecordAdmin(admin.ModelAdmin):
 @admin.register(Voucher)
 class VoucherAdmin(admin.ModelAdmin):
     list_display = (
-        "code", "discount_type", "discount_value", "times_used",
-        "max_uses", "is_active", "valid_from", "valid_until",
-        "currently_valid",
+        "code", "discount_type", "discount_value", "allowed_email",
+        "session_type", "location", "times_used", "max_uses",
+        "is_active", "valid_until", "currently_valid",
     )
-    list_filter = ("discount_type", "is_active")
-    search_fields = ("code",)
-    readonly_fields = ("times_used", "created_at")
+    list_filter = ("discount_type", "is_active", "session_type", "location")
+    search_fields = ("code", "allowed_email")
+    readonly_fields = ("times_used", "created_at", "package_purchase")
     actions = [deactivate_vouchers, activate_vouchers, reset_voucher_usage]
 
     @admin.display(description="Valid now?", boolean=True)
@@ -185,7 +185,7 @@ class VoucherAdmin(admin.ModelAdmin):
 class PackagePurchaseAdmin(admin.ModelAdmin):
     list_display = (
         "reference_short", "package", "client_email",
-        "sessions_remaining", "is_active", "expires_at", "is_usable_display",
+        "credits_remaining", "is_active", "expires_at", "is_usable_display",
     )
     list_filter = ("is_active", "package")
     search_fields = ("client_email", "client_name", "reference")

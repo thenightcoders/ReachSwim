@@ -77,6 +77,18 @@
                    placeholder="07700 900000"
                    value="{% if user.is_authenticated %}{{ user.phone|default:'' }}{% endif %}">
           </div>
+          {% if auto_credit_count %}
+          <div class="form-group checkout-credit-offer">
+            <label class="checkout-credit-label">
+              <input type="checkbox" name="use_credit" checked>
+              <span>
+                Use a session credit
+                <span class="checkout-credit-meta">({{ auto_credit_count }} remaining &mdash; saves {{ auto_credit_savings|pence_to_pounds }})</span>
+              </span>
+            </label>
+          </div>
+          {% endif %}
+
           <div class="form-group checkout-terms">
             <label class="checkout-terms-label">
               <input type="checkbox" name="terms_accepted" required>

@@ -1,0 +1,671 @@
+/* ==========================================================================
+   Account shell — user-facing portal
+   Light counterpart to dashboard.css. Standalone — does NOT inherit
+   from the marketing-site main.css.
+   ========================================================================== */
+
+:root {
+  /* Layout */
+  --acc-sidebar-w: 232px;
+
+  /* Sidebar — white with subtle border */
+  --acc-sidebar-bg:           #ffffff;
+  --acc-sidebar-border:       #e8ecf0;
+  --acc-sidebar-text:         #64748b;
+  --acc-sidebar-text-hover:   #0f172a;
+  --acc-sidebar-active-text:  #0284c7;
+  --acc-sidebar-active-bg:    #eff9fe;
+
+  /* Content area */
+  --acc-bg:         #eef2f7;
+  --acc-card-bg:    #ffffff;
+  --acc-border:     #e2e8f0;
+  --acc-text:       #0f172a;
+  --acc-text-muted: #64748b;
+
+  /* Accent */
+  --acc-water:        #38bdf8;
+  --acc-accent:       #0ea5e9;
+  --acc-accent-hover: #0284c7;
+  --acc-accent-light: #eff9fe;
+
+  /* Status */
+  --acc-success:       #10b981;
+  --acc-success-light: #ecfdf5;
+  --acc-danger:        #ef4444;
+  --acc-danger-light:  #fef2f2;
+  --acc-warn:          #f59e0b;
+  --acc-warn-light:    #fffbeb;
+
+  /* Shadow / shape */
+  --acc-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --acc-shadow:    0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --acc-radius:    10px;
+  --acc-radius-lg: 14px;
+
+  /* Typography */
+  --font-sans:    'Inter',  -apple-system, sans-serif;
+  --font-display: 'Outfit', -apple-system, sans-serif;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+html { scroll-behavior: smooth; }
+*, *::before, *::after { box-sizing: border-box; }
+
+body.acc-body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--acc-bg);
+  color: var(--acc-text);
+  display: flex;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+
+.acc-sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: var(--acc-sidebar-w);
+  background: var(--acc-sidebar-bg);
+  border-right: 1px solid var(--acc-sidebar-border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+}
+
+/* Brand */
+.acc-sidebar__brand {
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--acc-sidebar-border);
+}
+
+.acc-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-decoration: none;
+}
+
+.acc-logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--acc-water);
+  color: #0f172a;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: -0.02em;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.acc-brand-text {
+  color: var(--acc-text);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.acc-brand-sub {
+  display: block;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 0.7rem;
+  color: var(--acc-text-muted);
+  letter-spacing: 0;
+}
+
+/* Nav */
+.acc-nav {
+  flex: 1;
+  padding: 0.75rem 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: none;
+}
+
+.acc-nav::-webkit-scrollbar { display: none; }
+
+.acc-nav__group {
+  padding: 0.6rem 1.25rem 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.acc-nav__link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1.25rem;
+  margin: 0 0.5rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--acc-sidebar-text);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.acc-nav__link:hover {
+  background: var(--acc-sidebar-border);
+  color: var(--acc-sidebar-text-hover);
+}
+
+.acc-nav__link.active {
+  background: var(--acc-sidebar-active-bg);
+  color: var(--acc-sidebar-active-text);
+}
+
+.acc-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.acc-nav__link.active .acc-icon,
+.acc-nav__link:hover .acc-icon {
+  opacity: 1;
+}
+
+.acc-nav__divider {
+  height: 1px;
+  background: var(--acc-sidebar-border);
+  margin: 0.5rem 1.25rem;
+}
+
+/* User footer */
+.acc-sidebar__footer {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--acc-sidebar-border);
+}
+
+.acc-user-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.25rem;
+}
+
+.acc-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--acc-accent-light);
+  color: var(--acc-accent);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.acc-user-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--acc-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.acc-user-email {
+  font-size: 0.7rem;
+  color: var(--acc-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   Main content
+   ========================================================================== */
+
+.acc-main {
+  margin-left: var(--acc-sidebar-w);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.acc-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 56px;
+  background: var(--acc-card-bg);
+  border-bottom: 1px solid var(--acc-border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.acc-topbar-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--acc-text);
+}
+
+.acc-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.acc-content {
+  padding: 2rem;
+  flex: 1;
+  max-width: 900px;
+}
+
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+
+.acc-card {
+  background: var(--acc-card-bg);
+  border: 1px solid var(--acc-border);
+  border-radius: var(--acc-radius-lg);
+  box-shadow: var(--acc-shadow-sm);
+  margin-bottom: 1.5rem;
+}
+
+.acc-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--acc-border);
+}
+
+.acc-card__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--acc-text);
+  margin: 0;
+}
+
+.acc-card__body {
+  padding: 1.5rem;
+}
+
+.acc-card__body--flush {
+  padding: 0;
+}
+
+/* ==========================================================================
+   Stat pills (credits summary)
+   ========================================================================== */
+
+.acc-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.acc-stat {
+  background: var(--acc-card-bg);
+  border: 1px solid var(--acc-border);
+  border-radius: var(--acc-radius);
+  box-shadow: var(--acc-shadow-sm);
+  padding: 1rem 1.25rem;
+  min-width: 140px;
+}
+
+.acc-stat__value {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--acc-text);
+  line-height: 1;
+}
+
+.acc-stat__label {
+  font-size: 0.75rem;
+  color: var(--acc-text-muted);
+  margin-top: 0.3rem;
+}
+
+/* ==========================================================================
+   Credits list
+   ========================================================================== */
+
+.acc-credits-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.acc-credit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--acc-border);
+  gap: 1rem;
+}
+
+.acc-credit-row:last-child { border-bottom: none; }
+
+.acc-credit-row--spent { opacity: 0.45; }
+
+.acc-credit-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.acc-credit-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--acc-text);
+}
+
+.acc-credit-meta {
+  font-size: 0.75rem;
+  color: var(--acc-text-muted);
+  display: flex;
+  gap: 0.5rem;
+}
+
+.acc-credit-meta .sep { color: var(--acc-border); }
+
+.acc-credit-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.acc-credit-count {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--acc-accent);
+  white-space: nowrap;
+}
+
+.acc-credit-spent {
+  font-size: 0.8rem;
+  color: var(--acc-text-muted);
+}
+
+/* ==========================================================================
+   Bookings list
+   ========================================================================== */
+
+.acc-booking-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--acc-border);
+  gap: 1rem;
+}
+
+.acc-booking-row:last-child { border-bottom: none; }
+
+.acc-booking-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.acc-booking-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--acc-text);
+}
+
+.acc-booking-meta {
+  font-size: 0.75rem;
+  color: var(--acc-text-muted);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.acc-booking-meta .pill {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.acc-booking-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Badges */
+.acc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.acc-badge--confirmed {
+  background: var(--acc-success-light);
+  color: var(--acc-success);
+}
+
+.acc-badge--pending {
+  background: var(--acc-warn-light);
+  color: var(--acc-warn);
+}
+
+.acc-badge--cancelled {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+/* ==========================================================================
+   Settings form
+   ========================================================================== */
+
+.acc-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.acc-form-grid--full { grid-template-columns: 1fr; }
+
+.acc-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.acc-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--acc-text-muted);
+}
+
+.acc-input {
+  padding: 0.6rem 0.875rem;
+  border: 1px solid var(--acc-border);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--acc-text);
+  background: var(--acc-bg);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.acc-input:focus {
+  border-color: var(--acc-accent);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.acc-form-error {
+  font-size: 0.75rem;
+  color: var(--acc-danger);
+}
+
+/* Alias: Django form widgets use class="form-input" — map it to acc styles */
+.acc-body .form-input {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.875rem;
+  border: 1px solid var(--acc-border);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--acc-text);
+  background: var(--acc-bg);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.acc-body .form-input:focus {
+  border-color: var(--acc-accent);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.acc-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.acc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+  line-height: 1;
+}
+
+.acc-btn--primary {
+  background: var(--acc-accent);
+  color: #fff;
+}
+
+.acc-btn--primary:hover { background: var(--acc-accent-hover); }
+
+.acc-btn--ghost {
+  background: transparent;
+  border: 1px solid var(--acc-border);
+  color: var(--acc-text);
+}
+
+.acc-btn--ghost:hover {
+  background: var(--acc-bg);
+  border-color: #cbd5e1;
+}
+
+.acc-btn--danger-ghost {
+  background: transparent;
+  border: 1px solid var(--acc-border);
+  color: var(--acc-danger);
+}
+
+.acc-btn--danger-ghost:hover {
+  background: var(--acc-danger-light);
+  border-color: var(--acc-danger);
+}
+
+.acc-btn--sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+/* ==========================================================================
+   Alert
+   ========================================================================== */
+
+.acc-alert {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+}
+
+.acc-alert--success {
+  background: var(--acc-success-light);
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.acc-alert--error {
+  background: var(--acc-danger-light);
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.acc-alert--info {
+  background: var(--acc-accent-light);
+  color: #0c4a6e;
+  border-color: #bae6fd;
+}
+
+/* ==========================================================================
+   Empty states
+   ========================================================================== */
+
+.acc-empty {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  color: var(--acc-text-muted);
+  font-size: 0.9rem;
+}
+
+.acc-empty a {
+  color: var(--acc-accent);
+  font-weight: 500;
+}

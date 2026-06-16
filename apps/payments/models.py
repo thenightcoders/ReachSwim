@@ -101,9 +101,11 @@ class OrderItem(models.Model):
 
     ITEM_TYPE_BOOKING = "booking"
     ITEM_TYPE_PRODUCT = "product"
+    ITEM_TYPE_PACKAGE = "package"
     ITEM_TYPE_CHOICES = [
         (ITEM_TYPE_BOOKING, "Booking"),
         (ITEM_TYPE_PRODUCT, "Product"),
+        (ITEM_TYPE_PACKAGE, "Package"),
     ]
 
     order = models.ForeignKey(
@@ -153,6 +155,15 @@ class OrderItem(models.Model):
         related_name="order_items",
     )
     quantity = models.PositiveIntegerField(default=1)
+
+    # --- Package fields (null when item_type != package) ---
+    package = models.ForeignKey(
+        "booking.Package",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="order_items",
+    )
 
     # --- Common fields ---
     price_pence = models.PositiveIntegerField()
@@ -217,6 +228,14 @@ class OrderItem(models.Model):
                 f"(got booking_id={self.booking_id})"
             )
 
+        elif self.item_type == self.ITEM_TYPE_PACKAGE:
+            assert self.package_id is not None, (
+                f"{pk_label}: package item must have package_id set"
+            )
+            assert self.booking_id is None and self.product_id is None, (
+                f"{pk_label}: package item must not have booking or product set"
+            )
+
         else:
             raise AssertionError(
                 f"{pk_label}: unknown item_type '{self.item_type}' — "
@@ -267,27 +286,82 @@ class PaymentRecord(models.Model):
 # =============================================================================
 
 class Voucher(models.Model):
-    """Discount code — percentage or fixed-pence off."""
+    """
+    Discount or session-credit code.
+
+    Three discount types:
+    - percentage  → e.g. 10% off the subtotal
+    - fixed_pence → e.g. 500 = £5.00 off
+    - full        → zeroes the matched line entirely (used for package credits
+                    and complimentary friend passes)
+
+    Restrictions (all nullable = unrestricted):
+    - allowed_email   → only the holder of this email may redeem it
+    - session_type    → only valid for this session type
+    - location        → only valid at this pool; if set and cart uses a
+                        different pool, a location-specific error is returned
+                        so the client knows to switch pools rather than
+                        treating the code as invalid
+    - package_purchase → links a generated credit code back to its purchase
+    """
 
     DISCOUNT_PERCENTAGE = "percentage"
     DISCOUNT_FIXED = "fixed_pence"
+    DISCOUNT_FULL = "full"
     DISCOUNT_TYPES = [
         (DISCOUNT_PERCENTAGE, "Percentage"),
         (DISCOUNT_FIXED, "Fixed amount (pence)"),
+        (DISCOUNT_FULL, "Full (zeroes the line)"),
     ]
 
-    code = models.CharField(max_length=30, unique=True)
+    code = models.CharField(max_length=50, unique=True)
     discount_type = models.CharField(max_length=15, choices=DISCOUNT_TYPES)
     discount_value = models.PositiveIntegerField(
-        help_text="Percentage (e.g. 10 for 10%) or pence amount.",
+        default=0,
+        help_text="Percentage (e.g. 10 for 10%) or pence amount. Unused for 'full' type.",
     )
+
+    # --- Restrictions ---
+    allowed_email = models.EmailField(
+        null=True,
+        blank=True,
+        help_text="If set, only this email address may redeem the code.",
+    )
+    session_type = models.ForeignKey(
+        "booking.SessionType",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vouchers",
+        help_text="If set, code only applies to this session type.",
+    )
+    location = models.ForeignKey(
+        "booking.Location",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vouchers",
+        help_text="If set, code only applies at this pool.",
+    )
+    package_purchase = models.ForeignKey(
+        "PackagePurchase",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="vouchers",
+        help_text="Set when this code was generated from a package purchase.",
+    )
+
+    # --- Usage limits ---
     max_uses = models.PositiveIntegerField(
         default=0,
         help_text="0 = unlimited.",
     )
     times_used = models.PositiveIntegerField(default=0)
+
+    # --- Validity ---
     valid_from = models.DateTimeField()
-    valid_until = models.DateTimeField(null=True, blank=True)
+    valid_until = models.DateTimeField(null=True, blank=True, help_text="Null = no expiry.")
     min_order_pence = models.PositiveIntegerField(
         default=0,
         help_text="Minimum cart total before this voucher applies.",
@@ -302,7 +376,7 @@ class Voucher(models.Model):
         return self.code
 
     def is_valid(self, subtotal_pence: int = 0) -> bool:
-        """Check all constraints: active, dates, usage, minimum order."""
+        """Check active, dates, usage cap, and minimum order."""
         if not self.is_active:
             return False
         now = timezone.now()
@@ -318,18 +392,17 @@ class Voucher(models.Model):
 
     def calculate_discount(self, subtotal_pence: int) -> int:
         """Return discount in pence, capped at the subtotal."""
+        if self.discount_type == self.DISCOUNT_FULL:
+            return subtotal_pence
         if self.discount_type == self.DISCOUNT_PERCENTAGE:
-            discount = int(subtotal_pence * self.discount_value / 100)
-        else:
-            discount = self.discount_value
-        return min(discount, subtotal_pence)
+            return min(int(subtotal_pence * self.discount_value / 100), subtotal_pence)
+        return min(self.discount_value, subtotal_pence)
 
     def redeem(self):
         """
-        Increment usage counter atomically.
-        Uses F() expression to push arithmetic to the DB in a single UPDATE,
-        preventing the read-modify-write race where two concurrent checkouts
-        both read times_used=0 and both write 1.
+        Increment usage counter atomically via F() expression — prevents the
+        read-modify-write race where two concurrent checkouts both see
+        times_used=0 and both write 1.
         """
         from django.db.models import F
         Voucher.objects.filter(pk=self.pk).update(times_used=F("times_used") + 1)
@@ -343,7 +416,10 @@ class Voucher(models.Model):
 class PackagePurchase(models.Model):
     """
     A client buying a multi-session package.
-    Sessions are deducted as they book using the package.
+
+    Credits remaining are tracked by the related Voucher rows (one per session).
+    Voucher.times_used == 0 → unused credit.  This keeps a single source of
+    truth and lets each credit be redeemed atomically via Voucher.redeem().
     """
 
     reference = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -352,9 +428,20 @@ class PackagePurchase(models.Model):
         on_delete=models.PROTECT,
         related_name="purchases",
     )
+
+    # Client identity — email is the canonical audit record.
+    # user is linked at purchase time if logged in, or later via migration
+    # when a guest registers with the same email.
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="package_purchases",
+    )
     client_name = models.CharField(max_length=200)
     client_email = models.EmailField()
-    sessions_remaining = models.PositiveIntegerField()
+
     amount_pence = models.PositiveIntegerField()
     stripe_payment_intent_id = models.CharField(max_length=255, blank=True)
     purchased_at = models.DateTimeField(auto_now_add=True)
@@ -368,37 +455,17 @@ class PackagePurchase(models.Model):
         return f"{self.package.name} — {self.client_email}"
 
     @property
-    def is_expired(self):
+    def is_expired(self) -> bool:
         return timezone.now() > self.expires_at
 
     @property
-    def is_usable(self):
-        return self.is_active and not self.is_expired and self.sessions_remaining > 0
+    def credits_remaining(self) -> int:
+        """Unused voucher rows for this purchase. Single source of truth."""
+        return self.vouchers.filter(times_used=0, is_active=True).count()
 
-    def use_session(self):
-        """
-        Deduct one session atomically.  Raises ValueError if none left.
-
-        Uses a filtered UPDATE (sessions_remaining__gt=0) pushed to the DB so
-        two concurrent requests for the same package both hit the database —
-        only the one that finds sessions_remaining > 0 wins.  The other gets
-        updated=0 and raises ValueError.  Same pattern as Voucher.redeem().
-        """
-        from django.db.models import F
-
-        updated = (
-            PackagePurchase.objects
-            .filter(pk=self.pk, sessions_remaining__gt=0)
-            .update(sessions_remaining=F("sessions_remaining") - 1)
-        )
-        if not updated:
-            raise ValueError("No sessions remaining on this package.")
-
-        self.refresh_from_db(fields=["sessions_remaining", "is_active"])
-
-        if self.sessions_remaining == 0:
-            PackagePurchase.objects.filter(pk=self.pk).update(is_active=False)
-            self.is_active = False
+    @property
+    def is_usable(self) -> bool:
+        return self.is_active and not self.is_expired and self.credits_remaining > 0
 
 
 # =============================================================================

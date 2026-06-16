@@ -1,6 +1,6 @@
 from django.urls import path
 from django.views.generic import RedirectView
-from . import views
+from . import views, views_packages
 
 app_name = "booking"
 
@@ -22,4 +22,8 @@ urlpatterns = [
         views.htmx_slots,
         name="htmx_slots",
     ),
+
+    # Packages
+    path("packages/", views_packages.packages_page, name="packages"),
+    path("packages/<int:package_id>/add/", views_packages.package_add_to_cart, name="package_add"),
 ]

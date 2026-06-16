@@ -100,6 +100,10 @@
   {% endif %}
   {% endif %}
 
+  {% if package_credits_hint %}
+  <p class="cart-credits-hint">&#10003; {{ package_credits_hint }}</p>
+  {% endif %}
+
   <a href="{% url 'payments:checkout' %}" class="btn btn-primary cart-checkout-btn">
     Checkout — {{ cart_total|pence_to_pounds }}
   </a>

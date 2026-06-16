@@ -1833,6 +1833,39 @@ body[data-has-hero="False"] .site-nav {
   padding: 14px 24px;
 }
 
+.checkout-credit-offer {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: var(--surface-2, #f5f3ee);
+  border: 1px solid var(--border, #e0ddd6);
+  border-radius: 10px;
+}
+
+.checkout-credit-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.checkout-credit-label input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+
+.checkout-credit-meta {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
 .checkout-terms {
   margin-bottom: 16px;
 }
@@ -2478,4 +2511,287 @@ body[data-has-hero="False"] .site-nav {
   .form-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* ============================================================
+   Package credits (profile page)
+   ============================================================ */
+
+.package-credits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 48px;
+}
+
+.package-credit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.package-credit-row:first-child {
+  border-top: 1px solid var(--line);
+}
+
+.package-credit-row--spent {
+  opacity: 0.5;
+}
+
+.package-credit-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.package-credit-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.package-credit-location {
+  font-size: 12px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.package-credit-type {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.package-credit-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.package-credit-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a7040;
+}
+
+.package-credit-spent {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* ============================================================
+   Packages listing page
+   ============================================================ */
+
+.packages-header {
+  text-align: center;
+  padding: 60px 0 48px;
+}
+
+.packages-header .h-display {
+  font-size: clamp(36px, 6vw, 64px);
+  margin-bottom: 12px;
+}
+
+.packages-sub {
+  color: var(--ink-2);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.packages-group {
+  margin-bottom: 60px;
+}
+
+.packages-group-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.packages-group-desc {
+  color: var(--ink-2);
+  margin-bottom: 28px;
+}
+
+.packages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.package-card {
+  background: var(--paper-2);
+  border-radius: var(--rad-md);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.package-card-header {
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.package-card-name {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.package-card-location {
+  font-size: 12px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.package-card-body {
+  padding: 20px 24px;
+  flex: 1;
+}
+
+.package-sessions {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin: 0 0 4px;
+}
+
+.package-price {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+}
+
+.package-per-session {
+  font-size: 14px;
+  color: var(--pool);
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.package-validity {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin: 0;
+}
+
+.package-card-footer {
+  padding: 16px 24px 24px;
+}
+
+.btn-block {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.packages-empty {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--ink-2);
+}
+
+.packages-empty a {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.packages-note {
+  max-width: 600px;
+  margin: 0 auto 80px;
+  padding: 32px;
+  background: var(--mist);
+  border-radius: var(--rad-md);
+}
+
+.packages-note h3 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+
+.packages-note p {
+  color: var(--ink-2);
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.packages-note p:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================================
+   Calendar panel — package nudge
+   ============================================================ */
+
+.cal-package-nudge {
+  background: var(--mist);
+  border-radius: var(--rad-sm);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.cal-package-nudge-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pool);
+  margin-bottom: 10px;
+}
+
+.cal-package-offer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(79,179,217,0.18);
+}
+
+.cal-package-offer:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.cal-package-offer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.cal-package-offer-info strong {
+  font-size: 14px;
+}
+
+.cal-package-offer-info span {
+  color: var(--ink-2);
+}
+
+.cal-package-savings {
+  color: #1a7040 !important;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Cart drawer — package credits hint
+   ============================================================ */
+
+.cart-credits-hint {
+  font-size: 13px;
+  color: #1a7040;
+  background: rgba(60, 180, 100, 0.08);
+  border-radius: var(--rad-sm);
+  padding: 10px 12px;
+  margin: 12px 0;
 }

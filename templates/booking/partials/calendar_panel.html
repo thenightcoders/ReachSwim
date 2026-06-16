@@ -5,6 +5,35 @@
   <!-- Left: location + calendar -->
   <div class="cal-left">
 
+    <!-- Package nudge (only shown when active packages exist for this selection) -->
+    {% if package_offers %}
+    <div class="cal-package-nudge">
+      <span class="cal-package-nudge-label">Save with a package</span>
+      {% for offer in package_offers %}
+      <div class="cal-package-offer">
+        <div class="cal-package-offer-info">
+          <strong>{{ offer.pkg.name }}</strong>
+          <span>{{ offer.pkg.session_count }} sessions &middot; {{ offer.pkg.price_pence|pence_to_pounds }}</span>
+          {% if offer.has_savings %}
+          <span class="cal-package-savings">Save {{ offer.savings_pence|pence_to_pounds }}/session</span>
+          {% endif %}
+        </div>
+        <form
+          method="post"
+          action="{% url 'booking:package_add' offer.pkg.pk %}"
+          hx-post="{% url 'booking:package_add' offer.pkg.pk %}"
+          hx-target="#cart-drawer-content"
+          hx-swap="innerHTML"
+          hx-on::after-request="openCartDrawer()"
+        >
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-ghost">Buy package</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- Location dropdown -->
     <div class="cal-location-bar">
       <label class="cal-location-label" for="loc-select">Location</label>

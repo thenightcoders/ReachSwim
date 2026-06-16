@@ -136,11 +136,22 @@ class SessionPricing(models.Model):
 # =============================================================================
 
 class Package(models.Model):
-    """Multi-session bundle at a reduced rate."""
+    """
+    Multi-session bundle at a reduced rate.
+
+    Locked to a specific session type AND location because lane rental costs
+    differ per pool — the package price is only valid for one (type, location)
+    combination.
+    """
 
     name = models.CharField(max_length=200)
     session_type = models.ForeignKey(
         SessionType,
+        on_delete=models.CASCADE,
+        related_name="packages",
+    )
+    location = models.ForeignKey(
+        Location,
         on_delete=models.CASCADE,
         related_name="packages",
     )

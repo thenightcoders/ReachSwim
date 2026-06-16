@@ -18,6 +18,7 @@ from apps.booking.models import SessionPricing
 from apps.payments.interfaces import WebhookSignatureError
 from apps.payments.models import Order
 from apps.payments.services import cart as cart_svc
+from apps.payments.services.cart import ITEM_TYPE_BOOKING, VOUCHER_SESSION_KEY
 from apps.payments.services.checkout import (
     cancel_pending_order,
     confirm_from_session_id,
@@ -118,15 +119,22 @@ def cart_clear(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def cart_apply_voucher(request: HttpRequest) -> HttpResponse:
-    """Apply a voucher code."""
+    """Apply a voucher code (rate-limited: 5 attempts/min per IP)."""
+    from apps.payments.services.rate_limiter import is_allowed
+
+    ip = request.META.get("REMOTE_ADDR", "unknown")
+    if not is_allowed(f"voucher:{ip}"):
+        return render(request, "payments/partials/cart_drawer.html", {
+            **_cart_context(request),
+            "voucher_error": "Too many attempts — please wait a minute and try again.",
+        })
+
     code = request.POST.get("code", "")
     try:
         cart_svc.apply_voucher(request, code)
     except ValueError as exc:
         return render(request, "payments/partials/cart_drawer.html", {
-            "cart": cart_svc.get_cart(request),
-            "cart_total": cart_svc.cart_total_pence(request),
-            "voucher_code": code,
+            **_cart_context(request),
             "voucher_error": str(exc),
         })
     return _cart_response(request)
@@ -149,13 +157,12 @@ def cart_badge(request: HttpRequest) -> HttpResponse:
     return render(request, "payments/partials/cart_badge.html", {"cart_count": count})
 
 
-def _cart_response(request: HttpRequest) -> HttpResponse:
-    """Render the full cart drawer partial."""
+def _cart_context(request: HttpRequest) -> dict:
+    """Build the shared context dict for the cart drawer."""
     cart = cart_svc.get_cart(request)
     subtotal = cart_svc.cart_total_pence(request)
     voucher_code, discount = cart_svc.get_voucher_discount(request)
 
-    # Shipping (only applies when there are physical products)
     shipping = 0
     show_shipping = cart_svc.has_products(request)
     if show_shipping:
@@ -165,7 +172,10 @@ def _cart_response(request: HttpRequest) -> HttpResponse:
 
     total = max(0, subtotal + shipping - discount)
 
-    return render(request, "payments/partials/cart_drawer.html", {
+    # Package-credits hint for logged-in users
+    package_credits_hint = _package_credits_hint(request, cart)
+
+    return {
         "cart": cart,
         "cart_count": cart_svc.cart_count(request),
         "cart_subtotal": subtotal,
@@ -174,7 +184,43 @@ def _cart_response(request: HttpRequest) -> HttpResponse:
         "shipping_pence": shipping,
         "show_shipping": show_shipping,
         "cart_total": total,
-    })
+        "package_credits_hint": package_credits_hint,
+    }
+
+
+def _package_credits_hint(request: HttpRequest, cart: list) -> str | None:
+    """
+    Return a hint string if the logged-in user has active package session credits
+    that cover one or more booking items in the cart.  Returns None otherwise.
+    """
+    if not getattr(request, "user", None) or not request.user.is_authenticated:
+        return None
+
+    has_booking = any(i.get("item_type") == ITEM_TYPE_BOOKING for i in cart)
+    if not has_booking:
+        return None
+
+    from apps.payments.models import PackagePurchase
+    from django.db.models import Count, Q
+
+    total = (
+        PackagePurchase.objects
+        .filter(user=request.user)
+        .aggregate(
+            n=Count("vouchers", filter=Q(vouchers__times_used=0, vouchers__is_active=True))
+        )["n"] or 0
+    )
+
+    if not total:
+        return None
+
+    word = "credit" if total == 1 else "credits"
+    return f"You have {total} session {word} — they'll be applied automatically at checkout."
+
+
+def _cart_response(request: HttpRequest) -> HttpResponse:
+    """Render the full cart drawer partial."""
+    return render(request, "payments/partials/cart_drawer.html", _cart_context(request))
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +235,20 @@ def checkout(request: HttpRequest) -> HttpResponse:
     phone = request.POST.get("client_phone", "").strip()
 
     terms_accepted = request.POST.get("terms_accepted")
+    use_credit = request.POST.get("use_credit")
+
+    # Auto-apply a credit voucher when the user opted in and no voucher is
+    # already stored in the session (manual code takes precedence).
+    if use_credit and not cart_svc.get_voucher_discount(request)[0]:
+        _cart = cart_svc.get_cart(request)
+        voucher, _ = _find_auto_credit(request.user, _cart)
+        if voucher:
+            subtotal = cart_svc.cart_total_pence(request)
+            request.session[VOUCHER_SESSION_KEY] = {
+                "code": voucher.code,
+                "discount_pence": voucher.calculate_discount(subtotal),
+            }
+            request.session.modified = True
 
     if not name or not email:
         return render(request, "payments/checkout.html", {
@@ -220,6 +280,38 @@ def checkout(request: HttpRequest) -> HttpResponse:
     return redirect(session.redirect_url, permanent=False)
 
 
+def _find_auto_credit(user, cart):
+    """
+    Return (first_matching_voucher, total_credit_count) for a logged-in user.
+    Looks for unused, active, in-date credits that match the booking in the cart.
+    Returns (None, 0) if the user has no applicable credits.
+    """
+    from apps.payments.models import Voucher
+    from django.utils import timezone
+
+    if not getattr(user, "is_authenticated", False):
+        return None, 0
+
+    booking = next((i for i in cart if i.get("item_type") == ITEM_TYPE_BOOKING), None)
+    if not booking:
+        return None, 0
+
+    now = timezone.now()
+    qs = Voucher.objects.filter(
+        package_purchase__user=user,
+        session_type_id=booking["session_type_id"],
+        location_id=booking["location_id"],
+        times_used=0,
+        is_active=True,
+        valid_from__lte=now,
+        valid_until__gte=now,
+    )
+    count = qs.count()
+    if count == 0:
+        return None, 0
+    return qs.first(), count
+
+
 def checkout_page(request: HttpRequest) -> HttpResponse:
     """Show the checkout form (GET)."""
     cart = cart_svc.get_cart(request)
@@ -238,6 +330,14 @@ def checkout_page(request: HttpRequest) -> HttpResponse:
 
     total = max(0, subtotal + shipping - discount)
 
+    # Auto-credit offer: detect if the logged-in user has applicable credits.
+    # Only shown when no voucher is already applied in the session.
+    auto_credit_voucher, auto_credit_count = (None, 0)
+    if not voucher_code:
+        auto_credit_voucher, auto_credit_count = _find_auto_credit(
+            getattr(request, "user", None), cart
+        )
+
     return render(request, "payments/checkout.html", {
         "cart": cart,
         "cart_subtotal": subtotal,
@@ -246,6 +346,8 @@ def checkout_page(request: HttpRequest) -> HttpResponse:
         "shipping_pence": shipping,
         "show_shipping": show_shipping,
         "cart_total": total,
+        "auto_credit_count": auto_credit_count,
+        "auto_credit_savings": auto_credit_voucher.calculate_discount(subtotal) if auto_credit_voucher else 0,
     })
 
 

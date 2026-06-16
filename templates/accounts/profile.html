@@ -1,84 +1,194 @@
-{% extends "base.html" %}
-{% load payment_tags %}
-{% block title %}My account — {{ site_config.site_name }}{% endblock %}
+{% extends "accounts/base_account.html" %}
 
-{% block content %}
-<section class="section">
-  <div class="container">
+{% block acc_title %}Dashboard{% endblock %}
+{% block acc_topbar_title %}Dashboard{% endblock %}
+{% block nav_overview_active %}active{% endblock %}
 
-    {% if messages %}
-    <div class="profile-messages">
-      {% for message in messages %}
-      <div class="alert alert--{{ message.tags }}">{{ message }}</div>
-      {% endfor %}
-    </div>
-    {% endif %}
+{% block acc_topbar_actions %}
+<a href="{% url 'booking:page' %}" class="acc-btn acc-btn--primary acc-btn--sm">+ Book a session</a>
+{% endblock %}
 
-    <div class="profile-grid">
+{% block acc_content %}
 
-      <!-- Left: profile info -->
-      <div class="profile-card">
-        <h1 class="h-display profile-title">My account</h1>
-        <p class="profile-email">{{ request.user.email }}</p>
+<!-- Stat bar -->
+<div class="acc-stats">
+  <div class="acc-stat">
+    <div class="acc-stat__value">{{ active_bookings_count }}</div>
+    <div class="acc-stat__label">Active booking{{ active_bookings_count|pluralize }}</div>
+  </div>
+  {% if package_purchases %}
+  <div class="acc-stat">
+    <div class="acc-stat__value" style="color:var(--acc-accent)">{{ package_purchases|length }}</div>
+    <div class="acc-stat__label">Active package{% if package_purchases|length != 1 %}s{% endif %}</div>
+  </div>
+  {% endif %}
+</div>
 
-        <form method="post" class="auth-form">
-          {% csrf_token %}
-
-          <div class="form-group">
-            <label for="id_full_name" class="form-label">Full name</label>
-            {{ form.full_name }}
-          </div>
-
-          <div class="form-group">
-            <label for="id_phone" class="form-label">Phone</label>
-            {{ form.phone }}
-          </div>
-
-          <button type="submit" class="btn btn-ghost btn-sm">Save changes</button>
-        </form>
-
-        <div class="profile-actions">
-          <a href="{% url 'accounts:change_password' %}" class="btn btn-ghost btn-sm">Change password</a>
-          <a href="{% url 'accounts:change_email' %}" class="btn btn-ghost btn-sm">Change email</a>
-          <form method="post" action="{% url 'accounts:logout' %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-ghost btn-sm">Log out</button>
-          </form>
+<!-- Session Credits -->
+{% if package_purchases %}
+<div id="credits" class="acc-card">
+  <div class="acc-card__header">
+    <h2 class="acc-card__title">Session Credits</h2>
+    <a href="{% url 'booking:page' %}" class="acc-btn acc-btn--ghost acc-btn--sm">Use a credit</a>
+  </div>
+  <div class="acc-card__body--flush acc-credits-list">
+    {% for purchase in package_purchases %}
+    {% with remaining=purchase.credits_remaining %}
+    <div class="acc-credit-row {% if remaining == 0 %}acc-credit-row--spent{% endif %}">
+      <div class="acc-credit-info">
+        <span class="acc-credit-name">{{ purchase.package.name }}</span>
+        <div class="acc-credit-meta">
+          <span>{{ purchase.package.session_type.name }}</span>
+          <span class="sep">·</span>
+          <span>{{ purchase.package.location.name }}</span>
         </div>
       </div>
-
-      <!-- Right: booking history -->
-      <div>
-        <h2 class="h-display profile-section-title">My bookings</h2>
-
-        {% if bookings %}
-        <div class="booking-history">
-          {% for b in bookings %}
-          <div class="booking-row">
-            <div class="booking-row-info">
-              <span class="booking-row-type">{{ b.session_type.name }}</span>
-              <span class="booking-row-location mono">{{ b.location.name }}</span>
-            </div>
-            <div class="booking-row-when mono">
-              {{ b.date|date:"D j M Y" }} · {{ b.start_time|time:"H:i" }}
-            </div>
-            <span class="booking-status booking-status--{{ b.status }}">{{ b.get_status_display }}</span>
-            {% if b.status == "pending" or b.status == "confirmed" %}
-            <form method="post" action="{% url 'accounts:booking_cancel' b.reference %}"
-                  onsubmit="return confirm('Cancel this booking?')">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-ghost btn-sm booking-cancel-btn">Cancel</button>
-            </form>
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
+      <div class="acc-credit-status">
+        {% if remaining > 0 %}
+        <span class="acc-credit-count">{{ remaining }} left</span>
+        <a href="{% url 'booking:page' %}" class="acc-btn acc-btn--ghost acc-btn--sm">Book</a>
         {% else %}
-        <p class="profile-empty">No bookings yet. <a href="{% url 'booking:page' %}">Book your first session</a>.</p>
+        <span class="acc-credit-spent">All used</span>
         {% endif %}
       </div>
-
     </div>
+    {% endwith %}
+    {% endfor %}
   </div>
-</section>
+</div>
+{% endif %}
+
+<!-- My Bookings -->
+<div id="bookings" class="acc-card">
+  <div class="acc-card__header">
+    <h2 class="acc-card__title">My Bookings</h2>
+  </div>
+  <div class="acc-card__body--flush">
+    {% if bookings %}
+    <div>
+      {% for b in bookings %}
+      <div class="acc-booking-row">
+        <div class="acc-booking-info">
+          <span class="acc-booking-name">{{ b.session_type.name }}</span>
+          <div class="acc-booking-meta">
+            <span>{{ b.location.name }}</span>
+            <span>·</span>
+            <span>{{ b.date|date:"D j M Y" }} at {{ b.start_time|time:"H:i" }}</span>
+          </div>
+        </div>
+        <div class="acc-booking-actions">
+          <span class="acc-badge acc-badge--{{ b.status }}">{{ b.get_status_display }}</span>
+          {% if b.status == "pending" or b.status == "confirmed" %}
+          <form method="post" action="{% url 'accounts:booking_cancel' b.reference %}"
+                onsubmit="return confirm('Cancel this booking?')">
+            {% csrf_token %}
+            <button type="submit" class="acc-btn acc-btn--danger-ghost acc-btn--sm">Cancel</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="acc-empty">
+      No bookings yet. <a href="{% url 'booking:page' %}">Book your first session →</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Account Settings -->
+<div id="settings" class="acc-card">
+  <div class="acc-card__header">
+    <h2 class="acc-card__title">Account Settings</h2>
+  </div>
+  <div class="acc-card__body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="acc-form-grid">
+        <div class="acc-form-group">
+          <label class="acc-label" for="id_full_name">Full name</label>
+          {{ form.full_name }}
+        </div>
+        <div class="acc-form-group">
+          <label class="acc-label" for="id_phone">Phone</label>
+          {{ form.phone }}
+        </div>
+      </div>
+      <div class="acc-form-actions" style="margin-top:1rem">
+        <button type="submit" class="acc-btn acc-btn--primary">Save changes</button>
+        <a href="{% url 'accounts:change_password' %}" class="acc-btn acc-btn--ghost">Change password</a>
+        <a href="{% url 'accounts:change_email' %}" class="acc-btn acc-btn--ghost">Change email</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Sidebar active state:
+  //   • On click: set immediately + lock scroll listener for 1.2 s so the
+  //     smooth-scroll animation doesn't override the click choice.
+  //   • On manual scroll: find the last section whose top has crossed the
+  //     sticky topbar (useful on pages tall enough to scroll between sections).
+  //   • On load: honour the URL hash, otherwise run the scroll check.
+  const SECTION_IDS = ['credits', 'bookings', 'settings'];
+  const TRIGGER = 80; // px — topbar (56) + small buffer
+
+  const navLinks = Array.from(document.querySelectorAll('.acc-nav__link'));
+
+  function linkForHash(hash) {
+    return navLinks.find(l => l.getAttribute('href').endsWith(hash)) || null;
+  }
+  function dashboardLink() {
+    return navLinks.find(l => !l.getAttribute('href').includes('#')) || null;
+  }
+  function setActive(link) {
+    navLinks.forEach(l => l.classList.remove('active'));
+    if (link) link.classList.add('active');
+  }
+
+  const sections = SECTION_IDS.map(id => document.getElementById(id)).filter(Boolean);
+
+  function updateActive() {
+    if (!sections.length) { setActive(dashboardLink()); return; }
+    let active = null;
+    for (let i = sections.length - 1; i >= 0; i--) {
+      if (sections[i].getBoundingClientRect().top < TRIGGER) {
+        active = sections[i];
+        break;
+      }
+    }
+    setActive(active ? linkForHash('#' + active.id) : dashboardLink());
+  }
+
+  // Nav-click locking — prevents the smooth-scroll animation from overriding
+  // the just-clicked nav item.
+  let lockTimer = null;
+  let locked = false;
+
+  window.addEventListener('scroll', () => {
+    if (!locked) updateActive();
+  }, { passive: true });
+
+  navLinks.forEach(link => {
+    const href = link.getAttribute('href') || '';
+    if (!href.includes('#')) return;
+    link.addEventListener('click', () => {
+      setActive(link);
+      locked = true;
+      clearTimeout(lockTimer);
+      lockTimer = setTimeout(() => { locked = false; }, 1200);
+    });
+  });
+
+  // Initialise from URL hash (e.g. page reload at #settings).
+  if (window.location.hash) {
+    const initial = linkForHash(window.location.hash);
+    if (initial) { setActive(initial); return; }
+  }
+  updateActive();
+})();
+</script>
+
 {% endblock %}

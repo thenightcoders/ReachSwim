@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load payment_tags %}
+{% block title %}Session packages — {{ site_config.site_name }}{% endblock %}
+{% block meta_description %}Buy a bundle of sessions and save per session. Packages are locked to a session type and pool.{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+
+    <header class="packages-header">
+      <h1 class="h-display">Session packages</h1>
+      <p class="packages-sub">Buy sessions in bulk and pay less per session. Credits go straight on your account — no codes needed.</p>
+    </header>
+
+    {% if session_types %}
+      {% for st in session_types %}
+        {% if st.active_packages %}
+        <div class="packages-group">
+          <h2 class="packages-group-title">{{ st.name }}</h2>
+          {% if st.description %}
+          <p class="packages-group-desc">{{ st.description }}</p>
+          {% endif %}
+
+          <div class="packages-grid">
+            {% for pkg in st.active_packages %}
+            <article class="package-card">
+              <div class="package-card-header">
+                <h3 class="package-card-name">{{ pkg.name }}</h3>
+                <p class="package-card-location">{{ pkg.location.name }}</p>
+              </div>
+
+              <div class="package-card-body">
+                <p class="package-sessions">{{ pkg.session_count }} sessions</p>
+                <p class="package-price">{{ pkg.price_pence|pence_to_pounds }}</p>
+                <p class="package-per-session">{{ pkg.per_session_pence|pence_to_pounds }} per session</p>
+                {% if pkg.valid_days %}
+                <p class="package-validity">Valid for {{ pkg.valid_days }} days from purchase</p>
+                {% endif %}
+              </div>
+
+              <div class="package-card-footer">
+                <form
+                  method="post"
+                  action="{% url 'booking:package_add' pkg.pk %}"
+                  hx-post="{% url 'booking:package_add' pkg.pk %}"
+                  hx-target="#cart-drawer-content"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="openCartDrawer()"
+                >
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-primary btn-block">Add to cart</button>
+                </form>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+    <p class="packages-empty">No packages available right now — <a href="{% url 'booking:page' %}">book a single session</a> instead.</p>
+    {% endif %}
+
+    <div class="packages-note">
+      <h3>How packages work</h3>
+      <p>Credits are locked to the session type and pool you buy them for — that's because lane hire costs differ per venue. When you're logged in, credits apply automatically at checkout. If you ever book while logged out, you'll have individual codes in your confirmation email to enter manually.</p>
+      <p>Each package has its own validity window shown on the package card. Unused credits can't be refunded once that window has passed.</p>
+    </div>
+
+  </div>
+</section>
+{% endblock %}

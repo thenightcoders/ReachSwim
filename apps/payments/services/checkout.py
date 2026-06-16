@@ -31,6 +31,7 @@ from apps.payments.services.cart import (
     product_total_pence,
     ITEM_TYPE_BOOKING,
     ITEM_TYPE_PRODUCT,
+    ITEM_TYPE_PACKAGE,
 )
 from apps.payments.services.stripe_service import StripeService
 
@@ -127,12 +128,25 @@ def create_order_from_cart(
             )
         elif item_type == ITEM_TYPE_PRODUCT:
             _create_product_order_item(order, item)
+        elif item_type == ITEM_TYPE_PACKAGE:
+            _create_package_order_item(order, item)
 
-    # Redeem voucher if one was applied
+    # Redeem voucher if one was applied.
+    # select_for_update() acquires a row lock and is_valid() re-checks
+    # dates + usage cap inside this transaction — prevents two concurrent
+    # checkouts from both redeeming the same single-use code.
     if voucher_code:
         try:
-            voucher = Voucher.objects.get(code=voucher_code)
-            voucher.redeem()
+            voucher = Voucher.objects.select_for_update().get(code=voucher_code)
+            # Re-check email here for the guest flow: at cart-apply time the
+            # email was unknown so the validator skipped it. Now we have the
+            # real client_email and enforce the restriction before redeeming.
+            email_ok = (
+                not voucher.allowed_email
+                or voucher.allowed_email == order.client_email
+            )
+            if email_ok and voucher.is_valid(subtotal):
+                voucher.redeem()
         except Voucher.DoesNotExist:
             pass
 
@@ -180,6 +194,18 @@ def _create_product_order_item(order, item):
         product_id=item["product_id"],
         price_pence=item["price_pence"],
         quantity=item.get("qty", 1),
+        label=item["label"],
+    )
+
+
+def _create_package_order_item(order, item):
+    """Create an OrderItem for a package cart item."""
+    OrderItem.objects.create(
+        order=order,
+        item_type=ITEM_TYPE_PACKAGE,
+        package_id=item["package_id"],
+        price_pence=item["price_pence"],
+        quantity=1,
         label=item["label"],
     )
 
@@ -272,6 +298,9 @@ def confirm_order(event: PaymentEvent) -> Optional[Order]:
         if oi.is_booking and oi.booking and oi.booking.status == Booking.STATUS_PENDING:
             confirm_booking(oi.booking, payment_intent_id=event.payment_intent_id)
 
+    # Fulfil package items — create PackagePurchase + Voucher credits + email.
+    _fulfil_package_items(order, event)
+
     # Deduct stock for product items atomically.
     # F() expression pushes the arithmetic to the DB in a single UPDATE,
     # preventing the read-modify-write race condition.
@@ -350,6 +379,40 @@ def cancel_pending_order(order_reference: str) -> None:
 
     order.status = Order.STATUS_EXPIRED
     order.save(update_fields=["status", "updated_at"])
+
+
+def _fulfil_package_items(order: Order, event: "PaymentEvent") -> None:
+    """Create PackagePurchase + vouchers + send email for each package item."""
+    from apps.booking.services.package_purchase import create_purchase
+    from apps.booking.services.package_email import send_purchase_confirmation
+
+    package_items = order.items.filter(
+        item_type=ITEM_TYPE_PACKAGE
+    ).select_related("package__session_type", "package__location")
+
+    for oi in package_items:
+        from apps.accounts.models import User
+        user = None
+        try:
+            user = User.objects.get(email=order.client_email)
+        except User.DoesNotExist:
+            pass
+
+        purchase = create_purchase(
+            package=oi.package,
+            client_name=order.client_name,
+            client_email=order.client_email,
+            stripe_payment_intent_id=event.payment_intent_id,
+            user=user,
+        )
+        vouchers = list(purchase.vouchers.all())
+        try:
+            send_purchase_confirmation(purchase, vouchers)
+        except Exception:
+            logger.exception(
+                "Failed to send package confirmation email for purchase %s",
+                purchase.reference,
+            )
 
 
 def expire_pending_orders(older_than_minutes: int = 35) -> int:

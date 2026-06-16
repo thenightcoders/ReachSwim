@@ -15,6 +15,7 @@ VOUCHER_SESSION_KEY = "reachswim_voucher"
 
 ITEM_TYPE_BOOKING = "booking"
 ITEM_TYPE_PRODUCT = "product"
+ITEM_TYPE_PACKAGE = "package"
 
 
 def _cart_key(item: dict) -> tuple:
@@ -22,9 +23,12 @@ def _cart_key(item: dict) -> tuple:
     Uniqueness key.
     Bookings: (booking, session_type_id, location_id, date, start_time)
     Products: (product, product_id)
+    Packages: (package, package_id)  — one package per cart
     """
     if item.get("item_type") == ITEM_TYPE_PRODUCT:
         return (ITEM_TYPE_PRODUCT, item["product_id"])
+    if item.get("item_type") == ITEM_TYPE_PACKAGE:
+        return (ITEM_TYPE_PACKAGE, item["package_id"])
     return (
         ITEM_TYPE_BOOKING,
         item["session_type_id"],
@@ -166,6 +170,34 @@ def cart_total_pence(request) -> int:
     )
 
 
+def add_package_to_cart(
+    request,
+    package_id: int,
+    name: str,
+    price_pence: int,
+    label: str,
+) -> List[dict]:
+    """
+    Add a package to the cart.  Silently ignores duplicates.
+    Returns the updated cart.
+    """
+    cart = get_cart(request)
+    new_item = {
+        "item_type": ITEM_TYPE_PACKAGE,
+        "package_id": package_id,
+        "price_pence": price_pence,
+        "label": label,
+        "name": name,
+        "qty": 1,
+    }
+    new_key = _cart_key(new_item)
+    if any(_cart_key(i) == new_key for i in cart):
+        return cart
+    cart.append(new_item)
+    request.session[CART_SESSION_KEY] = cart
+    return cart
+
+
 def has_products(request) -> bool:
     """Return True if the cart contains at least one product item."""
     return any(
@@ -192,26 +224,26 @@ def apply_voucher(request, code: str) -> int:
     Returns the discount in pence.
     Raises ValueError with a user-facing message on failure.
     """
-    from apps.payments.models import Voucher
+    from apps.payments.services.voucher_validator import validate
 
-    code = code.strip().upper()
-    try:
-        voucher = Voucher.objects.get(code=code)
-    except Voucher.DoesNotExist:
-        raise ValueError("Invalid voucher code.")
+    # Derive context from cart for session-type / location checks.
+    cart = get_cart(request)
+    booking = next((i for i in cart if i.get("item_type") == ITEM_TYPE_BOOKING), None)
+    session_type_id = booking["session_type_id"] if booking else None
+    location_id = booking["location_id"] if booking else None
+
+    # Email: use authenticated user's address if logged in, otherwise unknown
+    # at this point — full email check happens at checkout.
+    email = ""
+    if hasattr(request, "user") and request.user.is_authenticated:
+        email = request.user.email
 
     subtotal = cart_total_pence(request)
-    if not voucher.is_valid(subtotal):
-        if voucher.min_order_pence and subtotal < voucher.min_order_pence:
-            min_pounds = voucher.min_order_pence / 100
-            raise ValueError(
-                f"Minimum order of £{min_pounds:.2f} required for this voucher."
-            )
-        raise ValueError("This voucher is no longer valid.")
+    voucher = validate(code, email, session_type_id, location_id, subtotal)
 
     discount = voucher.calculate_discount(subtotal)
     request.session[VOUCHER_SESSION_KEY] = {
-        "code": code,
+        "code": voucher.code,
         "discount_pence": discount,
     }
     return discount

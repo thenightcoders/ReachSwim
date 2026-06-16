@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_GET
 
-from .models import BookingSettings, SessionType, Location, SessionPricing
+from .models import BookingSettings, SessionType, Location, SessionPricing, Package
 from .services.availability import (
     get_available_dates,
     get_slots_for_date,
@@ -114,6 +114,22 @@ def htmx_calendar_panel(request, session_type_id):
 
     month_label = datetime.date(year, month, 1).strftime("%B %Y")
 
+    # Packages available for this (session_type, location) — show a savings nudge.
+    packages = Package.objects.filter(
+        session_type=session_type,
+        location=location,
+        is_active=True,
+    ).order_by("order", "price_pence")
+
+    package_offers = [
+        {
+            "pkg": pkg,
+            "savings_pence": max(0, price_pence - pkg.per_session_pence),
+            "has_savings": price_pence > pkg.per_session_pence,
+        }
+        for pkg in packages
+    ]
+
     return render(request, "booking/partials/calendar_panel.html", {
         "session_type": session_type,
         "locations": locations,
@@ -130,6 +146,7 @@ def htmx_calendar_panel(request, session_type_id):
         "show_prev": show_prev,
         "show_next": show_next,
         "day_names": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        "package_offers": package_offers,
     })
 
 
