@@ -1,0 +1,72 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load payment_tags %}
+
+{% block title %}Packages — Admin{% endblock %}
+{% block topbar_title %}Packages{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <div>
+    <h1 class="dash-heading">Packages</h1>
+    <p class="dash-subheading">Multi-session bundles at a discount.</p>
+  </div>
+  <div>
+    <a href="{% url 'dashboard:package_create' %}" class="dash-btn dash-btn--primary">
+      <svg class="dash-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Package
+    </a>
+  </div>
+</div>
+
+<div class="dash-section">
+  {% if packages %}
+  <div class="dash-table-wrap">
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Session Type</th>
+          <th>Location</th>
+          <th>Sessions</th>
+          <th>Price</th>
+          <th>Valid (days)</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pkg in packages %}
+        <tr>
+          <td style="font-weight:600;">{{ pkg.name }}</td>
+          <td style="color:var(--dash-text-muted);">{{ pkg.session_type.name }}</td>
+          <td style="color:var(--dash-text-muted);">{{ pkg.location.name }}</td>
+          <td>{{ pkg.session_count }}</td>
+          <td>£{{ pkg.price_pence|pence_to_pounds }}</td>
+          <td>{{ pkg.valid_days }}</td>
+          <td>
+            {% if pkg.is_active %}
+            <span class="dash-badge dash-badge--completed">Active</span>
+            {% else %}
+            <span class="dash-badge dash-badge--cancelled">Inactive</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'dashboard:package_edit' pkg.pk %}" class="dash-btn dash-btn--sm dash-btn--ghost">Edit</a>
+            <form action="{% url 'dashboard:package_delete' pkg.pk %}" method="post" style="display:inline;" onsubmit="return confirm('Delete this package?');">
+              {% csrf_token %}
+              <button type="submit" class="dash-btn dash-btn--sm dash-btn--ghost" style="color:var(--dash-danger);">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="dash-empty">
+    <p>No packages yet.</p>
+    <a href="{% url 'dashboard:package_create' %}" class="dash-btn dash-btn--primary" style="margin-top:1rem;">Add your first package</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

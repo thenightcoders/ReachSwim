@@ -132,6 +132,51 @@ class ProductForm(forms.ModelForm):
             instance.save()
         return instance
 
+from apps.booking.models import Package
+from decimal import Decimal
+
+class PackageForm(forms.ModelForm):
+    price = forms.DecimalField(
+        label="Price (£)",
+        min_value=Decimal("0"),
+        decimal_places=2,
+        max_digits=8,
+        widget=forms.NumberInput(attrs={
+            'class': 'dash-input',
+            'step': '0.01',
+            'placeholder': '0.00',
+            'min': '0',
+        }),
+    )
+
+    class Meta:
+        model = Package
+        fields = ['name', 'session_type', 'location', 'session_count', 'valid_days', 'is_active', 'order']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'dash-input'}),
+            'session_type': forms.Select(attrs={'class': 'dash-input dash-input--select'}),
+            'location': forms.Select(attrs={'class': 'dash-input dash-input--select'}),
+            'session_count': forms.NumberInput(attrs={'class': 'dash-input', 'min': '1'}),
+            'valid_days': forms.NumberInput(attrs={'class': 'dash-input', 'min': '1'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'dash-checkbox'}),
+            'order': forms.NumberInput(attrs={'class': 'dash-input', 'min': '0'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.price_pence:
+            self.fields['price'].initial = Decimal(self.instance.price_pence) / 100
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        price = self.cleaned_data.get('price')
+        if price is not None:
+            instance.price_pence = int(price * 100)
+        if commit:
+            instance.save()
+        return instance
+
+
 from apps.booking.models import Booking
 
 class BookingForm(forms.ModelForm):

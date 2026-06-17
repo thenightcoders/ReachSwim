@@ -47,6 +47,12 @@ urlpatterns = [
     path("schedules/<int:pk>/edit/", views.schedule_edit, name="schedule_edit"),
     path("schedules/<int:pk>/delete/", views.schedule_delete, name="schedule_delete"),
 
+    # Packages
+    path("packages/", views.package_list, name="package_list"),
+    path("packages/create/", views.package_create, name="package_create"),
+    path("packages/<int:pk>/edit/", views.package_edit, name="package_edit"),
+    path("packages/<int:pk>/delete/", views.package_delete, name="package_delete"),
+
     # Users
     path("users/", views.user_list, name="user_list"),
     path("users/create/", views.user_create, name="user_create"),

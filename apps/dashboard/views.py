@@ -1072,6 +1072,66 @@ def schedule_delete(request, pk):
 
 
 # ---------------------------------------------------------------------------
+# Packages
+# ---------------------------------------------------------------------------
+
+@owner_required
+def package_list(request):
+    from apps.booking.models import Package
+    packages = Package.objects.select_related("session_type", "location").all()
+    return render(request, "dashboard/packages/list.html", {
+        "packages": packages,
+        "section": "packages",
+    })
+
+
+@owner_required
+def package_create(request):
+    from .forms import PackageForm
+    if request.method == "POST":
+        form = PackageForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:package_list")
+    else:
+        form = PackageForm()
+    return render(request, "dashboard/packages/form.html", {
+        "form": form,
+        "section": "packages",
+        "action": "Create",
+    })
+
+
+@owner_required
+def package_edit(request, pk):
+    from apps.booking.models import Package
+    from .forms import PackageForm
+    package = get_object_or_404(Package, pk=pk)
+    if request.method == "POST":
+        form = PackageForm(request.POST, instance=package)
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard:package_list")
+    else:
+        form = PackageForm(instance=package)
+    return render(request, "dashboard/packages/form.html", {
+        "form": form,
+        "package": package,
+        "section": "packages",
+        "action": "Edit",
+    })
+
+
+@owner_required
+@require_POST
+def package_delete(request, pk):
+    from apps.booking.models import Package
+    package = get_object_or_404(Package, pk=pk)
+    package.delete()
+    return redirect("dashboard:package_list")
+
+
+# ---------------------------------------------------------------------------
 # Users
 # ---------------------------------------------------------------------------
 

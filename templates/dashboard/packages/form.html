@@ -1,0 +1,74 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}{{ action }} Package — Admin{% endblock %}
+{% block topbar_title %}{{ action }} Package{% endblock %}
+
+{% block content %}
+<div class="dash-header">
+  <div>
+    <a href="{% url 'dashboard:package_list' %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Packages
+    </a>
+    <h1 class="dash-heading">{{ action }} Package</h1>
+  </div>
+</div>
+
+{% url 'dashboard:package_list' as cancel_href %}
+<form method="post" style="max-width:680px;">
+  {% csrf_token %}
+  <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
+
+    <div style="display:flex;flex-direction:column;gap:0.4rem;">
+      <label class="dash-label" for="{{ form.name.id_for_label }}">Name</label>
+      {{ form.name }}
+      {% if form.name.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;font-weight:500;">{{ form.name.errors.0 }}</div>{% endif %}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <label class="dash-label" for="{{ form.session_type.id_for_label }}">Session Type</label>
+        {{ form.session_type }}
+        {% if form.session_type.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.session_type.errors.0 }}</div>{% endif %}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <label class="dash-label" for="{{ form.location.id_for_label }}">Location</label>
+        {{ form.location }}
+        {% if form.location.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.location.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <label class="dash-label" for="{{ form.price.id_for_label }}">Price (£)</label>
+        {{ form.price }}
+        {% if form.price.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.price.errors.0 }}</div>{% endif %}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <label class="dash-label" for="{{ form.session_count.id_for_label }}">Sessions</label>
+        {{ form.session_count }}
+        {% if form.session_count.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.session_count.errors.0 }}</div>{% endif %}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <label class="dash-label" for="{{ form.valid_days.id_for_label }}">Valid (days)</label>
+        {{ form.valid_days }}
+        {% if form.valid_days.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.valid_days.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <label class="dash-label" for="{{ form.order.id_for_label }}">Order</label>
+        {{ form.order }}
+        {% if form.order.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;">{{ form.order.errors.0 }}</div>{% endif %}
+      </div>
+      <div style="display:flex;align-items:center;gap:0.6rem;padding-top:1.5rem;">
+        {{ form.is_active }}
+        <label for="{{ form.is_active.id_for_label }}" class="dash-label" style="margin:0;cursor:pointer;">Active</label>
+      </div>
+    </div>
+
+  </div>
+  {% include "dashboard/includes/form_actions.html" with submit_label="Save" cancel_url=cancel_href %}
+</form>
+{% endblock %}
