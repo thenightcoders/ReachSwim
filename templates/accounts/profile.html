@@ -58,6 +58,54 @@
 </div>
 {% endif %}
 
+<!-- Draft Bookings -->
+{% if draft_bookings %}
+<div id="drafts" class="acc-card">
+  <div class="acc-card__header">
+    <h2 class="acc-card__title">Draft Bookings</h2>
+    <span class="acc-badge acc-badge--draft" title="Reservations saved when your cart expired — resume within 30 days">{{ draft_bookings|length }} saved</span>
+  </div>
+  <div class="acc-card__body--flush">
+    {% for entry in draft_bookings %}
+    {% with b=entry.booking %}
+    <div class="acc-booking-row">
+      <div class="acc-booking-info">
+        <span class="acc-booking-name">{{ b.session_type.name }}</span>
+        <div class="acc-booking-meta">
+          <span>{{ b.location.name }}</span>
+          <span>·</span>
+          <span>{{ b.date|date:"D j M Y" }} at {{ b.start_time|time:"H:i" }}</span>
+          {% if not entry.slot_available %}
+          <span>·</span>
+          <span class="acc-draft-unavail">Slot no longer available</span>
+          {% if entry.suggestion %}
+          — next open: <strong>{{ entry.suggestion.date|date:"D j M" }} at {{ entry.suggestion.start_time|time:"H:i" }}</strong>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+      <div class="acc-booking-actions">
+        {% if entry.slot_available %}
+        <form method="post" action="{% url 'accounts:draft_resume' b.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="acc-btn acc-btn--primary acc-btn--sm">Resume →</button>
+        </form>
+        {% else %}
+        <a href="{% url 'booking:page' %}" class="acc-btn acc-btn--ghost acc-btn--sm">Book instead</a>
+        {% endif %}
+        <form method="post" action="{% url 'accounts:draft_dismiss' b.pk %}"
+              onsubmit="return confirm('Remove this draft?')">
+          {% csrf_token %}
+          <button type="submit" class="acc-btn acc-btn--danger-ghost acc-btn--sm">Dismiss</button>
+        </form>
+      </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <!-- My Bookings -->
 <div id="bookings" class="acc-card">
   <div class="acc-card__header">
@@ -178,7 +226,7 @@
   //   • On manual scroll: find the last section whose top has crossed the
   //     sticky topbar (useful on pages tall enough to scroll between sections).
   //   • On load: honour the URL hash, otherwise run the scroll check.
-  const SECTION_IDS = ['credits', 'bookings', 'settings'];
+  const SECTION_IDS = ['credits', 'drafts', 'bookings', 'settings'];
   const TRIGGER = 80; // px — topbar (56) + small buffer
 
   const navLinks = Array.from(document.querySelectorAll('.acc-nav__link'));

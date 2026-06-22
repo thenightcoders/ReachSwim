@@ -1,5 +1,15 @@
 {% load payment_tags %}
 <div id="cart-drawer-content">
+  {% for label in reservation_expired %}
+  {% if request.user.is_authenticated %}
+  <p class="cart-voucher-error">Your reservation for &ldquo;{{ label }}&rdquo; expired — saved as a draft in <a href="{% url 'accounts:profile' %}#drafts">your profile</a>.</p>
+  {% else %}
+  <p class="cart-voucher-error">Your 5-min reservation for &ldquo;{{ label }}&rdquo; expired — please re-book.</p>
+  {% endif %}
+  {% endfor %}
+  {% if cart_add_error %}
+  <p class="cart-voucher-error">{{ cart_add_error }}</p>
+  {% endif %}
   {% if cart %}
   <ul class="cart-items">
     {% for item in cart %}
@@ -56,7 +66,7 @@
   </ul>
 
   <div class="cart-summary">
-    {% if voucher_code or show_shipping %}
+    {% if voucher_code or credits or show_shipping %}
     <div class="cart-summary-row">
       <span>Subtotal</span>
       <span>{{ cart_subtotal|pence_to_pounds }}</span>
@@ -83,13 +93,27 @@
     </div>
     {% endif %}
 
+    {% for credit in credits %}
+    <div class="cart-summary-row cart-discount">
+      <span>
+        Session credit
+        <form method="post" hx-post="{% url 'payments:cart_remove_credit' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="code" value="{{ credit.code }}">
+          <button type="submit" class="cart-voucher-remove" title="Remove credit">&times;</button>
+        </form>
+      </span>
+      <span>&minus;{{ credit.discount_pence|pence_to_pounds }}</span>
+    </div>
+    {% endfor %}
+
     <div class="cart-summary-row cart-total">
       <span>Total</span>
       <span>{{ cart_total|pence_to_pounds }}</span>
     </div>
   </div>
 
-  {% if not voucher_code %}
+  {% if not voucher_code and not credits %}
   <form class="cart-voucher-form" method="post" hx-post="{% url 'payments:cart_apply_voucher' %}" hx-target="#cart-drawer-content" hx-swap="innerHTML">
     {% csrf_token %}
     <input type="text" name="code" placeholder="Voucher code" class="cart-voucher-input">

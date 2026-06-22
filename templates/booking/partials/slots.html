@@ -1,5 +1,10 @@
 {% load payment_tags %}
-<div class="cal-slots">
+{# Poll every 30s so other users see slot counts update without a page refresh. #}
+<div class="cal-slots"
+     hx-get="{% url 'booking:htmx_slots' session_type.id location.id %}?date={{ date|date:'Y-m-d' }}"
+     hx-trigger="every 30s"
+     hx-target="#slots-panel"
+     hx-swap="innerHTML">
   <h3 class="cal-slots-date">{{ date|date:"l, j F" }}</h3>
 
   {% for slot in slots %}

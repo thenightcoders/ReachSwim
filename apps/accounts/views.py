@@ -78,7 +78,7 @@ def register_view(request):
 
 @login_required
 def profile_view(request):
-    """View/edit profile. Also shows booking history for clients."""
+    """View/edit profile. Also shows booking history and draft bookings for clients."""
     if request.method == "POST":
         form = ProfileForm(request.POST, instance=request.user)
         if form.is_valid():
@@ -91,16 +91,48 @@ def profile_view(request):
     from django.db.models import Q
     from apps.booking.models import Booking
     from apps.payments.models import PackagePurchase
+    from apps.booking.services.availability import get_slot, next_available_slot
 
     bookings = (
         Booking.objects
         .filter(Q(user=request.user) | Q(client_email__iexact=request.user.email))
+        .exclude(status=Booking.STATUS_DRAFT)
         .select_related("session_type", "location")
         .order_by("-date", "-start_time")
         .distinct()
     )
 
-    active_bookings_count = bookings.exclude(status=Booking.STATUS_CANCELLED).count()  # noqa
+    active_bookings_count = bookings.filter(
+        status__in=[Booking.STATUS_PENDING, Booking.STATUS_CONFIRMED]
+    ).count()
+
+    # Draft bookings: saved when a cart reservation expired before checkout.
+    # Enriched with live availability so the template can show "slot gone" warnings.
+    draft_bookings_qs = (
+        Booking.objects
+        .filter(
+            Q(user=request.user) | Q(client_email__iexact=request.user.email),
+            status=Booking.STATUS_DRAFT,
+        )
+        .select_related("session_type", "location")
+        .order_by("-created_at")
+        .distinct()
+    )
+
+    draft_bookings = []
+    for draft in draft_bookings_qs:
+        slot = get_slot(draft.session_type_id, draft.location_id, draft.date, draft.start_time)
+        slot_available = slot is not None and slot.is_available
+        suggestion = None
+        if not slot_available:
+            suggestion = next_available_slot(
+                draft.session_type_id, draft.location_id, from_date=draft.date,
+            )
+        draft_bookings.append({
+            "booking": draft,
+            "slot_available": slot_available,
+            "suggestion": suggestion,
+        })
 
     package_purchases = (
         PackagePurchase.objects
@@ -113,6 +145,7 @@ def profile_view(request):
     return render(request, "accounts/profile.html", {
         "form": form,
         "bookings": bookings,
+        "draft_bookings": draft_bookings,
         "package_purchases": package_purchases,
         "active_bookings_count": active_bookings_count,
     })
@@ -413,4 +446,139 @@ def passkey_delete_view(request, pk):
         messages.success(request, "Passkey removed.")
     except WebAuthnCredential.DoesNotExist:
         messages.error(request, "Passkey not found.")
+    return redirect("accounts:profile")
+
+
+# ---------------------------------------------------------------------------
+# Draft bookings
+# ---------------------------------------------------------------------------
+
+@login_required
+@require_POST
+def resume_draft_view(request, booking_id):
+    """
+    Re-activate a draft booking: create a fresh pending reservation (with the
+    same race-condition guard as a normal add-to-cart), cancel the draft, and
+    drop the new pending booking into the cart.
+
+    If the slot is gone, bounce back to the profile page — the template already
+    shows the next-available suggestion for each draft.
+    """
+    import time as _time
+    from apps.booking.models import Booking, SessionPricing
+    from apps.booking.services.booking import create_booking, cancel_booking
+    from apps.booking.services.availability import get_slot
+    from apps.booking.services.booking import SlotUnavailableError
+    from apps.payments.services import cart as cart_svc
+
+    try:
+        draft = Booking.objects.select_related("session_type", "location").get(
+            pk=booking_id,
+            status=Booking.STATUS_DRAFT,
+        )
+    except Booking.DoesNotExist:
+        messages.error(request, "Draft not found.")
+        return redirect("accounts:profile")
+
+    # Ownership check
+    if not (
+        draft.user_id == request.user.pk
+        or draft.client_email.lower() == request.user.email.lower()
+    ):
+        messages.error(request, "You don't have permission to resume this draft.")
+        return redirect("accounts:profile")
+
+    # Verify the slot is still open before touching the DB
+    slot = get_slot(draft.session_type_id, draft.location_id, draft.date, draft.start_time)
+    if not slot or not slot.is_available:
+        messages.error(
+            request,
+            f"The original slot for ‘{draft.session_type.name}’ is no longer available. "
+            "We’ve highlighted an alternative below.",
+        )
+        return redirect("accounts:profile#drafts")
+
+    # Create a fresh pending booking (select_for_update inside create_booking
+    # serialises concurrent attempts and raises SlotUnavailableError if needed).
+    try:
+        new_booking = create_booking(
+            session_type_id=draft.session_type_id,
+            location_id=draft.location_id,
+            date=draft.date,
+            start_time=draft.start_time,
+            client_name=getattr(request.user, "full_name", None) or request.user.email,
+            client_email=request.user.email,
+            user=request.user,
+        )
+    except SlotUnavailableError as exc:
+        messages.error(request, str(exc))
+        return redirect("accounts:profile")
+
+    # Draft's slot is now held by the new pending booking — safe to purge.
+    cancel_booking(draft, notify_client=False)
+
+    # Price: SessionPricing is canonical; fall back to what was recorded at
+    # booking time if the pricing row was deleted.
+    try:
+        pricing = SessionPricing.objects.get(
+            session_type_id=draft.session_type_id,
+            location_id=draft.location_id,
+        )
+        price_pence = pricing.price_pence
+    except SessionPricing.DoesNotExist:
+        price_pence = draft.amount_pence
+
+    label = (
+        f"{draft.session_type.name} @ {draft.location.name} — "
+        f"{draft.date.strftime('%a %-d %b')} {draft.start_time.strftime('%H:%M')}"
+    )
+    cart_svc.add_to_cart(
+        request,
+        session_type_id=draft.session_type_id,
+        location_id=draft.location_id,
+        date_str=draft.date.isoformat(),
+        start_time=draft.start_time.strftime("%H:%M"),
+        end_time=draft.end_time.strftime("%H:%M"),
+        price_pence=price_pence,
+        label=label,
+        booking_id=new_booking.id,
+        reserved_at=_time.time(),
+    )
+    cart_svc.auto_apply_credit_for_booking(
+        request,
+        session_type_id=draft.session_type_id,
+        location_id=draft.location_id,
+        price_pence=price_pence,
+    )
+
+    messages.success(
+        request,
+        f"‘{draft.session_type.name}’ re-added to your cart. "
+        "You have 5 minutes to complete checkout.",
+    )
+    return redirect("accounts:profile")
+
+
+@login_required
+@require_POST
+def dismiss_draft_view(request, booking_id):
+    """POST — permanently dismiss (cancel) a draft booking."""
+    from apps.booking.models import Booking
+    from apps.booking.services.booking import cancel_booking
+
+    try:
+        draft = Booking.objects.get(pk=booking_id, status=Booking.STATUS_DRAFT)
+    except Booking.DoesNotExist:
+        messages.error(request, "Draft not found.")
+        return redirect("accounts:profile")
+
+    if not (
+        draft.user_id == request.user.pk
+        or draft.client_email.lower() == request.user.email.lower()
+    ):
+        messages.error(request, "Permission denied.")
+        return redirect("accounts:profile")
+
+    cancel_booking(draft, notify_client=False)
+    messages.success(request, "Draft removed.")
     return redirect("accounts:profile")

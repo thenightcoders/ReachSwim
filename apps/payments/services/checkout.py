@@ -19,13 +19,15 @@ from django.db import transaction
 from django.db.models import F
 
 from apps.booking.models import Booking
-from apps.booking.services.booking import create_booking, confirm_booking
+from apps.booking.services.booking import create_booking, confirm_booking, SlotUnavailableError
 from apps.payments.interfaces import PaymentEvent
 from apps.payments.models import Order, OrderItem, PaymentRecord, Voucher
 from apps.payments.services.cart import (
     get_cart,
     cart_total_pence,
     get_voucher_discount,
+    get_credits,
+    get_credits_total,
     clear_cart,
     has_products,
     product_total_pence,
@@ -105,15 +107,18 @@ def create_order_from_cart(
 
     subtotal = cart_total_pence(request)
     shipping = _get_shipping(request)
-    voucher_code, discount = get_voucher_discount(request)
-    total = max(0, subtotal + shipping - discount)
+    voucher_code, voucher_discount = get_voucher_discount(request)
+    credits = get_credits(request)
+    credits_total = get_credits_total(request)
+    total_discount = voucher_discount + credits_total
+    total = max(0, subtotal + shipping - total_discount)
 
     order = Order.objects.create(
         client_name=client_name.strip(),
         client_email=client_email.strip().lower(),
         client_phone=client_phone.strip(),
         subtotal_pence=subtotal,
-        discount_pence=discount,
+        discount_pence=total_discount,
         total_pence=total,
         voucher_code=voucher_code or "",
     )
@@ -131,16 +136,20 @@ def create_order_from_cart(
         elif item_type == ITEM_TYPE_PACKAGE:
             _create_package_order_item(order, item)
 
-    # Redeem voucher if one was applied.
+    # Redeem manual voucher (if any) and all auto-applied credits.
     # select_for_update() acquires a row lock and is_valid() re-checks
     # dates + usage cap inside this transaction — prevents two concurrent
     # checkouts from both redeeming the same single-use code.
+    codes_to_redeem = []
     if voucher_code:
+        codes_to_redeem.append(voucher_code)
+    codes_to_redeem.extend(c["code"] for c in credits)
+
+    for code in codes_to_redeem:
         try:
-            voucher = Voucher.objects.select_for_update().get(code=voucher_code)
-            # Re-check email here for the guest flow: at cart-apply time the
-            # email was unknown so the validator skipped it. Now we have the
-            # real client_email and enforce the restriction before redeeming.
+            voucher = Voucher.objects.select_for_update().get(code=code)
+            # Re-check email: at cart-apply time the email may have been
+            # unknown (guest flow). Now we have the real client_email.
             email_ok = (
                 not voucher.allowed_email
                 or voucher.allowed_email == order.client_email
@@ -155,21 +164,91 @@ def create_order_from_cart(
 
 
 def _create_booking_order_item(order, item, client_name, client_email, client_phone, user=None):
-    """Create an OrderItem + pending Booking for a booking cart item."""
+    """
+    Create an OrderItem for a booking cart item.
+
+    If the cart item carries a booking_id (reserved at cart-add time) we reuse
+    that Booking and stamp the real client details on it.  We re-validate
+    capacity under a row-level lock so concurrent checkouts stay safe — in
+    particular, the user's own reservation is excluded from the "other bookings"
+    count, so it doesn't falsely inflate the tally.
+
+    Linking the booking to an OrderItem is what promotes it from a soft
+    5-minute cart hold to a hard checkout hold (see Booking.count_for_slot).
+
+    Falls back to create_booking() when no booking_id is present.
+    """
+    from apps.booking.models import RecurringSchedule
+
     date = datetime.date.fromisoformat(item["date"])
     start_time = datetime.time.fromisoformat(item["start_time"])
     end_time = datetime.time.fromisoformat(item["end_time"])
 
-    booking = create_booking(
-        session_type_id=item["session_type_id"],
-        location_id=item["location_id"],
-        date=date,
-        start_time=start_time,
-        client_name=client_name.strip(),
-        client_email=client_email.strip().lower(),
-        client_phone=client_phone.strip(),
-        user=user,
-    )
+    booking_id = item.get("booking_id")
+    if booking_id:
+        try:
+            booking = Booking.objects.get(pk=booking_id, status=Booking.STATUS_PENDING)
+        except Booking.DoesNotExist:
+            raise SlotUnavailableError(
+                f"Your reservation for '{item['label']}' has expired. "
+                "Please go back and re-book."
+            )
+
+        # Acquire the schedule lock so concurrent checkouts queue up here.
+        try:
+            schedule = RecurringSchedule.objects.select_for_update().get(
+                session_type_id=item["session_type_id"],
+                location_id=item["location_id"],
+                day_of_week=date.weekday(),
+                start_time=start_time,
+                is_active=True,
+            )
+        except RecurringSchedule.DoesNotExist:
+            raise SlotUnavailableError(
+                f"The slot '{item['label']}' is no longer scheduled."
+            )
+
+        # Count OTHER non-cancelled bookings — our own reservation must not
+        # count against the capacity check.
+        other_count = (
+            Booking.objects
+            .filter(
+                session_type_id=item["session_type_id"],
+                location_id=item["location_id"],
+                date=date,
+                start_time=start_time,
+            )
+            .exclude(status=Booking.STATUS_CANCELLED)
+            .exclude(pk=booking_id)
+            .count()
+        )
+        if other_count >= schedule.max_capacity:
+            raise SlotUnavailableError(
+                f"'{item['label']}' was just taken by someone else. "
+                "Please choose another time."
+            )
+
+        # Stamp real client details — placeholder values set at cart-add time.
+        booking.client_name = client_name.strip()
+        booking.client_email = client_email.strip().lower()
+        booking.client_phone = client_phone.strip()
+        if user and getattr(user, "is_authenticated", False):
+            booking.user = user
+        booking.save(update_fields=[
+            "client_name", "client_email", "client_phone", "user", "updated_at",
+        ])
+    else:
+        # Fallback: no pre-reservation (session expired or old code path).
+        booking = create_booking(
+            session_type_id=item["session_type_id"],
+            location_id=item["location_id"],
+            date=date,
+            start_time=start_time,
+            client_name=client_name.strip(),
+            client_email=client_email.strip().lower(),
+            client_phone=client_phone.strip(),
+            user=user,
+        )
 
     OrderItem.objects.create(
         order=order,

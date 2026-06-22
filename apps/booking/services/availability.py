@@ -179,6 +179,40 @@ def get_slots_for_date(
     return sorted(slots, key=lambda s: s.start_time)
 
 
+def next_available_slot(
+    session_type_id: int,
+    location_id: int,
+    from_date: Optional[datetime.date] = None,
+) -> Optional[AvailableSlot]:
+    """
+    Return the earliest available slot for a given session type + location,
+    starting from from_date (defaults to tomorrow).
+
+    Used to suggest an alternative when a client tries to resume a draft
+    booking whose original slot is now full or no longer scheduled.
+    Returns None if no slots exist within the booking window.
+    """
+    try:
+        session_type = SessionType.objects.get(pk=session_type_id, is_active=True)
+        location = Location.objects.get(pk=location_id, is_active=True)
+    except (SessionType.DoesNotExist, Location.DoesNotExist):
+        return None
+
+    settings = get_booking_settings()
+    today = timezone.now().date()
+    start = max(from_date or today, today + datetime.timedelta(days=1))
+    end = today + datetime.timedelta(days=settings.max_advance_days)
+
+    current = start
+    while current <= end:
+        for slot in get_slots_for_date(session_type, location, current):
+            if slot.is_available:
+                return slot
+        current += datetime.timedelta(days=1)
+
+    return None
+
+
 def get_slot(
     session_type_id: int,
     location_id: int,

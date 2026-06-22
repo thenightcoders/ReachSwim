@@ -6,6 +6,7 @@ Zero business logic.  Zero ORM calls.  Zero Stripe imports.
 """
 import json
 import logging
+from typing import Optional
 
 from django.conf import settings
 from django.core import signing
@@ -18,7 +19,8 @@ from apps.booking.models import SessionPricing
 from apps.payments.interfaces import WebhookSignatureError
 from apps.payments.models import Order
 from apps.payments.services import cart as cart_svc
-from apps.payments.services.cart import ITEM_TYPE_BOOKING, VOUCHER_SESSION_KEY
+from apps.payments.services.cart import ITEM_TYPE_BOOKING, VOUCHER_SESSION_KEY, CREDITS_SESSION_KEY
+from apps.booking.services.booking import SlotUnavailableError
 from apps.payments.services.checkout import (
     cancel_pending_order,
     confirm_from_session_id,
@@ -37,11 +39,22 @@ logger = logging.getLogger(__name__)
 
 @require_POST
 def cart_add(request: HttpRequest) -> HttpResponse:
-    """Add a booking slot to the cart.  Returns the cart drawer partial."""
+    """
+    Add a booking slot to the cart.
+
+    Creates a pending Booking immediately so the slot count decrements in the
+    DB right away — not only at checkout.  Returns the cart drawer partial.
+    """
+    import datetime as _dt
+    from apps.booking.services.booking import create_booking
+
     data = json.loads(request.body) if request.content_type == "application/json" else request.POST
 
     session_type_id = int(data["session_type_id"])
     location_id = int(data["location_id"])
+    date_str = data["date"]
+    start_time_str = data["start_time"]
+    end_time_str = data["end_time"]
 
     # Look up the price server-side — never trust client-supplied price_pence.
     try:
@@ -52,15 +65,58 @@ def cart_add(request: HttpRequest) -> HttpResponse:
     except SessionPricing.DoesNotExist:
         return HttpResponse("Invalid session or location.", status=400)
 
+    # Duplicate guard — if this exact slot is already in the cart, no-op.
+    target_key = (
+        cart_svc.ITEM_TYPE_BOOKING,
+        session_type_id,
+        location_id,
+        date_str,
+        start_time_str,
+    )
+    for existing in cart_svc.get_cart(request):
+        if cart_svc._cart_key(existing) == target_key:
+            return _cart_response(request)
+
+    # Reserve the slot in the DB now.  Uses select_for_update so concurrent
+    # requests queue up; second one gets SlotUnavailableError.
+    client_name = "Guest"
+    client_email = "pending@reachswim.com"
+    authed_user = None
+    if hasattr(request, "user") and request.user.is_authenticated:
+        authed_user = request.user
+        client_name = getattr(request.user, "full_name", None) or request.user.email
+        client_email = request.user.email
+
+    try:
+        booking = create_booking(
+            session_type_id=session_type_id,
+            location_id=location_id,
+            date=_dt.date.fromisoformat(date_str),
+            start_time=_dt.time.fromisoformat(start_time_str),
+            client_name=client_name,
+            client_email=client_email,
+            user=authed_user,
+        )
+    except SlotUnavailableError as exc:
+        return _cart_response(request, error=str(exc))
+
     cart_svc.add_to_cart(
         request,
         session_type_id=session_type_id,
         location_id=location_id,
-        date_str=data["date"],
-        start_time=data["start_time"],
-        end_time=data["end_time"],
+        date_str=date_str,
+        start_time=start_time_str,
+        end_time=end_time_str,
         price_pence=pricing.price_pence,
         label=data.get("label", "Session"),
+        booking_id=booking.id,
+        reserved_at=_dt.datetime.now().timestamp(),
+    )
+    cart_svc.auto_apply_credit_for_booking(
+        request,
+        session_type_id=session_type_id,
+        location_id=location_id,
+        price_pence=pricing.price_pence,
     )
     return _cart_response(request)
 
@@ -105,14 +161,20 @@ def cart_update_qty(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def cart_remove(request: HttpRequest) -> HttpResponse:
-    """Remove an item by index."""
+    """Remove an item by index.  Cancels any pending DB booking for that slot."""
     index = int(request.POST.get("index", -1))
+    cart = cart_svc.get_cart(request)
+    if 0 <= index < len(cart):
+        _cancel_cart_booking(cart[index].get("booking_id"))
     cart_svc.remove_from_cart(request, index)
     return _cart_response(request)
 
 
 @require_POST
 def cart_clear(request: HttpRequest) -> HttpResponse:
+    """Clear the cart, cancelling all pending DB bookings first."""
+    for item in cart_svc.get_cart(request):
+        _cancel_cart_booking(item.get("booking_id"))
     cart_svc.clear_cart(request)
     return _cart_response(request)
 
@@ -146,6 +208,15 @@ def cart_remove_voucher(request: HttpRequest) -> HttpResponse:
     return _cart_response(request)
 
 
+@require_POST
+def cart_remove_credit(request: HttpRequest) -> HttpResponse:
+    """Remove one auto-applied package credit by its voucher code."""
+    code = request.POST.get("code", "").strip().upper()
+    if code:
+        cart_svc.remove_credit(request, code)
+    return _cart_response(request)
+
+
 def cart_view(request: HttpRequest) -> HttpResponse:
     """Return the full cart drawer contents (GET)."""
     return _cart_response(request)
@@ -159,9 +230,14 @@ def cart_badge(request: HttpRequest) -> HttpResponse:
 
 def _cart_context(request: HttpRequest) -> dict:
     """Build the shared context dict for the cart drawer."""
+    # Expire stale cart reservations before computing the cart state.
+    expired_labels = cart_svc.check_and_expire_reservations(request)
     cart = cart_svc.get_cart(request)
     subtotal = cart_svc.cart_total_pence(request)
-    voucher_code, discount = cart_svc.get_voucher_discount(request)
+    voucher_code, voucher_discount = cart_svc.get_voucher_discount(request)
+    credits = cart_svc.get_credits(request)
+    credits_total = cart_svc.get_credits_total(request)
+    total_discount = voucher_discount + credits_total
 
     shipping = 0
     show_shipping = cart_svc.has_products(request)
@@ -170,21 +246,25 @@ def _cart_context(request: HttpRequest) -> dict:
         shop = ShopSettings.load()
         shipping = shop.shipping_cost(cart_svc.product_total_pence(request))
 
-    total = max(0, subtotal + shipping - discount)
+    total = max(0, subtotal + shipping - total_discount)
 
-    # Package-credits hint for logged-in users
-    package_credits_hint = _package_credits_hint(request, cart)
+    # Hint only shown when the user has credits but none matched the cart yet.
+    has_any_discount = voucher_code or credits
+    package_credits_hint = None if has_any_discount else _package_credits_hint(request, cart)
 
     return {
         "cart": cart,
         "cart_count": cart_svc.cart_count(request),
         "cart_subtotal": subtotal,
         "voucher_code": voucher_code,
-        "voucher_discount": discount,
+        "voucher_discount": voucher_discount,
+        "credits": credits,
+        "credits_total": credits_total,
         "shipping_pence": shipping,
         "show_shipping": show_shipping,
         "cart_total": total,
         "package_credits_hint": package_credits_hint,
+        "reservation_expired": expired_labels,  # slots removed due to 5-min TTL
     }
 
 
@@ -218,9 +298,31 @@ def _package_credits_hint(request: HttpRequest, cart: list) -> str | None:
     return f"You have {total} session {word} — they'll be applied automatically at checkout."
 
 
-def _cart_response(request: HttpRequest) -> HttpResponse:
+def _cancel_cart_booking(booking_id: Optional[int]) -> None:
+    """
+    Cancel a pending Booking that was reserved at cart-add time.
+    Safe to call with None or an already-cancelled booking — both no-op.
+    """
+    if not booking_id:
+        return
+    from apps.booking.models import Booking
+    from apps.booking.services.booking import cancel_booking
+    try:
+        bk = Booking.objects.get(pk=booking_id, status=Booking.STATUS_PENDING)
+        cancel_booking(bk, notify_client=False)
+    except Booking.DoesNotExist:
+        pass  # already cancelled or confirmed — nothing to do
+
+
+def _cart_response(request: HttpRequest, error: str = "") -> HttpResponse:
     """Render the full cart drawer partial."""
-    return render(request, "payments/partials/cart_drawer.html", _cart_context(request))
+    ctx = _cart_context(request)
+    if error:
+        ctx["cart_add_error"] = error
+    response = render(request, "payments/partials/cart_drawer.html", ctx)
+    if error:
+        response["X-Cart-Error"] = "true"
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -237,18 +339,10 @@ def checkout(request: HttpRequest) -> HttpResponse:
     terms_accepted = request.POST.get("terms_accepted")
     use_credit = request.POST.get("use_credit")
 
-    # Auto-apply a credit voucher when the user opted in and no voucher is
-    # already stored in the session (manual code takes precedence).
-    if use_credit and not cart_svc.get_voucher_discount(request)[0]:
-        _cart = cart_svc.get_cart(request)
-        voucher, _ = _find_auto_credit(request.user, _cart)
-        if voucher:
-            subtotal = cart_svc.cart_total_pence(request)
-            request.session[VOUCHER_SESSION_KEY] = {
-                "code": voucher.code,
-                "discount_pence": voucher.calculate_discount(subtotal),
-            }
-            request.session.modified = True
+    # Fallback: credits are applied per booking_add, so by checkout they're
+    # usually already in session.  The use_credit checkbox is kept for the
+    # edge case where the session was cleared after the cart was built.
+    # (No action needed — credits live in CREDITS_SESSION_KEY, not here.)
 
     if not name or not email:
         return render(request, "payments/checkout.html", {
@@ -266,6 +360,12 @@ def checkout(request: HttpRequest) -> HttpResponse:
 
     try:
         order = create_order_from_cart(request, name, email, phone)
+    except SlotUnavailableError as exc:
+        return render(request, "payments/checkout.html", {
+            "error": str(exc),
+            "cart": cart_svc.get_cart(request),
+            "cart_total": cart_svc.cart_total_pence(request),
+        })
     except ValueError as exc:
         return render(request, "payments/checkout.html", {
             "error": str(exc),
@@ -347,7 +447,17 @@ def checkout_page(request: HttpRequest) -> HttpResponse:
         "show_shipping": show_shipping,
         "cart_total": total,
         "auto_credit_count": auto_credit_count,
-        "auto_credit_savings": auto_credit_voucher.calculate_discount(subtotal) if auto_credit_voucher else 0,
+        # For DISCOUNT_FULL credits, savings = one booking's price (not whole
+        # cart subtotal).  _find_auto_credit returns the first matching booking
+        # as context via the cart, so look it up from the cart directly.
+        "auto_credit_savings": (
+            next(
+                (i["price_pence"] for i in cart if i.get("item_type") == ITEM_TYPE_BOOKING),
+                0,
+            )
+            if auto_credit_voucher and auto_credit_voucher.discount_type == "full"
+            else (auto_credit_voucher.calculate_discount(subtotal) if auto_credit_voucher else 0)
+        ),
     })
 
 

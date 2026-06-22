@@ -193,6 +193,24 @@ def cancel_booking_for_client(booking: Booking, client_email: str) -> Booking:
     return cancel_booking(booking, reason="Cancelled by client via profile.")
 
 
+def downgrade_to_draft(booking: Booking) -> Booking:
+    """
+    Downgrade a pending booking to STATUS_DRAFT when the cart TTL expires.
+
+    Drafts:
+      - never count toward slot capacity (excluded in count_for_slot)
+      - survive until clean_draft_bookings purges them (configurable lifetime)
+      - can be resumed by the client from their profile
+
+    Only pending bookings with no linked OrderItem should be downgraded — a
+    booking that reached checkout (has an OrderItem) should be cancelled instead
+    because the user actively started payment.
+    """
+    booking.status = Booking.STATUS_DRAFT
+    booking.save(update_fields=["status", "updated_at"])
+    return booking
+
+
 def complete_booking(booking: Booking) -> Booking:
     """Mark a booking as completed (session took place)."""
     booking.status = Booking.STATUS_COMPLETED

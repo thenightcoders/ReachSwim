@@ -12,6 +12,7 @@ urlpatterns = [
     path("cart/clear/", views.cart_clear, name="cart_clear"),
     path("cart/voucher/apply/", views.cart_apply_voucher, name="cart_apply_voucher"),
     path("cart/voucher/remove/", views.cart_remove_voucher, name="cart_remove_voucher"),
+    path("cart/credit/remove/", views.cart_remove_credit, name="cart_remove_credit"),
     path("cart/", views.cart_view, name="cart_view"),
     path("cart/badge/", views.cart_badge, name="cart_badge"),
 

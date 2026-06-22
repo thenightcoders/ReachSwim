@@ -11,6 +11,8 @@ urlpatterns = [
     path("profile/change-password/", views.change_password_view, name="change_password"),
     path("profile/change-email/", views.change_email_view, name="change_email"),
     path("bookings/<uuid:reference>/cancel/", views.cancel_booking_view, name="booking_cancel"),
+    path("drafts/<int:booking_id>/resume/", views.resume_draft_view, name="draft_resume"),
+    path("drafts/<int:booking_id>/dismiss/", views.dismiss_draft_view, name="draft_dismiss"),
 
     # Magic link
     path("magic-link/send/", views.magic_link_send_view, name="magic_link_send"),

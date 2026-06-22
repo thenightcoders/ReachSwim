@@ -494,6 +494,17 @@ a { color: inherit; text-decoration: none; }
   color: #94a3b8;
 }
 
+.acc-badge--draft {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+/* Draft unavailable hint */
+.acc-draft-unavail {
+  color: var(--acc-warn);
+  font-weight: 500;
+}
+
 /* ==========================================================================
    Settings form
    ========================================================================== */

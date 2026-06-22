@@ -1,6 +1,7 @@
+import datetime
 import uuid
 from django.db import models
-from django.db.models import Count, OuterRef, Subquery
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.utils import timezone
 from apps.pages.models import SingletonModel
 
@@ -35,6 +36,13 @@ class BookingSettings(SingletonModel):
     booking_page_subheading = models.TextField(
         blank=True,
         default="Pick your session, choose a time, and you're in the water.",
+    )
+    draft_lifetime_days = models.PositiveIntegerField(
+        default=30,
+        help_text=(
+            "How many days a draft booking is kept before being auto-cancelled. "
+            "Run manage.py clean_draft_bookings (or schedule it) to purge stale drafts."
+        ),
     )
 
     class Meta:
@@ -349,11 +357,13 @@ class Booking(models.Model):
     Status tracks the lifecycle: pending → confirmed → completed / cancelled.
     """
 
+    STATUS_DRAFT = "draft"
     STATUS_PENDING = "pending"
     STATUS_CONFIRMED = "confirmed"
     STATUS_CANCELLED = "cancelled"
     STATUS_COMPLETED = "completed"
     STATUS_CHOICES = [
+        (STATUS_DRAFT, "Draft"),
         (STATUS_PENDING, "Pending payment"),
         (STATUS_CONFIRMED, "Confirmed"),
         (STATUS_CANCELLED, "Cancelled"),
@@ -461,11 +471,16 @@ class Booking(models.Model):
                 start_time=OuterRef("start_time"),
             )
             .exclude(status=cls.STATUS_CANCELLED)
+            .exclude(status=cls.STATUS_DRAFT)
             .values("session_type_id")  # collapse to one group
             .annotate(cnt=Count("pk"))
             .values("cnt")
         )
         return cls.objects.annotate(spots_taken_count=Subquery(taken))
+
+    # Cart-level reservations (pending with no Order) are soft-holds.
+    # They count toward the slot display for this long, then auto-release.
+    CART_RESERVATION_TTL = datetime.timedelta(minutes=5)
 
     @classmethod
     def count_for_slot(
@@ -479,7 +494,16 @@ class Booking(models.Model):
 
         Single authoritative implementation — used by spots_taken and the
         availability service so the query logic lives in exactly one place.
+
+        Stale cart reservations are automatically excluded:
+          - STATUS_PENDING
+          - no associated OrderItem  (i.e. the user never got to Stripe)
+          - created more than CART_RESERVATION_TTL minutes ago
+
+        Once a booking is linked to an OrderItem (checkout started), it is a
+        hard hold and is never excluded regardless of age.
         """
+        stale_cutoff = timezone.now() - cls.CART_RESERVATION_TTL
         return (
             cls.objects
             .filter(
@@ -489,6 +513,14 @@ class Booking(models.Model):
                 start_time=start_time,
             )
             .exclude(status=cls.STATUS_CANCELLED)
+            # Drafts never hold a slot — they're saved intentions, not reservations.
+            .exclude(status=cls.STATUS_DRAFT)
+            .exclude(
+                # Pending booking with no order that is past the cart TTL
+                Q(status=cls.STATUS_PENDING)
+                & Q(order_items__isnull=True)
+                & Q(created_at__lt=stale_cutoff)
+            )
             .count()
         )
 

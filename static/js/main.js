@@ -194,16 +194,43 @@
       headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRF() },
       body: JSON.stringify(payload),
     })
-      .then((r) => r.text())
-      .then(function (html) {
-        openDrawerWithHTML(html);
-        showCartToast();
-        btn.textContent = "Added ✓";
-        btn.disabled = true;
-        setTimeout(function () { btn.textContent = "Book"; btn.disabled = false; }, 2200);
+      .then(function (r) {
+        var isError = r.headers.get("X-Cart-Error");
+        return r.text().then(function (html) { return { html: html, isError: isError }; });
       })
-      .catch((err) => console.error("Cart add failed:", err));
+      .then(function (result) {
+        openDrawerWithHTML(result.html);
+        if (!result.isError) {
+          showCartToast();
+          btn.textContent = "Added ✓";
+          btn.disabled = true;
+          // Refresh the slot panel so the updated spot count is visible
+          // immediately for the person who just booked (and starts the 30s
+          // polling cycle fresh for others via HTMX).
+          _refreshSlotsPanel(
+            btn.dataset.sessionType,
+            btn.dataset.location,
+            btn.dataset.date
+          );
+          setTimeout(function () { btn.textContent = "Book"; btn.disabled = false; }, 2200);
+        }
+      })
+      .catch(function (err) { console.error("Cart add failed:", err); });
   };
+
+  // Re-fetch the slot panel and replace it in the DOM.
+  // Also re-inits HTMX on the new element so the 30s polling keeps running.
+  function _refreshSlotsPanel(sessionTypeId, locationId, date) {
+    var panel = document.getElementById("slots-panel");
+    if (!panel) return;
+    fetch("/book/slots/" + sessionTypeId + "/" + locationId + "/?date=" + date)
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        panel.innerHTML = html;
+        if (window.htmx) htmx.process(panel);
+      })
+      .catch(function (err) { console.error("Slot panel refresh failed:", err); });
+  }
 
   // --- Add product to cart (called from shop product cards) ---
   window.addProductToCart = function (btn) {
