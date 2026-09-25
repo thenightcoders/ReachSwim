@@ -45,8 +45,9 @@
         <form method="post" class="contact-form">
           {% csrf_token %}
           {{ form.rendered_at }}
-          <div class="hp-field" aria-hidden="true">
-            <label for="{{ form.website.id_for_label }}">Leave this empty</label>
+          {# Inline so the trap stays hidden even with a stale cached main.css #}
+          <div class="hp-field" aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden">
+            <label for="{{ form.website.id_for_label }}">Company website</label>
             {{ form.website }}
           </div>
           {% if form.non_field_errors %}<p class="form-error">{{ form.non_field_errors.0 }}</p>{% endif %}
