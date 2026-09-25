@@ -44,7 +44,13 @@
         {% else %}
         <form method="post" class="contact-form">
           {% csrf_token %}
-          {% for field in form %}
+          {{ form.rendered_at }}
+          <div class="hp-field" aria-hidden="true">
+            <label for="{{ form.website.id_for_label }}">Leave this empty</label>
+            {{ form.website }}
+          </div>
+          {% if form.non_field_errors %}<p class="form-error">{{ form.non_field_errors.0 }}</p>{% endif %}
+          {% for field in form.message_fields %}
           <div class="form-field{% if field.errors %} form-field--error{% endif %}{% if field.name == 'subject' or field.name == 'name' %} form-field--half{% endif %}">
             <label class="mono form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
             {{ field }}

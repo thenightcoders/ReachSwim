@@ -49,10 +49,10 @@ def mark_as_unread(modeladmin, request, queryset):
 
 @admin.register(ContactMessage)
 class ContactMessageAdmin(admin.ModelAdmin):
-    list_display = ("name", "email", "subject", "created_at", "is_read")
-    list_filter = ("is_read", "created_at")
+    list_display = ("name", "email", "subject", "created_at", "is_read", "is_spam")
+    list_filter = ("is_read", "is_spam", "spam_reason", "created_at")
     list_editable = ("is_read",)
-    readonly_fields = ("name", "email", "subject", "message", "created_at")
+    readonly_fields = ("name", "email", "subject", "message", "created_at", "ip_address", "spam_score")
     search_fields = ("name", "email", "subject", "message")
     actions = [mark_as_read, mark_as_unread]
 

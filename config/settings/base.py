@@ -202,6 +202,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SITE_URL = os.getenv("SITE_URL", "").rstrip("/")
 
+# Contact form spam check (apps.legal.services.spam). Empty URL turns it off.
+SPAM_DETECTION_URL = os.getenv("SPAM_DETECTION_URL", "https://spam-detection-api.adamspierredavid.com")
+SPAM_DETECTION_API_KEY = os.getenv("SPAM_DETECTION_API_KEY", "")
+
 # ---------------------------------------------------------------------------
 # WebAuthn (Passkeys)
 # rp_id   = the domain (no scheme, no port). Must exactly match the browser origin.

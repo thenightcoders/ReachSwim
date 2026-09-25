@@ -130,9 +130,9 @@ def home(request):
         "pending_bookings": Booking.objects.filter(status="pending", date__gte=today).count(),
         # Unique client emails across all bookings — includes guest checkouts.
         "total_clients": Booking.objects.values("client_email").distinct().count(),
-        "unread_messages": ContactMessage.objects.filter(is_read=False).count(),
+        "unread_messages": ContactMessage.objects.inbox().filter(is_read=False).count(),
         "recent_orders": Order.objects.order_by("-created_at")[:5],
-        "recent_messages": ContactMessage.objects.order_by("-created_at")[:4],
+        "recent_messages": ContactMessage.objects.inbox().order_by("-created_at")[:4],
         "low_stock": Product.objects.filter(is_active=True, stock__lte=3).order_by("stock", "name")[:5],
         "unshipped": Order.objects.filter(status="paid", items__item_type="product", items__shipped=False).distinct().count(),
         "active_packages": PackagePurchase.objects.filter(is_active=True, expires_at__gte=now).count(),
@@ -902,8 +902,12 @@ def packagepurchase_grant(request):
 def messages_view(request):
     from apps.legal.models import ContactMessage
 
-    qs = ContactMessage.objects.order_by("-created_at")
     show = request.GET.get("show", "")
+    if show == "spam":
+        qs = ContactMessage.objects.filter(is_spam=True)
+    else:
+        qs = ContactMessage.objects.inbox()
+    qs = qs.order_by("-created_at")
     if show == "unread":
         qs = qs.filter(is_read=False)
     elif show == "read":
@@ -917,7 +921,8 @@ def messages_view(request):
         "page_obj": _paginate(request, qs),
         "show": show,
         "q": q,
-        "unread_total": ContactMessage.objects.filter(is_read=False).count(),
+        "unread_total": ContactMessage.objects.inbox().filter(is_read=False).count(),
+        "spam_total": ContactMessage.objects.filter(is_spam=True).count(),
     })
 
 
@@ -933,7 +938,7 @@ def message_detail(request, pk):
         "section": "messages",
         "msg": msg,
         "account": User.objects.filter(email__iexact=msg.email).first(),
-        "other_messages": ContactMessage.objects.filter(email__iexact=msg.email).exclude(pk=pk).order_by("-created_at")[:5],
+        "other_messages": ContactMessage.objects.inbox().filter(email__iexact=msg.email).exclude(pk=pk).order_by("-created_at")[:5],
     })
 
 
@@ -946,6 +951,28 @@ def message_mark_read(request, pk):
     msg = get_object_or_404(ContactMessage, pk=pk)
     msg.is_read = request.POST.get("state") != "unread"
     msg.save(update_fields=["is_read"])
+    return redirect(_next_or(request, reverse("dashboard:messages")))
+
+
+def _file_messages(qs, is_spam):
+    """Move messages in or out of Spam, and teach the spam detector the answer."""
+    from apps.legal.services import spam
+
+    changed = list(qs.exclude(is_spam=is_spam))
+    qs.update(is_spam=is_spam, spam_reason="owner" if is_spam else "")
+    spam.report(changed, is_spam=is_spam)
+    return len(changed)
+
+
+@owner_required
+@require_POST
+def message_mark_spam(request, pk):
+    """``state=ham`` moves it back to the inbox; default files it as spam."""
+    from apps.legal.models import ContactMessage
+
+    is_spam = request.POST.get("state") != "ham"
+    _file_messages(ContactMessage.objects.filter(pk=pk), is_spam)
+    messages.success(request, "Moved to Spam." if is_spam else "Moved to your inbox.")
     return redirect(_next_or(request, reverse("dashboard:messages")))
 
 
@@ -972,6 +999,9 @@ def messages_bulk(request):
     elif action in ("read", "unread"):
         n = qs.update(is_read=action == "read")
         messages.success(request, f"{n} message(s) marked as {action}.")
+    elif action in ("spam", "ham"):
+        n = _file_messages(qs, is_spam=action == "spam")
+        messages.success(request, f"{n} message(s) moved to {'Spam' if action == 'spam' else 'your inbox'}.")
     elif action == "delete":
         n = qs.count()
         qs.delete()

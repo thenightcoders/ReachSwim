@@ -47,8 +47,20 @@ class ContactConfig(SingletonModel):
         return "Contact Settings"
 
 
+class ContactMessageQuerySet(models.QuerySet):
+    def inbox(self):
+        """Everything except messages filed as spam."""
+        return self.filter(is_spam=False)
+
+
 class ContactMessage(models.Model):
     """Stores submitted contact form messages."""
+
+    SPAM_REASONS = [
+        ("detector", "Spam detector"),
+        ("links", "Too many links"),
+        ("owner", "Marked by you"),
+    ]
 
     name = models.CharField(max_length=100)
     email = models.EmailField()
@@ -56,6 +68,12 @@ class ContactMessage(models.Model):
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
+    is_spam = models.BooleanField(default=False, db_index=True)
+    spam_reason = models.CharField(max_length=20, choices=SPAM_REASONS, blank=True)
+    spam_score = models.FloatField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    objects = ContactMessageQuerySet.as_manager()
 
     class Meta:
         ordering = ["-created_at"]
