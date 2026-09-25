@@ -139,6 +139,18 @@ SESSION_SAVE_EVERY_REQUEST = True
 MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"
 
 # ---------------------------------------------------------------------------
+# HTTPS hardening (live site only)
+# ---------------------------------------------------------------------------
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# ---------------------------------------------------------------------------
 # Email  (overridden per-environment)
 # ---------------------------------------------------------------------------
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
@@ -164,8 +176,15 @@ USE_TZ = True
 # Static & media
 # ---------------------------------------------------------------------------
 STATIC_URL = "/static/"
-STATICFILES_DIRS = []
-STATIC_ROOT = os.path.join(BASE_DIR, "static")
+# Django refuses the same folder in both settings (staticfiles.E002), so:
+# with DEBUG on, runserver serves static/ directly; with DEBUG off,
+# collectstatic gathers everything into static/.
+if DEBUG:
+    STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+    STATIC_ROOT = None
+else:
+    STATICFILES_DIRS = []
+    STATIC_ROOT = os.path.join(BASE_DIR, "static")
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
