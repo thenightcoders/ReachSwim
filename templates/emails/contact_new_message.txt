@@ -1,0 +1,12 @@
+{% autoescape off %}New message from the contact form.
+
+From:    {{ msg.name }} <{{ msg.email }}>
+{% if msg.subject %}Subject: {{ msg.subject }}
+{% endif %}Sent:    {{ msg.created_at|date:"l j F Y, H:i" }}
+
+{{ msg.message }}
+
+---
+Reply to this email to answer {{ first_name }} directly.
+Open it in the dashboard: {{ dashboard_url }}
+{% endautoescape %}

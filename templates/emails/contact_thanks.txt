@@ -1,0 +1,9 @@
+{% autoescape off %}Hi {{ first_name }},
+
+Thanks for getting in touch. {{ config.success_message }}
+
+There's no need to reply to this email. If you need to add something, just use the contact form again.
+
+ReachSwim
+{{ site_url }}
+{% endautoescape %}

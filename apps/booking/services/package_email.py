@@ -4,9 +4,7 @@ Package purchase confirmation email.
 One responsibility: send the post-purchase email containing the session
 credit codes and clear instructions on when (not) to use them.
 """
-from django.core.mail import send_mail
-from django.conf import settings
-
+from apps.pages import mail
 from apps.payments.models import PackagePurchase, Voucher
 
 
@@ -24,13 +22,7 @@ def send_purchase_confirmation(
     subject = f"Your {purchase.package.name} package — session credits inside"
     body = _build_body(purchase, vouchers)
 
-    send_mail(
-        subject=subject,
-        message=body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[purchase.client_email],
-        fail_silently=False,
-    )
+    mail.send(subject=subject, body=body, to=[purchase.client_email])
 
 
 def _build_body(purchase: PackagePurchase, vouchers: list[Voucher]) -> str:

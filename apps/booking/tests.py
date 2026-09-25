@@ -12,7 +12,7 @@ import threading
 import unittest
 
 from django.db import connection
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 
 from apps.booking.models import (
@@ -406,6 +406,7 @@ class WithSpotsTakenTest(TestCase):
 # Fix 5 — confirm_booking sends a confirmation email
 # ---------------------------------------------------------------------------
 
+@override_settings(USE_DJANGO_Q_FOR_EMAILS=False)
 class BookingConfirmationEmailTest(TestCase):
     """
     confirm_booking() must send one email to the client after marking the

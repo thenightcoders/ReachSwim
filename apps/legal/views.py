@@ -4,7 +4,7 @@ from django.contrib import messages
 
 from .models import LegalPage, ContactConfig
 from .forms import ContactForm
-from .services import spam
+from .services import contact_email, spam
 
 
 class LegalPageView(DetailView):
@@ -42,10 +42,15 @@ def contact_view(request):
             if verdict.action != "drop":
                 msg = form.save(commit=False)
                 msg.ip_address = spam.client_ip(request)
+                msg.user_agent = request.META.get("HTTP_USER_AGENT", "")[:500]
                 msg.is_spam = verdict.action == "spam"
+                msg.quarantined = verdict.action == "quarantine"
                 msg.spam_reason = verdict.reason
-                msg.spam_score = verdict.score
                 msg.save()
+                if msg.folder == "inbox":
+                    contact_email.notify(msg)
+                else:
+                    spam.queue_check(msg)
             # Bots get the same thanks as everyone else, so they learn nothing.
             messages.success(request, config.success_message)
             return redirect("legal:contact")

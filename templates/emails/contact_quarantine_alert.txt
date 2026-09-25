@@ -1,0 +1,11 @@
+{% autoescape off %}{{ count }} contact form message{{ count|pluralize }} {{ count|pluralize:"is,are" }} waiting for the spam check, the oldest since {{ oldest|date:"l j F, H:i" }}.
+
+{% if status.api_ok is False %}The spam check service looks down: {{ status.last_error|default:"no answer" }}
+{% if status.last_ok_at %}It last worked on {{ status.last_ok_at|date:"l j F, H:i" }}.
+{% endif %}{% else %}The spam check service is up, so the background worker (qcluster) may not be running.
+{% endif %}
+Nothing is lost: the messages are kept in Quarantine and checked again every 10 minutes. You can also read them now and file them yourself:
+{{ review_url }}
+
+You'll get at most one of these emails a day.
+{% endautoescape %}

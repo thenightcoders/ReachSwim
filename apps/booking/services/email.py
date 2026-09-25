@@ -15,9 +15,11 @@ All functions:
   - Swallow SMTP exceptions and log them — a broken mail config must never
     kill a booking flow or block an HTTP response
 
-async_send=True dispatches via django_q2 (async_task) — the message is
-serialised to the DB and a qcluster worker picks it up.  Tasks are retried
-on failure, visible in the django_q admin, and survive process restarts.
+async_send=True dispatches via django_q2 (async_task) when
+settings.USE_DJANGO_Q_FOR_EMAILS is on — the message is serialised to the DB
+and a qcluster worker picks it up.  Tasks are retried on failure, visible in
+the django_q admin, and survive process restarts.  With the setting off the
+email is sent straight away, as if async_send were False.
 Leave it False (default) when the caller needs to check the bool return —
 e.g. the dashboard manual-send view that shows a success/failure flash.
 
@@ -160,9 +162,9 @@ def send_booking_confirmation(booking, *, async_send: bool = False) -> bool | No
     Called by confirm_booking() (async_send=True — non-blocking).
     Called by the admin bulk-resend action (async_send=False — checks return).
 
-    Returns True/False when async_send=False, None when async_send=True.
+    Returns None when the email was queued, else True/False (sent or not).
     """
-    if async_send:
+    if async_send and settings.USE_DJANGO_Q_FOR_EMAILS:
         from django_q.tasks import async_task
         async_task(
             "apps.booking.services.email._task_booking_confirmation",
@@ -187,9 +189,9 @@ def send_booking_cancellation(booking, *, async_send: bool = False) -> bool | No
 
     Called by cancel_booking() (async_send=True — non-blocking).
 
-    Returns True/False when async_send=False, None when async_send=True.
+    Returns None when the email was queued, else True/False (sent or not).
     """
-    if async_send:
+    if async_send and settings.USE_DJANGO_Q_FOR_EMAILS:
         from django_q.tasks import async_task
         async_task(
             "apps.booking.services.email._task_booking_cancellation",
@@ -225,9 +227,9 @@ def send_refund_email(order, refund, *, order_item=None, async_send: bool = Fals
     refund      : The Refund record (duck-typed — avoids circular import).
     order_item  : The specific OrderItem being refunded, or None.
 
-    Returns True/False when async_send=False, None when async_send=True.
+    Returns None when the email was queued, else True/False (sent or not).
     """
-    if async_send:
+    if async_send and settings.USE_DJANGO_Q_FOR_EMAILS:
         from django_q.tasks import async_task
         async_task(
             "apps.booking.services.email._task_refund_email",
@@ -280,9 +282,9 @@ def send_payment_reminder(booking, payment_link: str, *, async_send: bool = Fals
     and by the dashboard manual-send view (where the owner needs an immediate
     success/failure response).
 
-    Returns True/False when async_send=False, None when async_send=True.
+    Returns None when the email was queued, else True/False (sent or not).
     """
-    if async_send:
+    if async_send and settings.USE_DJANGO_Q_FOR_EMAILS:
         from django_q.tasks import async_task
         async_task(
             "apps.booking.services.email._task_payment_reminder",

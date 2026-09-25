@@ -96,8 +96,10 @@ def send_payment_reminder_email(
         return None
 
     if async_send:
-        # Fire-and-forget — optimistically record the send.
-        send_payment_reminder(booking, payment_link, async_send=True)
+        # Fire-and-forget — optimistically record the send. False means it
+        # was sent straight away (USE_DJANGO_Q_FOR_EMAILS off) and failed.
+        if send_payment_reminder(booking, payment_link, async_send=True) is False:
+            return None
         reminder = PaymentReminder.objects.create(
             booking=booking,
             rule=rule,

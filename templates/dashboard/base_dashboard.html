@@ -187,6 +187,9 @@
 
 <main class="main">
   <div class="main__inner {% block inner_class %}{% endblock %}">
+    {% if spam_api_down and section != 'messages' %}
+    <div class="note note--danger" style="margin-bottom:1rem">The spam check service is down, so {{ quarantine_count }} new message{{ quarantine_count|pluralize }} {{ quarantine_count|pluralize:"is,are" }} waiting in quarantine. <a href="{% url 'dashboard:messages' %}?show=quarantine">Read {{ quarantine_count|pluralize:"it,them" }} now</a></div>
+    {% endif %}
     {% block content %}{% endblock %}
   </div>
 </main>
