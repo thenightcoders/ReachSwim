@@ -4,6 +4,7 @@ from django.contrib import messages
 
 from .models import LegalPage, ContactConfig
 from .forms import ContactForm
+from .services import spam
 
 
 class LegalPageView(DetailView):
@@ -30,9 +31,24 @@ def contact_view(request):
     form = ContactForm(request.POST or None, initial=initial)
 
     if request.method == "POST" and form.is_valid():
-        form.save()
-        messages.success(request, config.success_message)
-        return redirect("legal:contact")
+        verdict = spam.screen(
+            request, form.cleaned_data,
+            trap=form.cleaned_data["website"],
+            rendered_at=form.cleaned_data["rendered_at"],
+        )
+        if verdict.action == "limit":
+            form.add_error(None, "You've sent several messages in the last hour. Please try again later, or email us directly.")
+        else:
+            if verdict.action != "drop":
+                msg = form.save(commit=False)
+                msg.ip_address = spam.client_ip(request)
+                msg.is_spam = verdict.action == "spam"
+                msg.spam_reason = verdict.reason
+                msg.spam_score = verdict.score
+                msg.save()
+            # Bots get the same thanks as everyone else, so they learn nothing.
+            messages.success(request, config.success_message)
+            return redirect("legal:contact")
 
     return render(request, "legal/contact.html", {
         "config": config,

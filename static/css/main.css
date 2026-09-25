@@ -935,6 +935,19 @@ body[data-has-hero="False"] .site-nav {
   color: var(--accent);
 }
 
+.contact-form > .form-error {
+  grid-column: span 2;
+}
+
+/* Spam trap: off-screen rather than display:none, which bots skip */
+.hp-field {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 .contact-submit {
   grid-column: span 2;
   justify-content: center;

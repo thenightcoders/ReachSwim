@@ -15,5 +15,5 @@ def dashboard_context(request):
     from apps.legal.models import ContactMessage
 
     return {
-        "unread_message_count": ContactMessage.objects.filter(is_read=False).count(),
+        "unread_message_count": ContactMessage.objects.inbox().filter(is_read=False).count(),
     }
