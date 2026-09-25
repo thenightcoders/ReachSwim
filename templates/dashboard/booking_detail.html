@@ -2,284 +2,174 @@
 {% load payment_tags %}
 
 {% block title %}Booking #{{ booking.pk }}{% endblock %}
-{% block topbar_title %}Booking #{{ booking.pk }}{% endblock %}
+{% block crumbs %}<a href="{% url 'dashboard:bookings' %}">Bookings</a><span class="crumbs__sep">/</span><span class="crumbs__current">{{ booking.client_name }}, {{ booking.date|date:"j M" }}</span>{% endblock %}
 
 {% block content %}
-
-<div class="dash-header" style="margin-bottom:2rem;">
+<div class="page-head">
   <div>
-    <a href="{% url 'dashboard:bookings' %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      All Bookings
-    </a>
-    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-      <h1 class="dash-heading" style="margin:0;">Booking <span style="color:var(--dash-text-muted);">#{{ booking.pk }}</span></h1>
-      <span class="dash-badge dash-badge--{{ booking.status }}" style="font-size:0.8rem;padding:0.3rem 0.875rem;letter-spacing:0.03em;">{{ booking.get_status_display }}</span>
-    </div>
+    <a href="{% url 'dashboard:bookings' %}" class="back-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>Bookings</a>
+    <h1 class="page-head__title">{{ booking.client_name }} <span class="badge badge--lg badge--{{ booking.status }}">{{ booking.get_status_display }}</span></h1>
+    <p class="page-head__sub">Booking #{{ booking.pk }}, made {{ booking.created_at|date:"j M Y, H:i" }}</p>
+  </div>
+  <div class="page-head__actions">
+    <a href="{% url 'dashboard:booking_edit' booking.pk %}" class="btn">Edit booking</a>
   </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 300px;gap:1.5rem;align-items:start;max-width:1000px;">
-
-  <!-- LEFT COLUMN -->
-  <div style="display:flex;flex-direction:column;gap:1.25rem;">
-
-    <!-- Session Details Card -->
-    <div class="dash-settings-card" style="padding:0;overflow:hidden;">
-      <div style="padding:1rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.7);">
-        <span style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);">Session Details</span>
+<div class="split">
+  <div class="stack">
+    <section class="panel">
+      <div class="hero-strip">
+        <div><div class="hero-strip__label">Date</div><div class="hero-strip__value">{{ booking.date|date:"l j F Y" }}</div></div>
+        <div><div class="hero-strip__label">Time</div><div class="hero-strip__value">{{ booking.start_time|time:"H:i" }}–{{ booking.end_time|time:"H:i" }}</div></div>
       </div>
+      <dl class="kv">
+        <div class="kv__row"><dt>Session</dt><dd>{{ booking.session_type.name }}</dd></div>
+        <div class="kv__row"><dt>Pool</dt><dd>{{ booking.location.name }}</dd></div>
+        <div class="kv__row"><dt>Price</dt><dd>{{ booking.amount_pence|pence_to_pounds }}</dd></div>
+        {% if booking.session_type.max_participants > 1 %}
+        <div class="kv__row"><dt>Others in this session</dt><dd>
+          {% for o in same_slot %}<a href="{% url 'dashboard:booking_detail' o.pk %}">{{ o.client_name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">Nobody else yet</span>{% endfor %}
+          <span class="muted">({{ same_slot|length|add:1 }} of {{ booking.session_type.max_participants }} spaces)</span>
+        </dd></div>
+        {% endif %}
+        {% if booking.status == "cancelled" %}
+        <div class="kv__row"><dt>Cancelled</dt><dd>{{ booking.cancelled_at|date:"j M Y, H:i" }}{% if booking.cancellation_reason %}<br><span class="muted">{{ booking.cancellation_reason }}</span>{% endif %}</dd></div>
+        {% endif %}
+        {% if booking.google_event_id %}<div class="kv__row"><dt>Google Calendar</dt><dd><span class="badge badge--ok">Synced</span></dd></div>{% endif %}
+      </dl>
+    </section>
 
-      <!-- Date / Time accent strip -->
-      <div style="display:flex;gap:0;border-bottom:1px solid rgba(226,232,240,0.7);">
-        <div style="flex:1;padding:1.25rem 1.5rem;background:linear-gradient(135deg,rgba(239,246,255,0.9),rgba(219,234,254,0.6));">
-          <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--dash-accent);font-weight:700;margin-bottom:0.4rem;">Date</div>
-          <div style="font-family:var(--font-display);font-size:1.05rem;font-weight:600;color:var(--dash-text);">{{ booking.date|date:"l j F Y" }}</div>
-        </div>
-        <div style="width:1px;background:rgba(59,130,246,0.15);"></div>
-        <div style="flex:1;padding:1.25rem 1.5rem;background:linear-gradient(135deg,rgba(239,246,255,0.9),rgba(219,234,254,0.6));">
-          <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--dash-accent);font-weight:700;margin-bottom:0.4rem;">Time</div>
-          <div style="font-family:var(--font-display);font-size:1.05rem;font-weight:600;color:var(--dash-text);">{{ booking.start_time|time:"H:i" }}&nbsp;&ndash;&nbsp;{{ booking.end_time|time:"H:i" }}</div>
-        </div>
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title">Client</h2>
+        {% if account %}<a href="{% url 'dashboard:user_detail' account.pk %}" class="btn btn--sm btn--ghost">View profile</a>{% endif %}
       </div>
+      <dl class="kv">
+        <div class="kv__row"><dt>Name</dt><dd>{{ booking.client_name }}</dd></div>
+        <div class="kv__row"><dt>Email</dt><dd><a href="mailto:{{ booking.client_email }}">{{ booking.client_email }}</a></dd></div>
+        <div class="kv__row"><dt>Phone</dt><dd>{% if booking.client_phone %}<a href="tel:{{ booking.client_phone }}">{{ booking.client_phone }}</a>{% else %}<span class="faint">Not given</span>{% endif %}</dd></div>
+        <div class="kv__row"><dt>Account</dt><dd>{% if account %}Registered{% else %}<span class="muted">Guest checkout</span>{% endif %}</dd></div>
+      </dl>
+    </section>
 
-      <!-- Key-value rows -->
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.5);">
-          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Session Type</span>
-          <span style="font-size:0.92rem;font-weight:500;color:var(--dash-text);">{{ booking.session_type.name }}</span>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.5);">
-          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Location</span>
-          <span style="font-size:0.92rem;font-weight:500;color:var(--dash-text);">{{ booking.location.name }}</span>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.875rem 1.5rem;">
-          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Price</span>
-          <span style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;color:var(--dash-text);">{{ booking.amount_pence|pence_to_pounds }}</span>
-        </div>
-      </div>
-    </div>
+    {% if history %}
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Their other bookings</h2></div>
+      <ul class="feed">
+        {% for h in history %}
+        <li>
+          <a class="feed__main row-link" href="{% url 'dashboard:booking_detail' h.pk %}">
+            <span class="feed__title">{{ h.date|date:"D j M Y" }}, {{ h.start_time|time:"H:i" }}</span>
+            <span class="feed__sub">{{ h.session_type.name }}</span>
+          </a>
+          <span class="badge badge--{{ h.status }}">{{ h.get_status_display }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
 
-    <!-- Client Card -->
-    <div class="dash-settings-card" style="padding:0;overflow:hidden;">
-      <div style="padding:1rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.7);">
-        <span style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);">Client</span>
-      </div>
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.5);">
-          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Name</span>
-          <span style="font-size:0.92rem;font-weight:500;color:var(--dash-text);">{{ booking.client_name }}</span>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;border-bottom:1px solid rgba(226,232,240,0.5);">
-          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Email</span>
-          <a href="mailto:{{ booking.client_email }}" style="font-size:0.92rem;font-weight:500;color:var(--dash-accent);text-decoration:none;">{{ booking.client_email }}</a>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;">
-          <span style="font-size:0.75rem;font-weight:600;color:var(--dash-text-muted);text-transform:uppercase;letter-spacing:0.04em;">Phone</span>
-          <span style="font-size:0.92rem;font-weight:500;color:var(--dash-text);">{{ booking.client_phone|default:"—" }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Notes Card -->
-    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
-      <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);margin-bottom:0.875rem;">Internal Notes</div>
-      <form method="post">
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Internal notes</h2></div>
+      <form method="post" class="panel__body stack stack--sm">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_notes">
-        <textarea name="notes" class="dash-textarea" rows="4" placeholder="Internal notes…">{{ booking.notes }}</textarea>
-        <button class="dash-btn" style="margin-top:0.75rem;">Save Notes</button>
+        <div class="field"><label class="sr-only" for="notes">Notes</label><textarea name="notes" id="notes" rows="4" placeholder="Only you can see these, e.g. nervous in deep water, prefers lane 1">{{ booking.notes }}</textarea></div>
+        <div><button class="btn">Save notes</button></div>
       </form>
-    </div>
-
+    </section>
   </div>
 
-  <!-- RIGHT SIDEBAR -->
-  <div style="position:sticky;top:calc(64px + 1.5rem);display:flex;flex-direction:column;gap:1rem;">
-    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
-      <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);margin-bottom:1.25rem;">Actions</div>
-
-      {% if booking.status == "pending" %}
-      <form method="post" style="margin-bottom:0.875rem;">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="confirm">
-        <button class="dash-btn dash-btn--primary" style="width:100%;justify-content:center;gap:0.5rem;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Confirm Booking
-        </button>
-      </form>
-
-      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.875rem;">
-        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
-        <span style="font-size:0.72rem;color:var(--dash-text-muted);font-weight:500;letter-spacing:0.04em;">OR</span>
-        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
-      </div>
-
-      <form method="post" onsubmit="return confirm('Cancel this booking?')">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="cancel">
-        <label class="dash-label" style="margin-bottom:0.4rem;font-size:0.78rem;">
-          Reason <small style="font-weight:400;color:var(--dash-text-muted);">(optional)</small>
-        </label>
-        <input type="text" name="reason" placeholder="e.g. Client no show" class="dash-input" style="margin-bottom:0.625rem;">
-        <button class="dash-btn dash-btn--danger" style="width:100%;justify-content:center;">Cancel Booking</button>
-      </form>
-
-      {% elif booking.status == "confirmed" %}
-      <form method="post" style="margin-bottom:0.875rem;">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="complete">
-        <button class="dash-btn dash-btn--primary" style="width:100%;justify-content:center;gap:0.5rem;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Mark Completed
-        </button>
-      </form>
-
-      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.875rem;">
-        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
-        <span style="font-size:0.72rem;color:var(--dash-text-muted);font-weight:500;letter-spacing:0.04em;">OR</span>
-        <div style="flex:1;height:1px;background:var(--dash-border);"></div>
-      </div>
-
-      <form method="post" onsubmit="return confirm('Cancel this booking?')">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="cancel">
-        <label class="dash-label" style="margin-bottom:0.4rem;font-size:0.78rem;">
-          Reason <small style="font-weight:400;color:var(--dash-text-muted);">(optional)</small>
-        </label>
-        <input type="text" name="reason" placeholder="e.g. Client no show" class="dash-input" style="margin-bottom:0.625rem;">
-        <button class="dash-btn dash-btn--danger" style="width:100%;justify-content:center;">Cancel Booking</button>
-      </form>
-
-      {% elif booking.status == "cancelled" %}
-      <div style="padding:1rem;border-radius:10px;background:var(--dash-danger-light);border:1px solid #fecaca;">
-        <div style="font-size:0.8rem;font-weight:700;color:var(--dash-danger);margin-bottom:0.35rem;">Booking Cancelled</div>
-        <div style="font-size:0.82rem;color:#b91c1c;">{{ booking.cancelled_at|date:"j M Y, H:i" }}</div>
-        {% if booking.cancellation_reason %}
-        <div style="font-size:0.8rem;color:#b91c1c;margin-top:0.35rem;">Reason: {{ booking.cancellation_reason }}</div>
+  <aside class="split__side stack">
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Next step</h2></div>
+      <div class="panel__body stack stack--sm">
+        {% if booking.status == "pending" or booking.status == "confirmed" %}
+          {% if booking.status == "pending" %}
+          <p class="muted" style="margin:0">This booking is waiting for payment. Confirm it if they paid you another way.</p>
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="confirm">
+            <button class="btn btn--primary btn--block">Confirm booking</button></form>
+          {% else %}
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="complete">
+            <button class="btn btn--primary btn--block">Mark as completed</button></form>
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="resend">
+            <button class="btn btn--block">Resend confirmation email</button></form>
+          {% endif %}
+          <div class="or-rule">or</div>
+          <form method="post" class="stack stack--sm" data-confirm="Cancel this booking?{% if booking.status == 'confirmed' %} {{ booking.client_name }} will get a cancellation email.{% endif %}" data-confirm-label="Cancel booking">
+            {% csrf_token %}<input type="hidden" name="action" value="cancel">
+            <div class="field"><label class="field__label" for="reason">Reason <span class="field__optional">(optional)</span></label>
+              <input type="text" name="reason" id="reason" placeholder="e.g. Pool closed for maintenance"></div>
+            <button class="btn btn--danger-soft btn--block">Cancel booking</button>
+          </form>
+        {% elif booking.status == "cancelled" %}
+          <div class="note note--danger"><div class="note__title">Cancelled</div>{{ booking.cancelled_at|date:"j M Y, H:i" }}</div>
+        {% elif booking.status == "completed" %}
+          <div class="note note--success"><div class="note__title">Session completed</div>Nothing left to do.</div>
+        {% else %}
+          <div class="note">The client started this booking but didn't finish checking out.</div>
         {% endif %}
       </div>
+    </section>
 
-      {% elif booking.status == "completed" %}
-      <div style="padding:1rem;border-radius:10px;background:var(--dash-success-light);border:1px solid #bbf7d0;">
-        <div style="font-size:0.8rem;font-weight:700;color:var(--dash-success);">Session Completed</div>
-      </div>
-      {% endif %}
-
-    </div>
-
-    <!-- Refund -->
     {% if order %}
-    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-        <span style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);">Refund</span>
-        <a href="{% url 'dashboard:order_detail' order.pk %}" style="font-size:0.75rem;color:var(--dash-accent);text-decoration:none;">Order #{{ order.order_number }} →</a>
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title">Payment</h2>
+        <a href="{% url 'dashboard:order_detail' order.pk %}" class="btn btn--sm btn--ghost">Order {{ order.order_number }}</a>
       </div>
-
-      {% if booking_item_refund %}
-      <div style="padding:0.875rem;border-radius:8px;background:#f0fdf4;border:1px solid #86efac;">
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#15803d;margin-bottom:0.3rem;">Session refunded</div>
-        <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:#064e3b;">{{ booking_item_refund.amount_display }}</div>
-        <div style="font-size:0.75rem;color:#6b7280;margin-top:0.25rem;">{{ booking_item_refund.created_at|date:"j M Y, H:i" }}</div>
+      <div class="panel__body stack stack--sm">
+        {% if booking_item_refund %}
+          <div class="note note--success"><div class="note__title">Refunded</div><div class="note__big">{{ booking_item_refund.amount_display }}</div>{{ booking_item_refund.created_at|date:"j M Y, H:i" }}</div>
+          {% if remaining_pence > 0 %}<p class="muted" style="margin:0;font-size:.85rem">{{ remaining_pence|pence_to_pounds }} more can be refunded on the <a href="{% url 'dashboard:order_detail' order.pk %}">order</a>.</p>{% endif %}
+        {% elif can_refund %}
+          <form method="post" action="{% url 'dashboard:booking_issue_refund' booking.pk %}" class="stack stack--sm"
+                data-confirm="Refund {{ booking.amount_pence|pence_to_pounds }} to {{ booking.client_email }}? Stripe sends it back to their card." data-confirm-label="Refund">
+            {% csrf_token %}
+            <div class="field"><label class="field__label" for="refund-note">Note <span class="field__optional">(optional)</span></label><input type="text" name="notes" id="refund-note" placeholder="Why you're refunding"></div>
+            <button class="btn btn--success-soft btn--block">Refund {{ booking.amount_pence|pence_to_pounds }}</button>
+          </form>
+          <p class="muted" style="margin:0;font-size:.8rem">For partial refunds, use the <a href="{% url 'dashboard:order_detail' order.pk %}">order page</a>.</p>
+        {% else %}
+          <p class="muted" style="margin:0">{% if order.status == "paid" %}No refund available for this session.{% else %}Order status: {{ order.get_status_display|lower }}.{% endif %}</p>
+        {% endif %}
       </div>
-      {% if remaining_pence > 0 %}
-      <div style="margin-top:0.625rem;font-size:0.75rem;color:var(--dash-text-muted);">
-        £{{ remaining_pence|pence_to_pounds }} still refundable on the order.
-        <a href="{% url 'dashboard:order_detail' order.pk %}" style="color:var(--dash-accent);">Manage →</a>
-      </div>
-      {% endif %}
-
-      {% elif can_refund %}
-      <div style="padding:0.75rem;border-radius:8px;background:rgba(239,246,255,0.8);border:1px solid rgba(147,197,253,0.5);margin-bottom:0.875rem;">
-        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-accent);margin-bottom:0.25rem;">Session price</div>
-        <div style="font-family:var(--font-display);font-weight:700;font-size:1.1rem;color:var(--dash-text);">{{ booking.amount_pence|pence_to_pounds }}</div>
-      </div>
-
-      <form method="post" action="{% url 'dashboard:booking_issue_refund' booking.pk %}"
-            onsubmit="return confirm('Refund {{ booking.amount_pence|pence_to_pounds }} for this session to {{ booking.client_email }}?')">
-        {% csrf_token %}
-        <input type="text" name="notes" placeholder="Internal note (optional)" class="dash-input" style="margin-bottom:0.5rem;font-size:0.82rem;">
-        <button class="dash-btn" style="width:100%;justify-content:center;gap:0.5rem;background:rgba(5,150,105,0.1);color:#065f46;border-color:rgba(5,150,105,0.3);">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-          Refund {{ booking.amount_pence|pence_to_pounds }}
-        </button>
-      </form>
-      <div style="margin-top:0.5rem;font-size:0.73rem;color:var(--dash-text-muted);text-align:center;">
-        More options on the <a href="{% url 'dashboard:order_detail' order.pk %}" style="color:var(--dash-accent);">order page</a>
-      </div>
-
-      {% else %}
-      <div style="font-size:0.82rem;color:var(--dash-text-muted);">
-        No refund available.
-        {% if order %}<a href="{% url 'dashboard:order_detail' order.pk %}" style="color:var(--dash-accent);">View order →</a>{% endif %}
-      </div>
-      {% endif %}
-    </div>
+    </section>
     {% endif %}
 
-    <!-- Payment Reminder -->
     {% if booking.status == "pending" %}
-    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;">
-      <div style="font-family:var(--font-display);font-weight:600;font-size:0.95rem;color:var(--dash-text);margin-bottom:1rem;">Payment Reminder</div>
-
-      {% if last_reminder %}
-      <div style="padding:0.75rem;border-radius:8px;background:rgba(239,246,255,0.8);border:1px solid rgba(147,197,253,0.5);margin-bottom:0.875rem;">
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-accent);margin-bottom:0.3rem;">Last sent</div>
-        <div style="font-size:0.82rem;color:var(--dash-text);">{{ last_reminder.sent_at|date:"j M Y" }} at {{ last_reminder.sent_at|time:"H:i" }}</div>
-        <div style="font-size:0.78rem;color:var(--dash-text-muted);margin-top:0.2rem;">
-          {{ last_reminder.get_source_display }}{% if last_reminder.sent_by %} · {{ last_reminder.sent_by.get_full_name|default:last_reminder.sent_by.email }}{% endif %}
-        </div>
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Payment reminder</h2></div>
+      <div class="panel__body stack stack--sm">
+        {% if last_reminder %}
+        <div class="note note--info">Last sent {{ last_reminder.sent_at|date:"j M, H:i" }} ({{ last_reminder.get_source_display|lower }}{% if last_reminder.sent_by %} by {{ last_reminder.sent_by.full_name|default:last_reminder.sent_by.email }}{% endif %})</div>
+        {% endif %}
+        {% if reminder_confirm %}
+          <div class="note note--warning">A reminder has already gone out. Send another?</div>
+          <form method="post" action="{% url 'dashboard:send_reminder' booking.pk %}">{% csrf_token %}<input type="hidden" name="confirmed" value="1"><button class="btn btn--primary btn--block">Yes, send again</button></form>
+          <a href="{% url 'dashboard:booking_detail' booking.pk %}" class="btn btn--ghost btn--block">Don't send</a>
+        {% else %}
+          <form method="post" action="{% url 'dashboard:send_reminder' booking.pk %}">{% csrf_token %}<button class="btn btn--block">{% if last_reminder %}Send another reminder{% else %}Send reminder{% endif %}</button></form>
+        {% endif %}
+        {% if reminders|length > 1 %}
+        <dl class="kv kv--compact" style="font-size:.84rem">
+          {% for r in reminders %}<div class="kv__row"><dt>{{ r.sent_at|date:"j M, H:i" }}</dt><dd class="muted">{{ r.get_source_display }}</dd></div>{% endfor %}
+        </dl>
+        {% endif %}
       </div>
-      {% endif %}
-
-      {% if reminder_confirm %}
-      <div style="padding:0.75rem;border-radius:8px;background:rgba(254,243,199,0.9);border:1px solid #fcd34d;margin-bottom:0.75rem;font-size:0.82rem;color:#92400e;">
-        A reminder was already sent. Resend anyway?
-      </div>
-      <form method="post" action="{% url 'dashboard:send_reminder' booking.pk %}" style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
-        {% csrf_token %}
-        <input type="hidden" name="confirmed" value="1">
-        <button class="dash-btn dash-btn--primary" style="flex:1;justify-content:center;font-size:0.82rem;">Yes, resend</button>
-      </form>
-      <a href="{% url 'dashboard:booking_detail' booking.pk %}" class="dash-btn" style="width:100%;justify-content:center;font-size:0.82rem;text-align:center;display:block;margin-top:0.25rem;">Cancel</a>
-
-      {% else %}
-      <form method="post" action="{% url 'dashboard:send_reminder' booking.pk %}">
-        {% csrf_token %}
-        <button class="dash-btn" style="width:100%;justify-content:center;gap:0.5rem;font-size:0.85rem;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          {% if last_reminder %}Resend reminder{% else %}Send reminder{% endif %}
-        </button>
-      </form>
-      {% endif %}
-
-      {% if reminders %}
-      <div style="margin-top:1rem;border-top:1px solid var(--dash-border);padding-top:0.875rem;">
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--dash-text-muted);margin-bottom:0.5rem;">History</div>
-        {% for r in reminders %}
-        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0.3rem 0;{% if not forloop.last %}border-bottom:1px solid rgba(226,232,240,0.5);{% endif %}">
-          <span style="font-size:0.78rem;color:var(--dash-text);">{{ r.sent_at|date:"j M, H:i" }}</span>
-          <span style="font-size:0.72rem;color:var(--dash-text-muted);">{{ r.get_source_display }}{% if r.rule %} · {{ r.rule }}{% endif %}</span>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-    </div>
+    </section>
     {% endif %}
 
-    <!-- Danger zone -->
-    <div class="dash-settings-card" style="padding:1.25rem 1.5rem;border:1px solid rgba(239,68,68,0.25);background:rgba(254,242,242,0.6);">
-      <div style="font-family:var(--font-display);font-weight:600;font-size:0.85rem;color:var(--dash-danger);margin-bottom:0.875rem;text-transform:uppercase;letter-spacing:0.04em;">Danger Zone</div>
-      <form method="post" action="{% url 'dashboard:booking_delete' booking.pk %}" onsubmit="return confirm('Permanently delete booking #{{ booking.pk }}? This cannot be undone.')">
-        {% csrf_token %}
-        <button type="submit" class="dash-btn dash-btn--danger" style="width:100%;justify-content:center;gap:0.5rem;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-          Delete Booking
-        </button>
-      </form>
-    </div>
-  </div>
-
+    <section class="panel panel--danger">
+      <div class="panel__body stack stack--sm">
+        <h2 class="panel__title">Delete booking</h2>
+        <p class="muted" style="margin:0;font-size:.86rem">Removes it completely, including from Google Calendar. To keep a record, cancel it instead.</p>
+        <form method="post" action="{% url 'dashboard:booking_delete' booking.pk %}" data-confirm="Permanently delete this booking? This can't be undone." data-confirm-label="Delete">
+          {% csrf_token %}<button class="btn btn--danger-soft btn--block">Delete booking</button>
+        </form>
+      </div>
+    </section>
+  </aside>
 </div>
 {% endblock %}

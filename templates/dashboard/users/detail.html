@@ -1,0 +1,99 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load payment_tags dash_tags %}
+
+{% block title %}{{ person.full_name|default:person.email }}{% endblock %}
+{% block crumbs %}<a href="{% url 'dashboard:user_list' %}">People</a><span class="crumbs__sep">/</span><span class="crumbs__current">{{ person.full_name|default:person.email }}</span>{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="with-thumb" style="align-items:flex-end">
+    <span class="avatar avatar--lg" aria-hidden="true">{{ person.full_name|default:person.email|initial }}</span>
+    <div>
+      <a href="{% url 'dashboard:user_list' %}" class="back-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>People</a>
+      <h1 class="page-head__title">{{ person.full_name|default:"No name" }} <span class="badge badge--lg badge--{{ person.role }}">{{ person.get_role_display }}</span>{% if not person.is_active %} <span class="badge badge--lg badge--inactive">Blocked</span>{% endif %}</h1>
+      <p class="page-head__sub"><a href="mailto:{{ person.email }}">{{ person.email }}</a>{% if person.phone %}, <a href="tel:{{ person.phone }}">{{ person.phone }}</a>{% endif %}</p>
+    </div>
+  </div>
+  <div class="page-head__actions">
+    <a href="{% url 'dashboard:user_edit' person.pk %}" class="btn">Edit details</a>
+    <a href="{% url 'dashboard:booking_create' %}?user={{ person.pk }}" class="btn btn--primary">Book a session</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat__label">Sessions booked</div><div class="stat__value">{{ session_count }}</div></div>
+  <div class="stat"><div class="stat__label">Total spent</div><div class="stat__value">{{ lifetime_pence|pence_to_pounds }}</div></div>
+  <div class="stat"><div class="stat__label">Last session</div><div class="stat__value">{{ last_session|date:"j M"|default:"—" }}</div></div>
+  <div class="stat"><div class="stat__label">Member since</div><div class="stat__value">{{ person.date_joined|date:"M Y" }}</div></div>
+</div>
+
+<div class="split">
+  <div class="stack">
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Upcoming sessions</h2></div>
+      {% if upcoming %}
+      <ul class="feed">{% for b in upcoming %}
+        <li><a class="feed__main row-link" href="{% url 'dashboard:booking_detail' b.pk %}"><span class="feed__title">{{ b.date|date:"D j M" }}, {{ b.start_time|time:"H:i" }}</span><span class="feed__sub">{{ b.session_type.name }} at {{ b.location.name }}</span></a><span class="badge badge--{{ b.status }}">{{ b.get_status_display }}</span></li>
+      {% endfor %}</ul>
+      {% else %}<div class="empty" style="padding:1.5rem"><p style="margin:0">Nothing booked.</p></div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">History</h2><a class="btn btn--sm btn--ghost" href="{% url 'dashboard:bookings' %}?q={{ person.email|urlencode }}">All bookings</a></div>
+      {% if past %}
+      <ul class="feed">{% for b in past %}
+        <li><a class="feed__main row-link" href="{% url 'dashboard:booking_detail' b.pk %}"><span class="feed__title">{{ b.date|date:"D j M Y" }}</span><span class="feed__sub">{{ b.session_type.name }} at {{ b.location.name }}</span></a><span class="badge badge--{{ b.status }}">{{ b.get_status_display }}</span></li>
+      {% endfor %}</ul>
+      {% else %}<div class="empty" style="padding:1.5rem"><p style="margin:0">No past sessions.</p></div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Orders</h2></div>
+      {% if orders %}
+      <ul class="feed">{% for o in orders %}
+        <li><a class="feed__main row-link" href="{% url 'dashboard:order_detail' o.pk %}"><span class="feed__title mono">{{ o.order_number }}</span><span class="feed__sub">{{ o.created_at|date:"j M Y" }}</span></a><span class="feed__meta"><span class="strong" style="color:var(--ink)">{{ o.total_pence|pence_to_pounds }}</span><br><span class="badge badge--{{ o.status }}">{{ o.get_status_display }}</span></span></li>
+      {% endfor %}</ul>
+      {% else %}<div class="empty" style="padding:1.5rem"><p style="margin:0">No orders.</p></div>{% endif %}
+    </section>
+  </div>
+
+  <aside class="split__side stack">
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Packages</h2><a class="btn btn--sm btn--ghost" href="{% url 'dashboard:packagepurchase_grant' %}?user={{ person.pk }}">Grant</a></div>
+      {% if packages %}
+      <ul class="feed">{% for p in packages %}
+        <li><a class="feed__main row-link" href="{% url 'dashboard:packagepurchase_edit' p.pk %}"><span class="feed__title">{{ p.package.name }}</span><span class="feed__sub">Expires {{ p.expires_at|date:"j M Y" }}</span></a><span class="badge {% if p.remaining and p.is_active and not p.is_expired %}badge--active{% else %}badge--muted{% endif %}">{{ p.remaining }} left</span></li>
+      {% endfor %}</ul>
+      {% else %}<div class="panel__body muted">No packages.</div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Login</h2></div>
+      <div class="panel__body stack stack--sm">
+        <p class="muted" style="margin:0;font-size:.86rem">{% if person.last_login %}Last logged in {{ person.last_login|date:"j M Y, H:i" }}.{% else %}Has never logged in.{% endif %}</p>
+        <form method="post" action="{% url 'dashboard:user_send_login_link' person.pk %}">{% csrf_token %}<button class="btn btn--block">Email a login link</button></form>
+        <details class="disclosure" style="margin:0 -1.25rem">
+          <summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>Set a password</summary>
+          <form method="post" action="{% url 'dashboard:user_set_password' person.pk %}" class="panel__body stack stack--sm">
+            {% csrf_token %}
+            {% with field=password_form.new_password %}{% include "dashboard/includes/field.html" %}{% endwith %}
+            <button class="btn btn--block">Set password</button>
+          </form>
+        </details>
+      </div>
+    </section>
+
+    {% if person.pk != request.user.pk %}
+    <section class="panel panel--danger">
+      <div class="panel__body stack stack--sm">
+        <h2 class="panel__title">Delete account</h2>
+        <p class="muted" style="margin:0;font-size:.86rem">Their bookings and orders are kept. To stop them logging in without deleting anything, edit their details and turn off “Can log in”.</p>
+        <form method="post" action="{% url 'dashboard:user_delete' person.pk %}" data-confirm="Delete {{ person.full_name|default:person.email }}'s account? This can't be undone." data-confirm-label="Delete account">
+          {% csrf_token %}<button class="btn btn--danger-soft btn--block">Delete account</button>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

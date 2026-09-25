@@ -1,0 +1,26 @@
+{% load payment_tags %}
+<section class="panel">
+  <div class="panel__head">
+    <div>
+      <h2 class="panel__title">Prices</h2>
+      <p class="panel__desc">{% if crud.key == "location" %}What each session costs at this pool.{% else %}What this session costs at each pool.{% endif %} Leave empty to make it unavailable there.</p>
+    </div>
+    <a href="{% url 'dashboard:pricing' %}" class="btn btn--sm btn--ghost">All prices</a>
+  </div>
+  <div class="panel__body">
+    {% if price_rows %}
+    <div class="rows">
+      {% for r in price_rows %}
+      <div class="rows__row" style="grid-template-columns:1fr 140px">
+        <label for="price_{{ r.key }}"><span class="strong">{{ r.label }}</span>{% if r.sub %} <span class="muted">{{ r.sub }}</span>{% endif %}</label>
+        <div class="input-affix field"><span class="input-affix__text">{{ site_config.currency_symbol }}</span>
+          <input type="text" inputmode="decimal" id="price_{{ r.key }}" name="price_{{ r.key }}" value="{% if r.pence is not None %}{{ r.pence|pence_to_decimal }}{% endif %}" placeholder="—" style="text-align:right">
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted" style="margin:0">{% if crud.key == "location" %}No session types yet. <a href="{% url 'dashboard:sessiontype_create' %}">Add one</a>.{% else %}No pools yet. <a href="{% url 'dashboard:location_create' %}">Add one</a>.{% endif %}</p>
+    {% endif %}
+  </div>
+</section>

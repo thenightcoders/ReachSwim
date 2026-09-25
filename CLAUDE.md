@@ -92,9 +92,12 @@ Step 1: pick session type → Step 2: calendar panel loads via HTMX. Location dr
 
 ## Dashboard
 
-Owner admin panel at `/dashboard/`. Standalone HTML (doesn't extend site base.html). Premium glassmorphism UI with frosted-glass sidebar, gradient cards, backdrop-filter effects.
+Owner admin panel at `/dashboard/`. Standalone HTML (doesn't extend site base.html). Covers everything `/admin` does, so the owner never needs Django admin.
 
-Sections: Overview (stats), Bookings (list + detail + create/edit), Orders, Products (inline stock/toggle), Locations CRUD, Session Types CRUD, Schedules CRUD, Users CRUD, Messages, Settings (tabbed: site info, hero, booking rules, shop config).
+- **Design system** — `static/css/dashboard.css` (tokens on `:root`, light + dark via `prefers-color-scheme` / `data-theme`), `static/js/dashboard.js` (data-attribute behaviours: `data-confirm`, `data-bulk*`, `data-href` rows, `data-tabs`, `data-slug-from`, `data-formset-add`, `data-autosubmit`, ⌘K palette). No inline `confirm()`; no per-page CSS beyond small one-offs.
+- **Generic CRUD** — `apps/dashboard/crud.py` (`Crud`, `Column`, `Filter`, `BulkAction`): list with search/filters/sort/pagination/bulk actions/on-off toggles + form with fieldsets. Sections are declared in `apps/dashboard/registry.py` (pools, session types, timetable, packages, vouchers, package credits, categories, offerings, stats, pillars, testimonials, FAQs, legal pages, footer links). URL names: `<key>_list|create|edit|delete|bulk|toggle`.
+- **Bespoke views** — `apps/dashboard/views.py`: overview ("Today in the pool" lane timeline), bookings (bulk confirm/cancel/complete/resend/delete, CSV), orders (expire unpaid, CSV, Stripe events), products (inline stock), messages (detail, read/unread, bulk), people (profile with history, login link, set password, CSV), pricing matrix, grant package credits, settings (tabbed ModelForms), global search JSON for the palette.
+- **Forms** — `apps/dashboard/forms.py`. Money is typed in £ via `MoneyField` + `PenceFieldsMixin` (`pence_fields = {"price": "price_pence"}`). Templates render fields with `dashboard/includes/field.html`.
 
 ## Commands
 

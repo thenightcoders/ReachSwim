@@ -1,0 +1,20 @@
+{% load payment_tags %}
+<section class="panel">
+  <div class="panel__head"><h2 class="panel__title">Credits</h2></div>
+  {% if credits %}
+  <ul class="feed">
+    {% for v in credits %}
+    <li><a class="feed__main row-link mono" href="{% url 'dashboard:voucher_edit' v.pk %}">{{ v.code }}</a>
+      {% if v.times_used %}<span class="badge badge--completed">Used</span>{% elif not v.is_active %}<span class="badge badge--inactive">Frozen</span>{% else %}<span class="badge badge--active">Available</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% else %}<div class="panel__body muted">No credits.</div>{% endif %}
+  <div class="panel__foot muted" style="font-size:.82rem">Each code is one free session, locked to the client's email. Changing the expiry or freezing the package updates unused codes too.</div>
+</section>
+<section class="panel">
+  <dl class="kv">
+    <div class="kv__row"><dt>Package</dt><dd><a href="{% url 'dashboard:package_edit' object.package.pk %}">{{ object.package.name }}</a></dd></div>
+    <div class="kv__row"><dt>Bought</dt><dd>{{ object.purchased_at|date:"j M Y" }}</dd></div>
+    <div class="kv__row"><dt>Paid</dt><dd>{{ object.amount_pence|pence_to_pounds }}</dd></div>
+  </dl>
+</section>

@@ -1,0 +1,31 @@
+<section class="panel">
+  <div class="panel__head"><h2 class="panel__title">How vouchers work</h2></div>
+  <div class="panel__body">
+    <ul class="stack stack--sm muted" style="margin:0;padding-left:1.1rem;font-size:.86rem">
+      <li>Clients type the code at checkout. Codes aren't case-sensitive.</li>
+      <li>“Free (whole session)” zeroes the price of one matching session.</li>
+      <li>Restrict a code to one email for friend passes or goodwill gestures.</li>
+    </ul>
+  </div>
+</section>
+{% if object %}
+<section class="panel">
+  <dl class="kv">
+    <div class="kv__row"><dt>Times used</dt><dd>{{ object.times_used }}{% if object.max_uses %} of {{ object.max_uses }}{% endif %}</dd></div>
+    <div class="kv__row"><dt>Created</dt><dd>{{ object.created_at|date:"j M Y" }}</dd></div>
+    {% if object.package_purchase %}<div class="kv__row"><dt>From package</dt><dd><a href="{% url 'dashboard:packagepurchase_edit' object.package_purchase.pk %}">{{ object.package_purchase.client_name }}</a></dd></div>{% endif %}
+  </dl>
+</section>
+{% endif %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var type = document.getElementById("id_discount_type");
+  var pct = document.getElementById("id_percent"), amt = document.getElementById("id_amount");
+  if (!type || !pct || !amt) return;
+  function sync() {
+    pct.closest(".field").hidden = type.value !== "percentage";
+    amt.closest(".field").hidden = type.value !== "fixed_pence";
+  }
+  type.addEventListener("change", sync); sync();
+});
+</script>
