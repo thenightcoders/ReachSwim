@@ -1,81 +1,166 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% load payment_tags %}
+{% load payment_tags l10n %}
 
 {% block title %}Overview{% endblock %}
-{% block topbar_title %}Overview{% endblock %}
+{% block crumbs %}<span class="crumbs__current">Overview</span>{% endblock %}
 
 {% block content %}
-<div class="dash-header">
-  <h1 class="dash-heading">Welcome back, {{ request.user.first_name|default:"Boss" }}</h1>
-  <p class="dash-subheading">Here's what's happening today.</p>
+<div class="page-head">
+  <div>
+    <h1 class="page-head__title">{% if now.hour < 12 %}Good morning{% elif now.hour < 18 %}Good afternoon{% else %}Good evening{% endif %}{% if request.user.first_name %}, {{ request.user.first_name }}{% endif %}</h1>
+    <p class="page-head__sub">{{ now|date:"l j F" }}. {% if today_bookings %}{{ today_bookings|length }} swimmer{{ today_bookings|length|pluralize }} in the pool today.{% else %}Nothing booked for today.{% endif %}</p>
+  </div>
+  <div class="page-head__actions">
+    <a href="{% url 'dashboard:bookings' %}?when=upcoming" class="btn">Upcoming bookings</a>
+    <a href="{% url 'dashboard:booking_create' %}" class="btn btn--primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>New booking
+    </a>
+  </div>
 </div>
 
-<!-- Stat cards -->
-<div class="dash-stats">
-  <div class="dash-stat-card">
-    <span class="dash-stat-card__label">Today's sessions</span>
-    <span class="dash-stat-card__value">{{ today_count }}</span>
+<section class="panel" style="margin-bottom:1.25rem" aria-labelledby="pool-title">
+  <div class="panel__head">
+    <h2 class="panel__title" id="pool-title">Today in the pool</h2>
+    <a href="{% url 'dashboard:bookings' %}?when=today" class="btn btn--sm btn--ghost">List view</a>
   </div>
-  <div class="dash-stat-card">
-    <span class="dash-stat-card__label">This week's revenue</span>
-    <span class="dash-stat-card__value">{{ week_revenue|pence_to_pounds }}</span>
-  </div>
-  <div class="dash-stat-card">
-    <span class="dash-stat-card__label">This month's revenue</span>
-    <span class="dash-stat-card__value">{{ month_revenue|pence_to_pounds }}</span>
-  </div>
-  <div class="dash-stat-card">
-    <span class="dash-stat-card__label">Pending orders</span>
-    <span class="dash-stat-card__value">{{ pending_orders }}</span>
-  </div>
-  <div class="dash-stat-card">
-    <span class="dash-stat-card__label">Total clients</span>
-    <span class="dash-stat-card__value">{{ total_clients }}</span>
-  </div>
-  {% if unread_messages %}
-  <div class="dash-stat-card dash-stat-card--alert">
-    <span class="dash-stat-card__label">Unread messages</span>
-    <span class="dash-stat-card__value">{{ unread_messages }}</span>
-  </div>
-  {% endif %}
-</div>
-
-<!-- Upcoming bookings -->
-<section class="dash-section">
-  <div class="dash-section__header">
-    <h2 class="dash-section__title">Upcoming bookings</h2>
-    <a href="{% url 'dashboard:bookings' %}" class="dash-link">View all &rarr;</a>
-  </div>
-
-  {% if upcoming_bookings %}
-  <div class="dash-table-wrap">
-    <table class="dash-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Time</th>
-          <th>Type</th>
-          <th>Location</th>
-          <th>Client</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for b in upcoming_bookings %}
-        <tr class="dash-table__row--clickable" onclick="location.href='{% url 'dashboard:booking_detail' b.pk %}'">
-          <td>{{ b.date|date:"D j M" }}</td>
-          <td>{{ b.start_time|time:"H:i" }}&ndash;{{ b.end_time|time:"H:i" }}</td>
-          <td>{{ b.session_type.name }}</td>
-          <td>{{ b.location.name }}</td>
-          <td>{{ b.client_name }}</td>
-          <td><span class="dash-badge dash-badge--{{ b.status }}">{{ b.get_status_display }}</span></td>
-        </tr>
+  {% if timeline.lanes %}{% localize off %}
+  <div class="pool" style="--hours: {{ timeline.hour_count }}">
+    <div class="pool__inner">
+      <div class="pool__hours" aria-hidden="true">{% for h in timeline.hours %}<span>{{ h }}:00</span>{% endfor %}</div>
+      <div class="pool__lanes">
+        {% if timeline.now_pct is not None %}<div class="pool__now" style="left: {{ timeline.now_pct }}%" title="Now, {{ now|time:'H:i' }}"></div>{% endif %}
+        {% for lane in timeline.lanes %}
+        <div class="pool__lane">
+          <span class="pool__lane-name">{{ lane.name }}</span>
+          {% for s in lane.swims %}
+          <a href="{{ s.url }}" class="swim swim--{{ s.status }}" style="left: {{ s.left }}%; width: {{ s.width }}%"
+             title="{{ s.start|time:'H:i' }}–{{ s.end|time:'H:i' }} {{ s.session }}: {{ s.names|join:', ' }}{% if s.status == 'pending' %} (awaiting payment){% endif %}">
+            {% if s.names|length > 1 %}{{ s.names|length }} swimmers{% else %}{{ s.names.0|truncatewords:1|cut:" …" }}{% endif %}
+          </a>
+          {% endfor %}
+        </div>
         {% endfor %}
-      </tbody>
-    </table>
+      </div>
+    </div>
   </div>
-  {% else %}
-  <p class="dash-empty">No upcoming bookings.</p>
+  {% endlocalize %}{% else %}
+  <p class="pool__empty">No sessions today. Enjoy the dry land, or <a href="{% url 'dashboard:booking_create' %}?date={{ now|date:'Y-m-d' }}">add a booking for today</a>.</p>
   {% endif %}
 </section>
+
+<div class="stats">
+  <a class="stat" href="{% url 'dashboard:orders' %}?status=paid">
+    <div class="stat__label">Revenue this week</div>
+    <div class="stat__value">{{ week_revenue|pence_to_pounds }}</div>
+    <div class="stat__note">{{ month_revenue|pence_to_pounds }} this month</div>
+  </a>
+  <a class="stat{% if pending_bookings %} stat--alert{% endif %}" href="{% url 'dashboard:bookings' %}?status=pending&when=upcoming">
+    <div class="stat__label">Awaiting payment</div>
+    <div class="stat__value">{{ pending_bookings }}</div>
+    <div class="stat__note">{{ pending_orders }} unpaid order{{ pending_orders|pluralize }}</div>
+  </a>
+  <a class="stat" href="{% url 'dashboard:user_list' %}">
+    <div class="stat__label">Clients</div>
+    <div class="stat__value">{{ total_clients }}</div>
+    <div class="stat__note">{{ active_packages }} with active packages</div>
+  </a>
+  <a class="stat{% if unread_messages %} stat--alert{% endif %}" href="{% url 'dashboard:messages' %}?show=unread">
+    <div class="stat__label">Unread messages</div>
+    <div class="stat__value">{{ unread_messages }}</div>
+    <div class="stat__note">{% if unshipped %}{{ unshipped }} order{{ unshipped|pluralize }} to ship{% else %}Nothing to ship{% endif %}</div>
+  </a>
+</div>
+
+<div class="split">
+  <div class="stack">
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title">Coming up</h2>
+        <a href="{% url 'dashboard:bookings' %}?when=upcoming" class="btn btn--sm btn--ghost">All upcoming</a>
+      </div>
+      {% if upcoming_bookings %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>When</th><th>Client</th><th>Session</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for b in upcoming_bookings %}
+            <tr data-href="{% url 'dashboard:booking_detail' b.pk %}">
+              <td class="nowrap"><span class="strong">{{ b.date|date:"D j M" }}</span><span class="cell-sub">{{ b.start_time|time:"H:i" }}–{{ b.end_time|time:"H:i" }}</span></td>
+              <td><a class="cell-title" href="{% url 'dashboard:booking_detail' b.pk %}">{{ b.client_name }}</a></td>
+              <td>{{ b.session_type.name }}<span class="cell-sub">{{ b.location.name }}</span></td>
+              <td><span class="badge badge--{{ b.status }}">{{ b.get_status_display }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty"><p>No upcoming bookings yet.</p></div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title">Latest orders</h2>
+        <a href="{% url 'dashboard:orders' %}" class="btn btn--sm btn--ghost">All orders</a>
+      </div>
+      {% if recent_orders %}
+      <ul class="feed">
+        {% for o in recent_orders %}
+        <li>
+          <a class="feed__main row-link" href="{% url 'dashboard:order_detail' o.pk %}">
+            <span class="feed__title">{{ o.client_name }}</span>
+            <span class="feed__sub">Order {{ o.order_number }}, {{ o.total_pence|pence_to_pounds }}</span>
+          </a>
+          <span class="feed__meta"><span class="badge badge--{{ o.status }}">{{ o.get_status_display }}</span><br>{{ o.created_at|timesince }} ago</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty"><p>Orders from the website will show up here.</p></div>
+      {% endif %}
+    </section>
+  </div>
+
+  <aside class="stack">
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title">Messages</h2>
+        <a href="{% url 'dashboard:messages' %}" class="btn btn--sm btn--ghost">Inbox</a>
+      </div>
+      {% if recent_messages %}
+      <ul class="feed">
+        {% for m in recent_messages %}
+        <li>
+          <a class="feed__main row-link" href="{% url 'dashboard:message_detail' m.pk %}">
+            <span class="feed__title">{% if not m.is_read %}<span class="badge badge--unread badge--plain" style="margin-right:.35rem">New</span>{% endif %}{{ m.name }}</span>
+            <span class="feed__sub">{{ m.subject|default:m.message }}</span>
+          </a>
+          <span class="feed__meta">{{ m.created_at|date:"j M" }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty"><p>No messages yet.</p></div>
+      {% endif %}
+    </section>
+
+    {% if low_stock %}
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title">Running low</h2>
+        <a href="{% url 'dashboard:products' %}?stock=low" class="btn btn--sm btn--ghost">Stock</a>
+      </div>
+      <ul class="feed">
+        {% for p in low_stock %}
+        <li>
+          <a class="feed__main row-link" href="{% url 'dashboard:product_edit' p.pk %}"><span class="feed__title">{{ p }}</span></a>
+          <span class="badge {% if p.stock == 0 %}badge--out{% else %}badge--low{% endif %}">{% if p.stock == 0 %}Sold out{% else %}{{ p.stock }} left{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </aside>
+</div>
 {% endblock %}

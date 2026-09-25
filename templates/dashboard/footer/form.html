@@ -1,0 +1,36 @@
+{% extends "dashboard/crud/form.html" %}
+
+{% block after_fields %}
+{% with fs=formsets.links %}
+<section class="panel">
+  <div class="panel__head">
+    <div><h2 class="panel__title">Links</h2><p class="panel__desc">Use a path like /booking/ for pages on your site, or a full web address.</p></div>
+    <button type="button" class="btn btn--sm" data-formset-add="links">Add link</button>
+  </div>
+  <div class="panel__body">
+    {{ fs.management_form }}
+    {% for e in fs.non_form_errors %}<div class="form-errors">{{ e }}</div>{% endfor %}
+    <div class="rows__row rows__head" style="grid-template-columns:1fr 1.4fr 80px 60px"><span>Label</span><span>Link to</span><span>Order</span><span>Remove</span></div>
+    <div class="rows" id="links-rows">
+      {% for lf in fs %}
+      <div class="rows__row field" style="grid-template-columns:1fr 1.4fr 80px 60px">
+        {{ lf.id }}{{ lf.column }}
+        <div>{{ lf.label }}{% for e in lf.label.errors %}<span class="field__error">{{ e }}</span>{% endfor %}</div>
+        <div>{{ lf.url }}{% for e in lf.url.errors %}<span class="field__error">{{ e }}</span>{% endfor %}</div>
+        <div>{{ lf.order }}</div>
+        <div style="text-align:center">{{ lf.DELETE }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if not fs.forms %}<p class="muted" id="links-none" style="margin:.5rem 0 0">No links yet.</p>{% endif %}
+    <template id="links-empty">
+      <div class="rows__row field" style="grid-template-columns:1fr 1.4fr 80px 60px">
+        {{ fs.empty_form.id }}{{ fs.empty_form.column }}
+        <div>{{ fs.empty_form.label }}</div><div>{{ fs.empty_form.url }}</div><div>{{ fs.empty_form.order }}</div>
+        <div style="text-align:center">{{ fs.empty_form.DELETE }}</div>
+      </div>
+    </template>
+  </div>
+</section>
+{% endwith %}
+{% endblock %}

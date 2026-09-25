@@ -1,0 +1,58 @@
+{% extends "dashboard/crud/list.html" %}
+
+{% block extra_css %}
+<style>
+  .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .6rem; }
+  .day { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); display: flex; flex-direction: column; min-height: 160px; }
+  .day__head { padding: .6rem .75rem; border-bottom: 1px solid var(--line); font: 600 .92rem/1 var(--font-display); }
+  .day__slots { padding: .5rem; display: flex; flex-direction: column; gap: .4rem; flex: 1; }
+  .slot { display: block; padding: .5rem .6rem; border-radius: var(--r); background: var(--chlorine); color: var(--chlorine-ink); border-left: 3px solid var(--lane); font-size: .82rem; }
+  .slot:hover { text-decoration: none; color: var(--chlorine-ink); filter: brightness(.97); }
+  .slot.is-off { background: var(--surface-2); color: var(--faint); border-left-color: var(--line-strong); }
+  .slot__time { font-weight: 700; display: block; }
+  .day__add { margin: auto .5rem .5rem; justify-content: center; }
+  @media (max-width: 1100px) { .week { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-head__title">{{ crud.title }}</h1>
+    <p class="page-head__sub">{{ crud.description }}</p>
+  </div>
+  <div class="page-head__actions">
+    <a href="{% url 'dashboard:pricing' %}" class="btn">Pricing</a>
+    <a href="{% url crud.create_name %}" class="btn btn--primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Add slot</a>
+  </div>
+</div>
+
+<form method="get" class="toolbar">
+  {% for flt, choices, current in filter_widgets %}
+  <select name="{{ flt.param }}" class="select" style="width:auto" data-autosubmit aria-label="{{ flt.label }}">
+    <option value="">{{ flt.label }}: all</option>
+    {% for value, label in choices %}<option value="{{ value }}" {% if current == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  {% endfor %}
+  {% if is_filtered %}<a href="{% url crud.list_name %}" class="btn btn--ghost">Clear filters</a>{% endif %}
+  <span class="toolbar__spacer"></span>
+  <span class="muted" style="font-size:.84rem">Greyed-out slots are turned off.</span>
+</form>
+
+<div class="week">
+  {% for day_num, day_name in days %}
+  <section class="day" aria-label="{{ day_name }}">
+    <div class="day__head">{{ day_name }}</div>
+    <div class="day__slots">
+      {% for row in rows %}{% if row.obj.day_of_week == day_num %}
+      <a href="{% url crud.edit_name row.obj.pk %}" class="slot{% if not row.obj.is_active %} is-off{% endif %}">
+        <span class="slot__time">{{ row.obj.start_time|time:"H:i" }}–{{ row.obj.end_time|time:"H:i" }}</span>
+        {{ row.obj.session_type.name }}<br>{{ row.obj.location.name }}, {{ row.obj.max_capacity }} space{{ row.obj.max_capacity|pluralize }}
+      </a>
+      {% endif %}{% endfor %}
+    </div>
+    <a href="{% url crud.create_name %}?day={{ day_num }}" class="btn btn--sm btn--ghost day__add">+ Add</a>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

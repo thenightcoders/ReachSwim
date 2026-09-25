@@ -1,0 +1,143 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load payment_tags dash_tags %}
+
+{% block title %}{{ crud.title }}{% endblock %}
+{% block crumbs %}<span class="crumbs__current">{{ crud.title }}</span>{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-head__title">{{ crud.title }}</h1>
+    {% if crud.description %}<p class="page-head__sub">{{ crud.description }}</p>{% endif %}
+  </div>
+  <div class="page-head__actions">
+    {% block head_actions %}{% endblock %}
+    {% if crud.can_create %}
+    <a href="{% url crud.create_name %}" class="btn btn--primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+      Add {{ crud.singular }}
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+{% block before_table %}{% endblock %}
+
+{% if crud.search_fields or filter_widgets %}
+<form method="get" class="toolbar" role="search">
+  {% if crud.search_fields %}
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="search" name="q" value="{{ q }}" class="input" placeholder="{{ crud.search_placeholder }}" aria-label="{{ crud.search_placeholder }}">
+  </div>
+  {% endif %}
+  {% for flt, choices, current in filter_widgets %}
+  <select name="{{ flt.param }}" class="select" style="width:auto" data-autosubmit aria-label="{{ flt.label }}">
+    <option value="">{{ flt.label }}: all</option>
+    {% for value, label in choices %}<option value="{{ value }}" {% if current == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  {% endfor %}
+  {% if sort %}<input type="hidden" name="o" value="{{ sort }}">{% endif %}
+  <button type="submit" class="btn btn--sm sr-only">Search</button>
+  {% if is_filtered %}<a href="{% url crud.list_name %}" class="btn btn--ghost btn--sm">Clear filters</a>{% endif %}
+</form>
+{% endif %}
+
+{% if rows %}
+<div data-bulk>
+  {% if bulk_actions %}
+  <form method="post" action="{% url crud.bulk_name %}" id="bulk-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <div class="bulkbar" data-bulk-bar>
+      <span class="bulkbar__count" data-bulk-count></span>
+      {% for a in bulk_actions %}
+      <button type="submit" name="action" value="{{ a.name }}" class="btn btn--sm{% if a.danger %} btn--danger{% endif %}"
+              {% if a.confirm %}data-confirm="{{ a.confirm }}" data-confirm-label="{{ a.label }}"{% endif %}>{{ a.label }}</button>
+      {% endfor %}
+      <button type="button" class="btn btn--sm btn--ghost" data-bulk-clear>Clear selection</button>
+    </div>
+  </form>
+  {% endif %}
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          {% if bulk_actions %}<th class="col-check"><input type="checkbox" class="check" data-bulk-all aria-label="Select all"></th>{% endif %}
+          {% for col in crud.columns %}
+          <th {% if col.num %}class="num"{% endif %}>
+            {% if col.sort %}
+              {% if sort == col.sort %}<a href="{% querystring o='-'|add:col.sort page=None %}" class="is-sorted">{{ col.label }} ↑</a>
+              {% elif sort == '-'|add:col.sort %}<a href="{% querystring o=col.sort page=None %}" class="is-sorted">{{ col.label }} ↓</a>
+              {% else %}<a href="{% querystring o=col.sort page=None %}">{{ col.label }}</a>{% endif %}
+            {% else %}{{ col.label }}{% endif %}
+          </th>
+          {% endfor %}
+          <th class="col-actions"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% url crud.edit_name row.obj.pk as edit_url %}
+        <tr data-href="{{ edit_url }}" {% if row.dim %}class="is-dim"{% endif %}>
+          {% if bulk_actions %}<td class="col-check"><input type="checkbox" class="check" name="ids" value="{{ row.obj.pk }}" form="bulk-form" data-bulk-item aria-label="Select {{ row.obj }}"></td>{% endif %}
+          {% for col, value, sub in row.cells %}
+          <td {% if col.num %}class="num"{% endif %}>
+            {% if col.kind == "title" %}
+              <a href="{{ edit_url }}" class="cell-title">{{ value|default:"Untitled" }}</a>
+            {% elif col.kind == "thumb" %}
+              <div class="with-thumb">
+                {% if value and value.url %}<img src="{{ value.url }}" alt="" class="thumb">{% else %}<span class="thumb" aria-hidden="true">{{ row.obj|initial }}</span>{% endif %}
+                <a href="{{ edit_url }}" class="cell-title">{{ row.obj }}</a>
+              </div>
+            {% elif col.kind == "money" %}{% if value is not None %}{{ value|pence_to_pounds }}{% else %}<span class="faint">—</span>{% endif %}
+            {% elif col.kind == "badge" %}{% if value %}<span class="badge badge--{{ value.1 }}">{{ value.0 }}</span>{% endif %}
+            {% elif col.kind == "bool" %}{% if value %}<span class="badge badge--ok badge--plain">Yes</span>{% else %}<span class="faint">No</span>{% endif %}
+            {% elif col.kind == "toggle" %}
+              <form method="post" action="{% url crud.toggle_name row.obj.pk %}">
+                {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="badge pill-toggle {% if value %}badge--active{% else %}badge--inactive{% endif %}" title="Click to turn {% if value %}off{% else %}on{% endif %}">{% if value %}On{% else %}Off{% endif %}</button>
+              </form>
+            {% elif col.kind == "date" %}{{ value|date:"j M Y"|default:"—" }}
+            {% elif col.kind == "datetime" %}{{ value|date:"j M Y, H:i"|default:"—" }}
+            {% elif col.kind == "muted" %}<span class="muted">{{ value|default:"—" }}</span>
+            {% else %}{{ value|default_if_none:"—" }}{% endif %}
+            {% if sub %}<span class="cell-sub">{{ sub }}</span>{% endif %}
+          </td>
+          {% endfor %}
+          <td class="col-actions">
+            <a href="{{ edit_url }}" class="btn btn--sm btn--ghost">Edit</a>
+            {% if crud.can_delete %}
+            <form method="post" action="{% url crud.delete_name row.obj.pk %}" style="display:inline"
+                  data-confirm="Delete “{{ row.obj }}”? {{ crud.delete_warning|default:"This can't be undone." }}" data-confirm-label="Delete">
+              {% csrf_token %}
+              <button type="submit" class="btn btn--sm btn--ghost btn--icon danger-text" aria-label="Delete {{ row.obj }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "dashboard/includes/pager.html" %}
+{% else %}
+<div class="panel">
+  <div class="empty">
+    {% if is_filtered %}
+      <div class="empty__title">No {{ crud.title|lower }} match those filters</div>
+      <p>Try a different search, or clear the filters to see everything.</p>
+      <a href="{% url crud.list_name %}" class="btn">Clear filters</a>
+    {% else %}
+      <div class="empty__title">No {{ crud.title|lower }} yet</div>
+      {% if crud.empty_text %}<p>{{ crud.empty_text }}</p>{% endif %}
+      {% if crud.can_create %}<a href="{% url crud.create_name %}" class="btn btn--primary">Add {{ crud.singular }}</a>{% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

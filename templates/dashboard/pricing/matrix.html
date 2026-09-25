@@ -1,0 +1,46 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load payment_tags %}
+
+{% block title %}Pricing{% endblock %}
+{% block crumbs %}<span class="crumbs__current">Pricing</span>{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-head__title">Pricing</h1>
+    <p class="page-head__sub">What each session costs at each pool. Leave a box empty and that session can't be booked at that pool.</p>
+  </div>
+</div>
+
+{% if rows and locations %}
+<form method="post">
+  {% csrf_token %}
+  <div class="table-wrap">
+    <table class="table matrix">
+      <thead><tr>
+        <th>Session type</th>
+        {% for loc in locations %}<th><a href="{% url 'dashboard:location_edit' loc.pk %}">{{ loc.name }}</a>{% if not loc.is_active %}<span class="cell-sub">Not bookable</span>{% endif %}</th>{% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><a class="cell-title" href="{% url 'dashboard:sessiontype_edit' row.session_type.pk %}">{{ row.session_type.name }}</a><span class="cell-sub">{{ row.session_type.duration_minutes }} min{% if not row.session_type.is_active %}, not bookable{% endif %}</span></td>
+          {% for c in row.cells %}
+          <td><div class="input-affix"><span class="input-affix__text">{{ site_config.currency_symbol }}</span>
+            <input type="text" inputmode="decimal" name="price_{{ c.key }}" value="{% if c.pence is not None %}{{ c.pence|pence_to_decimal }}{% endif %}" class="input input--sm" style="padding-left:1.5rem;text-align:right" placeholder="—" aria-label="{{ row.session_type.name }} price, pool {{ forloop.counter }}"></div></td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="form-actions"><button type="submit" class="btn btn--primary">Save prices</button></div>
+</form>
+{% else %}
+<div class="panel"><div class="empty">
+  <div class="empty__title">Add a pool and a session type first</div>
+  <p>Prices are set per session type, per pool.</p>
+  <div class="btn-row" style="justify-content:center"><a href="{% url 'dashboard:location_create' %}" class="btn">Add pool</a><a href="{% url 'dashboard:sessiontype_create' %}" class="btn btn--primary">Add session type</a></div>
+</div></div>
+{% endif %}
+{% endblock %}

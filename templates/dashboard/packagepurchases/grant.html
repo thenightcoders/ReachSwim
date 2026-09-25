@@ -1,0 +1,23 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Grant a package{% endblock %}
+{% block crumbs %}<a href="{% url 'dashboard:packagepurchase_list' %}">Package credits</a><span class="crumbs__sep">/</span><span class="crumbs__current">Grant</span>{% endblock %}
+
+{% block content %}
+{% url 'dashboard:packagepurchase_list' as cancel_href %}
+<div class="page-head">
+  <div>
+    <a href="{{ cancel_href }}" class="back-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>Package credits</a>
+    <h1 class="page-head__title">Grant a package</h1>
+    <p class="page-head__sub">Give a client session credits without them paying online, for example after a bank transfer or as a gift.</p>
+  </div>
+</div>
+<form method="post" novalidate style="max-width:680px">
+  {% csrf_token %}
+  {% include "dashboard/includes/form_errors.html" %}
+  <section class="panel"><div class="panel__body form-grid">
+    {% for field in form %}{% include "dashboard/includes/field.html" %}{% endfor %}
+  </div></section>
+  {% include "dashboard/includes/form_actions.html" with submit_label="Grant credits" %}
+</form>
+{% endblock %}

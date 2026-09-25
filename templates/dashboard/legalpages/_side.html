@@ -1,0 +1,8 @@
+{% if object %}
+<section class="panel">
+  <div class="panel__body stack stack--sm">
+    <a href="{{ object.get_absolute_url }}" target="_blank" rel="noopener" class="btn btn--block">View page on website</a>
+    <p class="muted" style="margin:0;font-size:.82rem">Last edited {{ object.updated_at|date:"j M Y, H:i" }}.</p>
+  </div>
+</section>
+{% endif %}

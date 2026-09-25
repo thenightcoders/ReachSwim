@@ -2,74 +2,91 @@
 {% load payment_tags %}
 
 {% block title %}Orders{% endblock %}
-{% block topbar_title %}Orders{% endblock %}
+{% block crumbs %}<span class="crumbs__current">Orders</span>{% endblock %}
 
 {% block content %}
-<div class="dash-header">
-  <h1 class="dash-heading">Orders</h1>
+<div class="page-head">
+  <div>
+    <h1 class="page-head__title">Orders</h1>
+    <p class="page-head__sub">Everything paid for through the website: sessions, packages and shop items.</p>
+  </div>
+  <div class="page-head__actions">
+    <a href="{% querystring export='csv' page=None %}" class="btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export CSV
+    </a>
+  </div>
 </div>
 
-<form class="dash-filters" method="get">
-  <select name="status" class="dash-input dash-input--select" onchange="this.form.submit()">
-    <option value="">All statuses</option>
-    <option value="pending" {% if current_status == "pending" %}selected{% endif %}>Pending</option>
-    <option value="paid" {% if current_status == "paid" %}selected{% endif %}>Paid</option>
-    <option value="failed" {% if current_status == "failed" %}selected{% endif %}>Failed</option>
-    <option value="refunded" {% if current_status == "refunded" %}selected{% endif %}>Refunded</option>
+<div class="toolbar">
+  <nav class="segmented" aria-label="Filter by status">
+    <a href="{% querystring status=None page=None %}" class="{% if not f.status %}is-active{% endif %}">All <span class="segmented__count">{{ all_count }}</span></a>
+    {% for key, label, n in statuses %}
+    <a href="{% querystring status=key page=None %}" class="{% if f.status == key %}is-active{% endif %}">{{ label }} <span class="segmented__count">{{ n }}</span></a>
+    {% endfor %}
+  </nav>
+  <a href="{% if f.unshipped %}{% querystring unshipped=None page=None %}{% else %}{% querystring unshipped='1' page=None %}{% endif %}" class="btn btn--sm {% if f.unshipped %}btn--primary{% endif %}">To ship</a>
+</div>
+
+<form method="get" class="toolbar" role="search">
+  {% if f.status %}<input type="hidden" name="status" value="{{ f.status }}">{% endif %}
+  {% if f.unshipped %}<input type="hidden" name="unshipped" value="1">{% endif %}
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="search" name="q" value="{{ f.q }}" class="input" placeholder="Name, email, order number or voucher" aria-label="Search orders">
+  </div>
+  <select name="kind" class="select" style="width:auto" data-autosubmit aria-label="Contains">
+    <option value="">Any items</option>
+    <option value="booking" {% if f.kind == "booking" %}selected{% endif %}>Contains sessions</option>
+    <option value="package" {% if f.kind == "package" %}selected{% endif %}>Contains packages</option>
+    <option value="product" {% if f.kind == "product" %}selected{% endif %}>Contains shop items</option>
   </select>
-  {% if current_status %}
-  <a href="{% url 'dashboard:orders' %}" class="dash-btn dash-btn--sm dash-btn--ghost">Clear</a>
-  {% endif %}
+  <input type="date" name="from" value="{{ f.from }}" class="input" style="width:auto" aria-label="Placed from">
+  <span class="muted">to</span>
+  <input type="date" name="to" value="{{ f.to }}" class="input" style="width:auto" aria-label="Placed until">
+  <button type="submit" class="btn">Apply</button>
+  {% if is_filtered %}<a href="{% url 'dashboard:orders' %}" class="btn btn--ghost">Clear filters</a>{% endif %}
 </form>
 
-{% if orders %}
-<div class="dash-table-wrap">
-  <table class="dash-table">
-    <thead>
-      <tr>
-        <th>Order #</th>
-        <th>Date</th>
-        <th>Client</th>
-        <th>Items</th>
-        <th>Total</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for o in orders %}
-      <tr>
-        <td>{{ o.order_number }}</td>
-        <td>{{ o.created_at|date:"j M Y H:i" }}</td>
-        <td>{{ o.client_name }}<br><small class="dash-text--muted">{{ o.client_email }}</small></td>
-        <td>
-          {% for item in o.items.all %}
-            <span class="dash-tag">
-              {{ item.label }}{% if item.is_product and item.quantity > 1 %} &times;{{ item.quantity }}{% endif %}
-            </span>
-          {% endfor %}
-        </td>
-        <td>{{ o.total_pence|pence_to_pounds }}</td>
-        <td><span class="dash-badge dash-badge--{{ o.status }}">{{ o.get_status_display }}</span></td>
-        <td>
-          <div style="display:flex;gap:0.35rem;align-items:center;">
-            <a href="{% url 'dashboard:order_detail' o.pk %}" class="dash-btn dash-btn--sm dash-btn--ghost" title="View order" style="padding:0.3rem 0.5rem;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </a>
-            <form method="post" action="{% url 'dashboard:order_delete' o.pk %}" onsubmit="return confirm('Delete order {{ o.order_number }}? This cannot be undone.')">
-              {% csrf_token %}
-              <button type="submit" class="dash-btn dash-btn--sm dash-btn--ghost" style="color:var(--dash-danger);padding:0.3rem 0.5rem;" title="Delete order">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-              </button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{% if page_obj.object_list %}
+<div data-bulk>
+  <form method="post" action="{% url 'dashboard:orders_bulk' %}" id="bulk-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <div class="bulkbar" data-bulk-bar>
+      <span class="bulkbar__count" data-bulk-count></span>
+      <button class="btn btn--sm" name="action" value="expire" data-confirm="Expire the selected unpaid orders? Their pending bookings are cancelled and the slots freed up." data-confirm-label="Expire orders">Expire unpaid</button>
+      <button class="btn btn--sm btn--danger" name="action" value="delete" data-confirm="Permanently delete the selected orders and their line items? Refund history is lost too." data-confirm-label="Delete">Delete</button>
+      <button type="button" class="btn btn--sm btn--ghost" data-bulk-clear>Clear selection</button>
+    </div>
+  </form>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="col-check"><input type="checkbox" class="check" data-bulk-all aria-label="Select all"></th>
+          <th>Order</th><th>Client</th><th>Items</th><th class="num">Total</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in page_obj %}
+        <tr data-href="{% url 'dashboard:order_detail' o.pk %}">
+          <td class="col-check"><input type="checkbox" class="check" name="ids" value="{{ o.pk }}" form="bulk-form" data-bulk-item aria-label="Select order {{ o.order_number }}"></td>
+          <td class="nowrap"><a class="cell-title mono" href="{% url 'dashboard:order_detail' o.pk %}">{{ o.order_number }}</a><span class="cell-sub">{{ o.created_at|date:"j M Y, H:i" }}</span></td>
+          <td>{{ o.client_name }}<span class="cell-sub">{{ o.client_email }}</span></td>
+          <td>{% for item in o.items.all %}<span class="tag">{{ item.label }}{% if item.is_product and item.quantity > 1 %} ×{{ item.quantity }}{% endif %}</span>{% endfor %}</td>
+          <td class="num strong">{{ o.total_pence|pence_to_pounds }}{% if o.voucher_code %}<span class="cell-sub">{{ o.voucher_code }}</span>{% endif %}</td>
+          <td><span class="badge badge--{{ o.status }}">{{ o.get_status_display }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
+{% include "dashboard/includes/pager.html" %}
 {% else %}
-<p class="dash-empty">No orders found.</p>
+<div class="panel"><div class="empty">
+  {% if is_filtered %}<div class="empty__title">No orders match these filters</div><a href="{% url 'dashboard:orders' %}" class="btn">Clear filters</a>
+  {% else %}<div class="empty__title">No orders yet</div><p>When someone checks out on the website, their order appears here.</p>{% endif %}
+</div></div>
 {% endif %}
 {% endblock %}

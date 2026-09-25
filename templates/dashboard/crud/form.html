@@ -1,0 +1,81 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}{% if is_create %}Add {{ crud.singular }}{% else %}{{ object }}{% endif %}{% endblock %}
+{% block crumbs %}
+  <a href="{% url crud.list_name %}">{{ crud.title }}</a><span class="crumbs__sep">/</span>
+  <span class="crumbs__current">{% if is_create %}New {{ crud.singular }}{% else %}{{ object }}{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <a href="{% url crud.list_name %}" class="back-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>{{ crud.title }}</a>
+    <h1 class="page-head__title">{% block form_title %}{% if is_create %}Add {{ crud.singular }}{% else %}{{ object }}{% endif %}{% endblock %}</h1>
+  </div>
+</div>
+
+<form method="post" {% if has_files %}enctype="multipart/form-data"{% endif %} novalidate>
+  {% csrf_token %}
+  {% include "dashboard/includes/form_errors.html" %}
+  <div class="split">
+    <div class="stack">
+      {% for title, fields in groups %}
+      <section class="panel">
+        {% if title %}<div class="panel__head"><h2 class="panel__title">{{ title }}</h2></div>{% endif %}
+        <div class="panel__body form-grid">
+          {% for field in fields %}{% include "dashboard/includes/field.html" %}{% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+
+      {% if crud.form_extra_template %}{% include crud.form_extra_template %}{% endif %}
+      {% block after_fields %}{% endblock %}
+
+      {% if advanced %}
+      <details class="panel disclosure">
+        <summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>More options</summary>
+        <div class="panel__body form-grid">
+          {% for field in advanced %}{% include "dashboard/includes/field.html" %}{% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </div>
+
+    <aside class="split__side stack">
+      {% if crud.form_side_template %}{% include crud.form_side_template %}{% endif %}
+      {% if crud.help_tips %}
+      <section class="panel">
+        <div class="panel__head"><h2 class="panel__title">Good to know</h2></div>
+        <div class="panel__body">
+          <ul class="stack stack--sm muted" style="margin:0;padding-left:1.1rem;font-size:.86rem">
+            {% for tip in crud.help_tips %}<li>{{ tip }}</li>{% endfor %}
+          </ul>
+        </div>
+      </section>
+      {% endif %}
+      {% if not is_create and crud.can_delete %}
+      <section class="panel panel--danger">
+        <div class="panel__body stack stack--sm">
+          <h2 class="panel__title">Delete {{ crud.singular }}</h2>
+          <p class="muted" style="margin:0;font-size:.86rem">{{ crud.delete_warning|default:"This can't be undone." }}</p>
+          <button type="submit" form="delete-form" class="btn btn--danger-soft btn--block">Delete {{ crud.singular }}</button>
+        </div>
+      </section>
+      {% endif %}
+    </aside>
+  </div>
+
+  <div class="form-actions">
+    <a href="{% url crud.list_name %}" class="btn btn--ghost">Cancel</a>
+    {% if is_create %}<button type="submit" name="_addanother" class="btn">Save and add another</button>{% else %}<button type="submit" name="_continue" class="btn">Save and keep editing</button>{% endif %}
+    <button type="submit" class="btn btn--primary">{% if is_create %}Add {{ crud.singular }}{% else %}Save changes{% endif %}</button>
+  </div>
+</form>
+
+{% if not is_create and crud.can_delete %}
+<form method="post" action="{% url crud.delete_name object.pk %}" id="delete-form"
+      data-confirm="Delete “{{ object }}”? {{ crud.delete_warning|default:"This can't be undone." }}" data-confirm-label="Delete">
+  {% csrf_token %}
+</form>
+{% endif %}
+{% endblock %}

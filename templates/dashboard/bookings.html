@@ -1,134 +1,121 @@
 {% extends "dashboard/base_dashboard.html" %}
+{% load payment_tags %}
 
 {% block title %}Bookings{% endblock %}
-{% block topbar_title %}Bookings{% endblock %}
+{% block crumbs %}<span class="crumbs__current">Bookings</span>{% endblock %}
 
 {% block content %}
-<div class="dash-header">
+<div class="page-head">
   <div>
-    <h1 class="dash-heading">Bookings</h1>
-    <p class="dash-subheading">
-      {{ booking_count }} booking{{ booking_count|pluralize }}{% if current_status or date_from or date_to or q %} matching filters{% endif %}
-    </p>
+    <h1 class="page-head__title">Bookings</h1>
+    <p class="page-head__sub">{{ page_obj.paginator.count }} booking{{ page_obj.paginator.count|pluralize }}{% if is_filtered %} match these filters{% endif %}.</p>
   </div>
-  <a href="{% url 'dashboard:booking_create' %}" class="dash-btn dash-btn--primary">
-    <svg class="dash-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    New Booking
-  </a>
+  <div class="page-head__actions">
+    <a href="{% querystring export='csv' page=None %}" class="btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export CSV
+    </a>
+    <a href="{% url 'dashboard:booking_create' %}" class="btn btn--primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>New booking
+    </a>
+  </div>
 </div>
 
-<!-- Filter bar -->
-<form class="bk-filter-bar" method="get" id="bk-filter-form">
-  <input type="hidden" name="status" id="bk-status-input" value="{{ current_status }}">
+<div class="toolbar">
+  <nav class="segmented" aria-label="Filter by status">
+    <a href="{% querystring status=None page=None %}" class="{% if not f.status %}is-active{% endif %}">All <span class="segmented__count">{{ all_count }}</span></a>
+    {% for key, label, n in statuses %}
+    <a href="{% querystring status=key page=None %}" class="{% if f.status == key %}is-active{% endif %}">{{ label }} <span class="segmented__count">{{ n }}</span></a>
+    {% endfor %}
+  </nav>
+  <nav class="segmented" aria-label="Filter by date">
+    <a href="{% querystring when=None page=None %}" class="{% if not f.when %}is-active{% endif %}">Any time</a>
+    <a href="{% querystring when='today' page=None %}" class="{% if f.when == 'today' %}is-active{% endif %}">Today</a>
+    <a href="{% querystring when='upcoming' page=None %}" class="{% if f.when == 'upcoming' %}is-active{% endif %}">Upcoming</a>
+    <a href="{% querystring when='past' page=None %}" class="{% if f.when == 'past' %}is-active{% endif %}">Past</a>
+  </nav>
+</div>
 
-  <div class="bk-filter-top">
-    <!-- Status pills -->
-    <div class="bk-status-pills">
-      <button type="button" class="bk-pill {% if not current_status %}bk-pill--active bk-pill--all{% endif %}"
-              onclick="bkSetStatus('')">All</button>
-      <button type="button" class="bk-pill {% if current_status == 'pending' %}bk-pill--active bk-pill--pending{% endif %}"
-              onclick="bkSetStatus('pending')">Pending</button>
-      <button type="button" class="bk-pill {% if current_status == 'confirmed' %}bk-pill--active bk-pill--confirmed{% endif %}"
-              onclick="bkSetStatus('confirmed')">Confirmed</button>
-      <button type="button" class="bk-pill {% if current_status == 'completed' %}bk-pill--active bk-pill--completed{% endif %}"
-              onclick="bkSetStatus('completed')">Completed</button>
-      <button type="button" class="bk-pill {% if current_status == 'cancelled' %}bk-pill--active bk-pill--cancelled{% endif %}"
-              onclick="bkSetStatus('cancelled')">Cancelled</button>
-    </div>
-
-    <!-- Right-side controls -->
-    <div class="bk-filter-controls">
-      <!-- Client search -->
-      <div class="bk-search-wrap">
-        <svg class="bk-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input type="text" name="q" value="{{ q }}" placeholder="Search client…" class="bk-search-input">
-      </div>
-
-      <!-- Date range -->
-      <div class="bk-date-range">
-        <input type="date" name="from" value="{{ date_from }}" class="bk-date-input" title="From date">
-        <svg class="bk-date-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        <input type="date" name="to" value="{{ date_to }}" class="bk-date-input" title="To date">
-      </div>
-
-      <button type="submit" class="dash-btn dash-btn--sm">Apply</button>
-
-      {% if current_status or date_from or date_to or q %}
-      <a href="{% url 'dashboard:bookings' %}" class="dash-btn dash-btn--sm dash-btn--ghost bk-clear-btn" title="Clear all filters">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        Clear
-      </a>
-      {% endif %}
-    </div>
+<form method="get" class="toolbar" role="search">
+  {% if f.status %}<input type="hidden" name="status" value="{{ f.status }}">{% endif %}
+  {% if f.when %}<input type="hidden" name="when" value="{{ f.when }}">{% endif %}
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="search" name="q" value="{{ f.q }}" class="input" placeholder="Client name, email or reference" aria-label="Search bookings">
   </div>
+  <select name="location" class="select" style="width:auto" data-autosubmit aria-label="Pool">
+    <option value="">All pools</option>
+    {% for loc in locations %}<option value="{{ loc.pk }}" {% if f.location == loc.pk|stringformat:"s" %}selected{% endif %}>{{ loc.name }}</option>{% endfor %}
+  </select>
+  <select name="session_type" class="select" style="width:auto" data-autosubmit aria-label="Session type">
+    <option value="">All sessions</option>
+    {% for st in session_types %}<option value="{{ st.pk }}" {% if f.session_type == st.pk|stringformat:"s" %}selected{% endif %}>{{ st.name }}</option>{% endfor %}
+  </select>
+  <input type="date" name="from" value="{{ f.from }}" class="input" style="width:auto" aria-label="From date">
+  <span class="muted">to</span>
+  <input type="date" name="to" value="{{ f.to }}" class="input" style="width:auto" aria-label="To date">
+  <button type="submit" class="btn">Apply</button>
+  {% if is_filtered %}<a href="{% url 'dashboard:bookings' %}" class="btn btn--ghost">Clear filters</a>{% endif %}
 </form>
 
-{% if bookings %}
-<div class="dash-table-wrap">
-  <table class="dash-table">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Date</th>
-        <th>Time</th>
-        <th>Type</th>
-        <th>Location</th>
-        <th>Client</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for b in bookings %}
-      <tr class="dash-table__row--clickable" onclick="location.href='{% url 'dashboard:booking_detail' b.pk %}'">
-        <td class="bk-id-cell">{{ b.pk }}</td>
-        <td>{{ b.date|date:"D j M Y" }}</td>
-        <td class="bk-time-cell">{{ b.start_time|time:"H:i" }}&ndash;{{ b.end_time|time:"H:i" }}</td>
-        <td>{{ b.session_type.name }}</td>
-        <td>{{ b.location.name }}</td>
-        <td class="bk-client-cell">
-          <span class="bk-client-name">{{ b.client_name }}</span>
-          <span class="bk-client-email">{{ b.client_email }}</span>
-        </td>
-        <td><span class="dash-badge dash-badge--{{ b.status }}">{{ b.get_status_display }}</span></td>
-        <td onclick="event.stopPropagation()">
-          <form method="post" action="{% url 'dashboard:booking_delete' b.pk %}" onsubmit="return confirm('Delete booking #{{ b.pk }}? This cannot be undone.')">
-            {% csrf_token %}
-            <button type="submit" class="bk-delete-btn" title="Delete booking">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                <path d="M10 11v6"/><path d="M14 11v6"/>
-                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-              </svg>
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{% if page_obj.object_list %}
+<div data-bulk>
+  <form method="post" action="{% url 'dashboard:bookings_bulk' %}" id="bulk-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <div class="bulkbar" data-bulk-bar>
+      <span class="bulkbar__count" data-bulk-count></span>
+      <button class="btn btn--sm" name="action" value="confirm" data-confirm="Confirm the selected pending bookings and email each client?" data-confirm-label="Confirm bookings" data-confirm-danger="false">Confirm</button>
+      <button class="btn btn--sm" name="action" value="complete">Mark completed</button>
+      <button class="btn btn--sm" name="action" value="resend">Resend confirmation</button>
+      <button class="btn btn--sm" name="action" value="cancel" data-confirm="Cancel the selected bookings? Confirmed clients will get a cancellation email." data-confirm-label="Cancel bookings">Cancel</button>
+      <button class="btn btn--sm btn--danger" name="action" value="delete" data-confirm="Permanently delete the selected bookings? This can't be undone." data-confirm-label="Delete">Delete</button>
+      <button type="button" class="btn btn--sm btn--ghost" data-bulk-clear>Clear selection</button>
+    </div>
+  </form>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="col-check"><input type="checkbox" class="check" data-bulk-all aria-label="Select all"></th>
+          <th>When</th>
+          <th>Client</th>
+          <th>Session</th>
+          <th class="num">Spaces</th>
+          <th class="num">Amount</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in page_obj %}
+        <tr data-href="{% url 'dashboard:booking_detail' b.pk %}">
+          <td class="col-check"><input type="checkbox" class="check" name="ids" value="{{ b.pk }}" form="bulk-form" data-bulk-item aria-label="Select booking {{ b.pk }}"></td>
+          <td class="nowrap"><span class="strong">{{ b.date|date:"D j M Y" }}</span><span class="cell-sub">{{ b.start_time|time:"H:i" }}–{{ b.end_time|time:"H:i" }}</span></td>
+          <td><a class="cell-title" href="{% url 'dashboard:booking_detail' b.pk %}">{{ b.client_name }}</a><span class="cell-sub">{{ b.client_email }}</span></td>
+          <td>{{ b.session_type.name }}<span class="cell-sub">{{ b.location.name }}</span></td>
+          <td class="num">{{ b.spots_taken_count|default:"–" }} / {{ b.session_type.max_participants }}</td>
+          <td class="num">{{ b.amount_pence|pence_to_pounds }}</td>
+          <td><span class="badge badge--{{ b.status }}">{{ b.get_status_display }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
+{% include "dashboard/includes/pager.html" %}
 {% else %}
-<div class="bk-empty">
-  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--dash-text-muted);opacity:0.5">
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-    <line x1="3" y1="10" x2="21" y2="10"/>
-  </svg>
-  <p>No bookings found{% if current_status or date_from or date_to or q %} matching your filters{% endif %}.</p>
-  {% if current_status or date_from or date_to or q %}
-  <a href="{% url 'dashboard:bookings' %}" class="dash-btn dash-btn--sm">Clear filters</a>
-  {% endif %}
+<div class="panel">
+  <div class="empty">
+    {% if is_filtered %}
+    <div class="empty__title">No bookings match these filters</div>
+    <p>Try a wider date range or a different status.</p>
+    <a href="{% url 'dashboard:bookings' %}" class="btn">Clear filters</a>
+    {% else %}
+    <div class="empty__title">No bookings yet</div>
+    <p>Bookings made on the website show up here. You can also add one by hand, for example after a phone call.</p>
+    <a href="{% url 'dashboard:booking_create' %}" class="btn btn--primary">New booking</a>
+    {% endif %}
+  </div>
 </div>
 {% endif %}
-
-<script>
-function bkSetStatus(val) {
-  document.getElementById('bk-status-input').value = val;
-  document.getElementById('bk-filter-form').submit();
-}
-</script>
 {% endblock %}

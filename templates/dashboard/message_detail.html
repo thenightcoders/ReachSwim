@@ -1,0 +1,52 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Message from {{ msg.name }}{% endblock %}
+{% block crumbs %}<a href="{% url 'dashboard:messages' %}">Messages</a><span class="crumbs__sep">/</span><span class="crumbs__current">{{ msg.name }}</span>{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <a href="{% url 'dashboard:messages' %}" class="back-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>Messages</a>
+    <h1 class="page-head__title">{% if msg.subject %}{{ msg.subject }}{% else %}Message from {{ msg.name }}{% endif %}</h1>
+    <p class="page-head__sub">From {{ msg.name }} &lt;{{ msg.email }}&gt;, {{ msg.created_at|date:"l j F Y, H:i" }}</p>
+  </div>
+  <div class="page-head__actions">
+    <a href="mailto:{{ msg.email }}?subject=Re: {{ msg.subject|default:'Your message'|urlencode }}" class="btn btn--primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v6"/></svg>Reply by email
+    </a>
+  </div>
+</div>
+
+<div class="split">
+  <section class="panel"><div class="panel__body"><p class="message-body" style="margin:0">{{ msg.message }}</p></div></section>
+
+  <aside class="split__side stack">
+    <section class="panel">
+      <dl class="kv">
+        <div class="kv__row"><dt>Name</dt><dd>{{ msg.name }}</dd></div>
+        <div class="kv__row"><dt>Email</dt><dd><a href="mailto:{{ msg.email }}">{{ msg.email }}</a></dd></div>
+        <div class="kv__row"><dt>Account</dt><dd>{% if account %}<a href="{% url 'dashboard:user_detail' account.pk %}">View profile</a>{% else %}<span class="muted">None</span>{% endif %}</dd></div>
+      </dl>
+      <div class="panel__foot btn-row">
+        <form method="post" action="{% url 'dashboard:message_mark_read' msg.pk %}">
+          {% csrf_token %}<input type="hidden" name="state" value="unread"><input type="hidden" name="next" value="{% url 'dashboard:messages' %}">
+          <button class="btn btn--sm">Mark as unread</button>
+        </form>
+        <form method="post" action="{% url 'dashboard:message_delete' msg.pk %}" data-confirm="Delete this message? This can't be undone." data-confirm-label="Delete">
+          {% csrf_token %}<button class="btn btn--sm btn--danger-soft">Delete</button>
+        </form>
+      </div>
+    </section>
+    {% if other_messages %}
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Earlier from {{ msg.name }}</h2></div>
+      <ul class="feed">
+        {% for m in other_messages %}
+        <li><a class="feed__main row-link" href="{% url 'dashboard:message_detail' m.pk %}"><span class="feed__title">{{ m.subject|default:"No subject" }}</span><span class="feed__sub">{{ m.message }}</span></a><span class="feed__meta">{{ m.created_at|date:"j M" }}</span></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

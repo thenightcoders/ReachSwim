@@ -1,32 +1,31 @@
 {% extends "dashboard/base_dashboard.html" %}
 
-{% block title %}{{ action }} Client — Admin{% endblock %}
-{% block topbar_title %}{{ action }} Client{% endblock %}
+{% block title %}{% if person %}Edit {{ person.full_name|default:person.email }}{% else %}Add person{% endif %}{% endblock %}
+{% block crumbs %}<a href="{% url 'dashboard:user_list' %}">People</a><span class="crumbs__sep">/</span>{% if person %}<a href="{% url 'dashboard:user_detail' person.pk %}">{{ person.full_name|default:person.email }}</a><span class="crumbs__sep">/</span><span class="crumbs__current">Edit</span>{% else %}<span class="crumbs__current">New person</span>{% endif %}{% endblock %}
 
 {% block content %}
-<div class="dash-header">
+{% if person %}{% url 'dashboard:user_detail' person.pk as cancel_href %}{% else %}{% url 'dashboard:user_list' as cancel_href %}{% endif %}
+<div class="page-head">
   <div>
-    <a href="{% url 'dashboard:user_list' %}" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--dash-accent);text-decoration:none;margin-bottom:0.5rem;font-size:0.85rem;font-weight:500;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      Back to Clients
-    </a>
-    <h1 class="dash-heading">{{ action }} Client</h1>
+    <a href="{{ cancel_href }}" class="back-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>{% if person %}Back to profile{% else %}People{% endif %}</a>
+    <h1 class="page-head__title">{% if person %}Edit details{% else %}Add person{% endif %}</h1>
+    {% if not person %}<p class="page-head__sub">They'll log in with a one-time link sent to their email, so no password is needed.</p>{% endif %}
   </div>
 </div>
-
-{% url 'dashboard:user_list' as cancel_href %}
-<form method="post" style="max-width:680px;">
+<form method="post" novalidate style="max-width:680px">
   {% csrf_token %}
-  <div class="dash-settings-card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
-    {% for field in form %}
-      <div style="display:flex;flex-direction:column;gap:0.4rem;">
-        <label class="dash-label" style="margin:0;" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.help_text %}<small style="color:var(--dash-text-muted);font-size:0.75rem;">{{ field.help_text }}</small>{% endif %}
-        {% if field.errors %}<div style="color:var(--dash-danger);font-size:0.75rem;font-weight:500;">{% for e in field.errors %}{{ e }}{% endfor %}</div>{% endif %}
-      </div>
-    {% endfor %}
-  </div>
-  {% include "dashboard/includes/form_actions.html" with submit_label="Save" %}
+  {% include "dashboard/includes/form_errors.html" %}
+  <section class="panel">
+    <div class="panel__body form-grid">
+      <div class="grid-2">{% with field=form.full_name %}{% include "dashboard/includes/field.html" %}{% endwith %}{% with field=form.phone %}{% include "dashboard/includes/field.html" %}{% endwith %}</div>
+      {% with field=form.email %}{% include "dashboard/includes/field.html" %}{% endwith %}
+      {% with field=form.role %}{% include "dashboard/includes/field.html" %}{% endwith %}
+      {% with field=form.is_active %}{% include "dashboard/includes/field.html" %}{% endwith %}
+      {% if not person %}
+      <label class="switch"><input type="checkbox" name="send_login_link" checked><span class="switch__text"><span class="switch__label">Email them a login link now</span><span class="switch__hint">So they can see their bookings straight away.</span></span></label>
+      {% endif %}
+    </div>
+  </section>
+  {% include "dashboard/includes/form_actions.html" with submit_label=person|yesno:"Save changes,Add person" %}
 </form>
 {% endblock %}
