@@ -900,11 +900,13 @@ def packagepurchase_grant(request):
 
 @owner_required
 def messages_view(request):
-    from apps.legal.models import ContactMessage
+    from apps.legal.models import ContactMessage, SpamCheckStatus
 
     show = request.GET.get("show", "")
     if show == "spam":
-        qs = ContactMessage.objects.filter(is_spam=True)
+        qs = ContactMessage.objects.spam()
+    elif show == "quarantine":
+        qs = ContactMessage.objects.quarantine()
     else:
         qs = ContactMessage.objects.inbox()
     qs = qs.order_by("-created_at")
@@ -922,23 +924,28 @@ def messages_view(request):
         "show": show,
         "q": q,
         "unread_total": ContactMessage.objects.inbox().filter(is_read=False).count(),
-        "spam_total": ContactMessage.objects.filter(is_spam=True).count(),
+        "spam_total": ContactMessage.objects.spam().count(),
+        "quarantine_total": ContactMessage.objects.quarantine().count(),
+        "spam_status": SpamCheckStatus.load(),
     })
 
 
 @owner_required
 def message_detail(request, pk):
-    from apps.legal.models import ContactMessage
+    from apps.legal.models import BannedSender, ContactMessage
 
     msg = get_object_or_404(ContactMessage, pk=pk)
     if not msg.is_read:
         msg.is_read = True
         msg.save(update_fields=["is_read"])
+    from_sender = ContactMessage.objects.from_email(msg.email)
     return render(request, "dashboard/message_detail.html", {
         "section": "messages",
         "msg": msg,
         "account": User.objects.filter(email__iexact=msg.email).first(),
-        "other_messages": ContactMessage.objects.inbox().filter(email__iexact=msg.email).exclude(pk=pk).order_by("-created_at")[:5],
+        "other_messages": from_sender.inbox().exclude(pk=pk).order_by("-created_at")[:5],
+        "sender_total": from_sender.count(),
+        "banned": BannedSender.is_banned(msg.email),
     })
 
 
@@ -954,26 +961,67 @@ def message_mark_read(request, pk):
     return redirect(_next_or(request, reverse("dashboard:messages")))
 
 
-def _file_messages(qs, is_spam):
-    """Move messages in or out of Spam, and teach the spam detector the answer."""
-    from apps.legal.services import spam
+def _check_summary(run):
+    """Turn a spam.CheckRun into a flash message: (level, text)."""
+    from apps.legal.models import SpamCheckStatus
 
-    changed = list(qs.exclude(is_spam=is_spam))
-    qs.update(is_spam=is_spam, spam_reason="owner" if is_spam else "")
-    spam.report(changed, is_spam=is_spam)
-    return len(changed)
+    if run.api_ok is None:
+        return messages.WARNING, "The spam check is switched off (SPAM_DETECTION_URL is empty)."
+    if not run.api_ok:
+        return messages.ERROR, f"The spam check service is down, so nothing moved. {SpamCheckStatus.load().last_error}"
+    parts = []
+    if run.to_inbox:
+        parts.append(f"{run.to_inbox} moved to your inbox")
+    if run.to_spam:
+        parts.append(f"{run.to_spam} moved to Spam")
+    if run.scored:
+        parts.append(f"{run.scored} spam message(s) scored")
+    if run.waiting:
+        parts.append(f"{run.waiting} still waiting" + (" (the service is busy, try again in a minute)" if run.busy else ""))
+    text = (", ".join(parts) or "Nothing needed checking") + "."
+    return (messages.WARNING if run.waiting else messages.SUCCESS), text[0].upper() + text[1:]
 
 
 @owner_required
 @require_POST
 def message_mark_spam(request, pk):
-    """``state=ham`` moves it back to the inbox; default files it as spam."""
+    """``state=ham`` moves it to the inbox; default files it as spam."""
     from apps.legal.models import ContactMessage
+    from apps.legal.services import spam
 
-    is_spam = request.POST.get("state") != "ham"
-    _file_messages(ContactMessage.objects.filter(pk=pk), is_spam)
-    messages.success(request, "Moved to Spam." if is_spam else "Moved to your inbox.")
+    to_spam = request.POST.get("state") != "ham"
+    spam.move(ContactMessage.objects.filter(pk=pk), "spam" if to_spam else "inbox")
+    messages.success(request, "Moved to Spam." if to_spam else "Moved to your inbox.")
     return redirect(_next_or(request, reverse("dashboard:messages")))
+
+
+@owner_required
+@require_POST
+def message_check(request, pk):
+    """Ask the spam check service about one message again."""
+    from apps.legal.models import ContactMessage
+    from apps.legal.services import spam
+
+    level, text = _check_summary(spam.check(ContactMessage.objects.filter(pk=pk)))
+    messages.add_message(request, level, text)
+    return redirect(_next_or(request, reverse("dashboard:message_detail", args=[pk])))
+
+
+@owner_required
+@require_POST
+def message_ban(request, pk):
+    """Ban the sender's address (``state=unban`` lifts it)."""
+    from apps.legal.models import ContactMessage
+    from apps.legal.services import spam
+
+    msg = get_object_or_404(ContactMessage, pk=pk)
+    if request.POST.get("state") == "unban":
+        spam.unban(msg.email)
+        messages.success(request, f"{msg.email} is no longer banned. Their old messages stay in Spam.")
+    else:
+        moved = spam.ban([msg.email])
+        messages.success(request, f"{msg.email} is banned. {moved} message(s) moved to Spam.")
+    return redirect(_next_or(request, reverse("dashboard:message_detail", args=[pk])))
 
 
 @owner_required
@@ -990,18 +1038,29 @@ def message_delete(request, pk):
 @require_POST
 def messages_bulk(request):
     from apps.legal.models import ContactMessage
+    from apps.legal.services import spam
 
     ids = request.POST.getlist("ids")
     action = request.POST.get("action")
     qs = ContactMessage.objects.filter(pk__in=ids)
-    if not ids:
+    if action == "check_all":
+        level, text = _check_summary(spam.check(spam.waiting()[:spam.SWEEP_SIZE]))
+        messages.add_message(request, level, text)
+    elif not ids:
         messages.warning(request, "Select at least one message first.")
     elif action in ("read", "unread"):
         n = qs.update(is_read=action == "read")
         messages.success(request, f"{n} message(s) marked as {action}.")
     elif action in ("spam", "ham"):
-        n = _file_messages(qs, is_spam=action == "spam")
+        n = spam.move(qs, "spam" if action == "spam" else "inbox")
         messages.success(request, f"{n} message(s) moved to {'Spam' if action == 'spam' else 'your inbox'}.")
+    elif action == "check":
+        level, text = _check_summary(spam.check(qs))
+        messages.add_message(request, level, text)
+    elif action == "ban":
+        emails = set(qs.values_list("email", flat=True))
+        n = spam.ban(emails)
+        messages.success(request, f"Banned {len(emails)} sender(s). {n} message(s) moved to Spam.")
     elif action == "delete":
         n = qs.count()
         qs.delete()

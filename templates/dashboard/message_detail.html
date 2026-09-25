@@ -19,6 +19,11 @@
 
 {% if msg.is_spam %}
 <div class="note note--warning" style="margin-bottom:1rem">This message is in Spam ({{ msg.get_spam_reason_display|lower|default:"filtered" }}{% if msg.spam_score is not None %}, score {{ msg.spam_score|floatformat:2 }}{% endif %}). If it's a real message, mark it as not spam.</div>
+{% elif msg.quarantined %}
+<div class="note note--info" style="margin-bottom:1rem">This message is waiting for the spam check{% if msg.check_attempts %} (tried {{ msg.check_attempts }} time{{ msg.check_attempts|pluralize }}){% endif %}. It moves on its own once the check answers, or you can file it yourself.</div>
+{% endif %}
+{% if banned %}
+<div class="note note--danger" style="margin-bottom:1rem">{{ msg.email }} is banned: new messages from this address go straight to Spam.</div>
 {% endif %}
 <div class="split">
   <section class="panel"><div class="panel__body"><p class="message-body" style="margin:0">{{ msg.message }}</p></div></section>
@@ -29,6 +34,8 @@
         <div class="kv__row"><dt>Name</dt><dd>{{ msg.name }}</dd></div>
         <div class="kv__row"><dt>Email</dt><dd><a href="mailto:{{ msg.email }}">{{ msg.email }}</a></dd></div>
         {% if msg.ip_address %}<div class="kv__row"><dt>Sent from</dt><dd class="mono">{{ msg.ip_address }}</dd></div>{% endif %}
+        {% if msg.user_agent %}<div class="kv__row"><dt>Browser</dt><dd class="muted" title="{{ msg.user_agent }}">{{ msg.user_agent|truncatechars:60 }}</dd></div>{% endif %}
+        {% if msg.spam_score is not None %}<div class="kv__row"><dt>Spam score</dt><dd>{{ msg.spam_score|floatformat:2 }}</dd></div>{% endif %}
         <div class="kv__row"><dt>Account</dt><dd>{% if account %}<a href="{% url 'dashboard:user_detail' account.pk %}">View profile</a>{% else %}<span class="muted">None</span>{% endif %}</dd></div>
       </dl>
       <div class="panel__foot btn-row">
@@ -36,10 +43,27 @@
           {% csrf_token %}<input type="hidden" name="state" value="unread"><input type="hidden" name="next" value="{% url 'dashboard:messages' %}">
           <button class="btn btn--sm">Mark as unread</button>
         </form>
+        {% if msg.quarantined %}
+        <form method="post" action="{% url 'dashboard:message_check' msg.pk %}">
+          {% csrf_token %}<button class="btn btn--sm">Check again</button>
+        </form>
+        {% endif %}
+        {% if msg.is_spam or msg.quarantined %}
         <form method="post" action="{% url 'dashboard:message_mark_spam' msg.pk %}">
-          {% csrf_token %}{% if msg.is_spam %}<input type="hidden" name="state" value="ham">{% endif %}
-          <input type="hidden" name="next" value="{% url 'dashboard:messages' %}{% if msg.is_spam %}?show=spam{% endif %}">
-          <button class="btn btn--sm">{% if msg.is_spam %}Not spam{% else %}Spam{% endif %}</button>
+          {% csrf_token %}<input type="hidden" name="state" value="ham">
+          <input type="hidden" name="next" value="{% url 'dashboard:messages' %}?show={{ msg.folder }}">
+          <button class="btn btn--sm">{% if msg.is_spam %}Not spam{% else %}Move to inbox{% endif %}</button>
+        </form>
+        {% endif %}
+        {% if not msg.is_spam %}
+        <form method="post" action="{% url 'dashboard:message_mark_spam' msg.pk %}">
+          {% csrf_token %}<input type="hidden" name="next" value="{% url 'dashboard:messages' %}{% if msg.quarantined %}?show=quarantine{% endif %}">
+          <button class="btn btn--sm">Spam</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{% url 'dashboard:message_ban' msg.pk %}"{% if not banned %} data-confirm="Ban {{ msg.email }}? {% if sender_total > 1 %}All {{ sender_total }} messages from this address move{% else %}This message moves{% endif %} to Spam, and new ones will go straight there." data-confirm-label="Ban"{% endif %}>
+          {% csrf_token %}{% if banned %}<input type="hidden" name="state" value="unban">{% endif %}
+          <button class="btn btn--sm">{% if banned %}Unban sender{% else %}Ban sender{% endif %}</button>
         </form>
         <form method="post" action="{% url 'dashboard:message_delete' msg.pk %}" data-confirm="Delete this message? This can't be undone." data-confirm-label="Delete">
           {% csrf_token %}<button class="btn btn--sm btn--danger-soft">Delete</button>

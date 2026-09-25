@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 from apps.pages.admin import SingletonAdmin
-from .models import LegalPage, ContactConfig, ContactMessage
+from .models import BannedSender, ContactConfig, ContactMessage, LegalPage, SpamCheckStatus
 
 
 @admin.register(LegalPage)
@@ -49,12 +49,24 @@ def mark_as_unread(modeladmin, request, queryset):
 
 @admin.register(ContactMessage)
 class ContactMessageAdmin(admin.ModelAdmin):
-    list_display = ("name", "email", "subject", "created_at", "is_read", "is_spam")
-    list_filter = ("is_read", "is_spam", "spam_reason", "created_at")
+    list_display = ("name", "email", "subject", "created_at", "is_read", "is_spam", "quarantined")
+    list_filter = ("is_read", "is_spam", "quarantined", "spam_reason", "created_at")
     list_editable = ("is_read",)
-    readonly_fields = ("name", "email", "subject", "message", "created_at", "ip_address", "spam_score")
+    readonly_fields = ("name", "email", "subject", "message", "created_at", "ip_address", "user_agent",
+                       "spam_score", "checked_at", "check_attempts", "notified_at")
     search_fields = ("name", "email", "subject", "message")
     actions = [mark_as_read, mark_as_unread]
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(BannedSender)
+class BannedSenderAdmin(admin.ModelAdmin):
+    list_display = ("email", "created_at")
+    search_fields = ("email",)
+
+
+@admin.register(SpamCheckStatus)
+class SpamCheckStatusAdmin(SingletonAdmin):
+    readonly_fields = ("api_ok", "last_checked_at", "last_ok_at", "last_error", "alert_sent_at")

@@ -42,6 +42,8 @@ urlpatterns = [
     path("messages/<int:pk>/", views.message_detail, name="message_detail"),
     path("messages/<int:pk>/read/", views.message_mark_read, name="message_mark_read"),
     path("messages/<int:pk>/spam/", views.message_mark_spam, name="message_mark_spam"),
+    path("messages/<int:pk>/check/", views.message_check, name="message_check"),
+    path("messages/<int:pk>/ban/", views.message_ban, name="message_ban"),
     path("messages/<int:pk>/delete/", views.message_delete, name="message_delete"),
 
     # People

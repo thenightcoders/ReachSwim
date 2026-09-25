@@ -163,6 +163,9 @@ EMAIL_SUBJECT_PREFIX = ""
 EMAIL_USE_LOCALTIME = True
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
+# True: background emails go through django-q (needs `manage.py qcluster`).
+# False: they are sent straight away, during the request.
+USE_DJANGO_Q_FOR_EMAILS = os.getenv("USE_DJANGO_Q_FOR_EMAILS", "False").strip().lower() == "true"
 
 # ---------------------------------------------------------------------------
 # i18n / timezone

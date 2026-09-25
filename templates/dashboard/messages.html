@@ -7,15 +7,36 @@
 <div class="page-head">
   <div>
     <h1 class="page-head__title">Messages</h1>
-    <p class="page-head__sub">Sent through the contact form on your website.{% if unread_total %} {{ unread_total }} unread.{% endif %}{% if show == 'spam' %} Marking something "Not spam" also helps the spam filter learn.{% endif %}</p>
+    <p class="page-head__sub">{% if show == 'quarantine' %}New messages wait here until the spam check answers, then move to your inbox or to Spam on their own.{% else %}Sent through the contact form on your website.{% if unread_total %} {{ unread_total }} unread.{% endif %}{% if show == 'spam' %} Marking something "Not spam" also helps the spam filter learn.{% endif %}{% endif %}</p>
   </div>
+  {% if show == 'quarantine' and quarantine_total %}
+  <div class="page-head__actions">
+    <form method="post" action="{% url 'dashboard:messages_bulk' %}">
+      {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button class="btn btn--primary" name="action" value="check_all">Check all again</button>
+    </form>
+  </div>
+  {% endif %}
 </div>
+
+{% if show == 'quarantine' %}
+<div class="note {% if spam_status.api_ok is False %}note--danger{% elif spam_status.api_ok %}note--success{% else %}note--info{% endif %}" style="margin-bottom:1rem">
+  {% if spam_status.api_ok is False %}<div class="note__title">The spam check service is down</div>{{ spam_status.last_error }} Last tried {{ spam_status.last_checked_at|date:"j M, H:i" }}{% if spam_status.last_ok_at %}, last worked {{ spam_status.last_ok_at|date:"j M, H:i" }}{% endif %}. Nothing is lost: messages stay here and are retried every 10 minutes, or you can file them yourself.
+  {% elif spam_status.api_ok %}The spam check service is up (last answered {{ spam_status.last_ok_at|date:"j M, H:i" }}). {% if quarantine_total %}If messages stay here, check that the background worker (qcluster) is running.{% endif %}
+  {% else %}The spam check service hasn't been contacted yet.{% endif %}
+</div>
+{% elif quarantine_total %}
+<div class="note {% if spam_api_down %}note--danger{% else %}note--info{% endif %}" style="margin-bottom:1rem">
+  {{ quarantine_total }} message{{ quarantine_total|pluralize }} waiting for the spam check{% if spam_api_down %}, and the spam check service is down{% endif %}. <a href="{% querystring show='quarantine' page=None q=None %}">Review {{ quarantine_total|pluralize:"it,them" }}</a>
+</div>
+{% endif %}
 
 <form method="get" class="toolbar" role="search">
   <nav class="segmented" aria-label="Filter messages">
     <a href="{% querystring show=None page=None %}" class="{% if not show %}is-active{% endif %}">All</a>
     <a href="{% querystring show='unread' page=None %}" class="{% if show == 'unread' %}is-active{% endif %}">Unread <span class="segmented__count">{{ unread_total }}</span></a>
     <a href="{% querystring show='read' page=None %}" class="{% if show == 'read' %}is-active{% endif %}">Read</a>
+    {% if quarantine_total or show == 'quarantine' %}<a href="{% querystring show='quarantine' page=None %}" class="{% if show == 'quarantine' %}is-active{% endif %}">Quarantine <span class="segmented__count">{{ quarantine_total }}</span></a>{% endif %}
     <a href="{% querystring show='spam' page=None %}" class="{% if show == 'spam' %}is-active{% endif %}">Spam{% if spam_total %} <span class="segmented__count">{{ spam_total }}</span>{% endif %}</a>
   </nav>
   {% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
@@ -34,8 +55,10 @@
       <span class="bulkbar__count" data-bulk-count></span>
       <button class="btn btn--sm" name="action" value="read">Mark as read</button>
       <button class="btn btn--sm" name="action" value="unread">Mark as unread</button>
-      {% if show == 'spam' %}<button class="btn btn--sm" name="action" value="ham">Not spam</button>
-      {% else %}<button class="btn btn--sm" name="action" value="spam">Spam</button>{% endif %}
+      {% if show == 'quarantine' %}<button class="btn btn--sm" name="action" value="check">Check again</button>{% endif %}
+      {% if show == 'spam' or show == 'quarantine' %}<button class="btn btn--sm" name="action" value="ham">{% if show == 'spam' %}Not spam{% else %}Move to inbox{% endif %}</button>{% endif %}
+      {% if show != 'spam' %}<button class="btn btn--sm" name="action" value="spam">Spam</button>{% endif %}
+      <button class="btn btn--sm" name="action" value="ban" data-confirm="Ban the senders of the selected messages? Every message from those email addresses moves to Spam, and new ones will go straight there." data-confirm-label="Ban">Ban sender</button>
       <button class="btn btn--sm btn--danger" name="action" value="delete" data-confirm="Delete the selected messages? This can't be undone." data-confirm-label="Delete">Delete</button>
       <button type="button" class="btn btn--sm btn--ghost" data-bulk-clear>Clear selection</button>
     </div>
@@ -44,7 +67,7 @@
     <table class="table">
       <thead><tr>
         <th class="col-check"><input type="checkbox" class="check" data-bulk-all aria-label="Select all"></th>
-        <th>From</th><th>Message</th>{% if show == 'spam' %}<th>Why</th>{% endif %}<th class="right">Received</th>
+        <th>From</th><th>Message</th>{% if show == 'spam' %}<th>Why</th>{% elif show == 'quarantine' %}<th class="right">Tries</th>{% endif %}<th class="right">Received</th>
       </tr></thead>
       <tbody>
         {% for m in page_obj %}
@@ -52,7 +75,8 @@
           <td class="col-check"><input type="checkbox" class="check" name="ids" value="{{ m.pk }}" form="bulk-form" data-bulk-item aria-label="Select message from {{ m.name }}"></td>
           <td class="nowrap">{% if not m.is_read %}<span class="badge badge--unread badge--plain" style="margin-right:.4rem">New</span>{% endif %}<a class="cell-title" href="{% url 'dashboard:message_detail' m.pk %}">{{ m.name }}</a><span class="cell-sub">{{ m.email }}</span></td>
           <td>{% if m.subject %}<span class="strong">{{ m.subject }}</span> {% endif %}<span class="muted" style="font-weight:400">{{ m.message|truncatechars:110 }}</span></td>
-          {% if show == 'spam' %}<td class="nowrap"><span class="badge badge--muted badge--plain">{{ m.get_spam_reason_display|default:"Spam" }}</span></td>{% endif %}
+          {% if show == 'spam' %}<td class="nowrap"><span class="badge badge--muted badge--plain">{{ m.get_spam_reason_display|default:"Spam" }}</span></td>
+          {% elif show == 'quarantine' %}<td class="right nowrap muted">{{ m.check_attempts }}</td>{% endif %}
           <td class="right nowrap muted">{{ m.created_at|date:"j M Y" }}<span class="cell-sub">{{ m.created_at|time:"H:i" }}</span></td>
         </tr>
         {% endfor %}
@@ -64,6 +88,7 @@
 {% else %}
 <div class="panel"><div class="empty">
   {% if show == 'spam' and not q %}<div class="empty__title">No spam</div><p>Messages caught by the spam filter, or that you mark as spam, land here.</p>
+  {% elif show == 'quarantine' and not q %}<div class="empty__title">Nothing waiting</div><p>Every message has been checked.</p><a href="{% url 'dashboard:messages' %}" class="btn">Back to the inbox</a>
   {% elif q or show %}<div class="empty__title">No messages here</div><a href="{% url 'dashboard:messages' %}" class="btn">Show all messages</a>
   {% else %}<div class="empty__title">Inbox is empty</div><p>Messages from your website's contact form will arrive here.</p>{% endif %}
 </div></div>
