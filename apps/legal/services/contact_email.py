@@ -10,16 +10,13 @@ Contact form emails.
 Spam and quarantined messages never trigger ``notify``, so the site can't be
 used to send email to someone who didn't write in.
 """
-from django.conf import settings
-from django.template.loader import render_to_string
+from urllib.parse import quote
+
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import date_format
 
 from apps.pages import mail
-
-
-def _site_url() -> str:
-    return getattr(settings, "SITE_URL", "") or "https://reachswim.co.uk"
 
 
 def notify(msg) -> None:
@@ -30,25 +27,34 @@ def notify(msg) -> None:
     if not claimed:
         return
 
+    config = ContactConfig.load()
+    # First word only, and short: the name is whatever the visitor typed.
+    first_name = (msg.name.split() or ["there"])[0][:30]
+    subject = f"Re: {msg.subject}" if msg.subject else f"Your message to {mail.brand_context()['site'].site_name}"
     context = {
         "msg": msg,
-        # First word only, and short: the name is whatever the visitor typed.
-        "first_name": (msg.name.split() or ["there"])[0][:30],
-        "config": ContactConfig.load(),
-        "site_url": _site_url(),
-        "dashboard_url": _site_url() + reverse("dashboard:message_detail", args=[msg.pk]),
+        "first_name": first_name,
+        "config": config,
+        "sent_str": date_format(timezone.localtime(msg.created_at), "l j F Y, H:i"),
+        "dashboard_url": mail.site_url() + reverse("dashboard:message_detail", args=[msg.pk]),
+        "reply_url": f"mailto:{quote(msg.email, safe='@')}?subject={quote(subject)}",
+        "reply_label": f"Reply to {first_name}",
     }
+    text, html = mail.render("contact_thanks", context)
     mail.send(
         subject="Thanks for getting in touch",
-        body=render_to_string("emails/contact_thanks.txt", context),
-        html=render_to_string("emails/contact_thanks.html", context),
+        body=text,
+        html=html,
         to=[msg.email],
+        reply_to=[config.email],
     )
     owners = mail.owner_emails()
     if owners:
+        text, html = mail.render("contact_new_message", context)
         mail.send(
             subject=f"New message from {msg.name[:60]}" + (f": {msg.subject[:80]}" if msg.subject else ""),
-            body=render_to_string("emails/contact_new_message.txt", context),
+            body=text,
+            html=html,
             bcc=owners,
             reply_to=[msg.email],
         )
@@ -58,13 +64,15 @@ def quarantine_alert(count: int, oldest, status) -> None:
     owners = mail.owner_emails()
     if not owners:
         return
+    text, html = mail.render("contact_quarantine_alert", {
+        "count": count,
+        "oldest": oldest,
+        "status": status,
+        "review_url": mail.site_url() + reverse("dashboard:messages") + "?show=quarantine",
+    })
     mail.send(
         subject=f"{count} message{'s' if count != 1 else ''} waiting for the spam check",
-        body=render_to_string("emails/contact_quarantine_alert.txt", {
-            "count": count,
-            "oldest": oldest,
-            "status": status,
-            "review_url": _site_url() + reverse("dashboard:messages") + "?show=quarantine",
-        }),
+        body=text,
+        html=html,
         bcc=owners,
     )

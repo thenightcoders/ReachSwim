@@ -1,9 +1,10 @@
 {% autoescape off %}Hi {{ first_name }},
 
-Thanks for getting in touch. {{ config.success_message }}
+Thanks for getting in touch. Your message has reached us, and a real person will read it. {{ config.success_message }}
 
-There's no need to reply to this email. If you need to add something, just use the contact form again.
+Thought of something else? Just reply to this email.
 
-ReachSwim
-{{ site_url }}
-{% endautoescape %}
+Speak soon,
+{{ site.site_name }}
+
+{% include "emails/_footer.txt" with reason="You're getting this email because this address was used on our contact form. If that wasn't you, you can ignore it; you won't hear from us again." %}{% endautoescape %}

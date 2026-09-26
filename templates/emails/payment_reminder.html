@@ -1,95 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Complete your booking</title>
-  <style>
-    body { margin: 0; padding: 0; background: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; }
-    .wrapper { max-width: 560px; margin: 40px auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-    .header { background: #0a1628; padding: 32px 40px; }
-    .header h1 { margin: 0; color: #fff; font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
-    .header p { margin: 4px 0 0; color: #7cb8e8; font-size: 14px; }
-    .body { padding: 36px 40px; }
-    .body p { margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #333; }
-    .detail-table { width: 100%; border-collapse: collapse; margin: 24px 0; }
-    .detail-table td { padding: 10px 0; font-size: 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
-    .detail-table td:first-child { color: #777; width: 110px; font-weight: 500; }
-    .detail-table td:last-child { color: #1a1a1a; font-weight: 500; }
-    .cta-wrap { text-align: center; margin: 32px 0; }
-    .cta-btn { display: inline-block; background: #2563eb; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
-    .link-fallback { margin: 16px 0 0; font-size: 12px; color: #888; word-break: break-all; }
-    .link-fallback a { color: #2563eb; }
-    .footer { padding: 24px 40px; background: #f7f9fc; border-top: 1px solid #eee; }
-    .footer p { margin: 0; font-size: 13px; color: #888; line-height: 1.5; }
-    .footer a { color: #2563eb; text-decoration: none; }
+{% extends "emails/base.html" %}
+{% block title %}Complete your booking{% endblock %}
+{% block preheader %}Your place on {{ date_str }} is held, but it isn't paid for yet.{% endblock %}
+{% block eyebrow %}Payment needed{% endblock %}
+{% block heading %}Your place is waiting, {{ client_first_name }}.{% endblock %}
+{% block content %}
+<p style="margin:0;">We're holding this session for you, but we haven't received payment yet. Pay now to confirm it.</p>
 
-    @media (max-width: 600px) {
-      .wrapper { margin: 0 !important; border-radius: 0 !important; }
-      .header { padding: 24px 20px !important; }
-      .body { padding: 24px 20px !important; }
-      .footer { padding: 20px !important; }
-      .detail-table td:first-child { width: 90px !important; }
-      .cta-btn { display: block !important; text-align: center !important; }
-    }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h1>Payment pending</h1>
-      <p>ReachSwim — Adult Swim Coaching</p>
-    </div>
-    <div class="body">
-      <p>Hi {{ client_first_name }},</p>
-      <p>
-        Just a quick nudge — your spot is reserved but we haven't received payment yet.
-        Complete it below to lock it in.
-      </p>
+{% include "emails/_session.html" %}
 
-      <table class="detail-table">
-        <tr>
-          <td>Session</td>
-          <td>{{ session_type_name }}</td>
-        </tr>
-        <tr>
-          <td>Location</td>
-          <td>{{ location_name }}</td>
-        </tr>
-        <tr>
-          <td>Date</td>
-          <td>{{ date_str }}</td>
-        </tr>
-        <tr>
-          <td>Time</td>
-          <td>{{ time_str }}</td>
-        </tr>
-        <tr>
-          <td>Amount due</td>
-          <td>{{ amount_str }}</td>
-        </tr>
-      </table>
+{% include "emails/_details_open.html" %}
+  {% include "emails/_row.html" with label="To pay" value=amount_str first=True %}
+  {% include "emails/_row.html" with label="Reference" value=reference mono=True %}
+{% include "emails/_details_close.html" %}
 
-      <div class="cta-wrap">
-        <a href="{{ payment_link }}" class="cta-btn">Complete payment</a>
-        <p class="link-fallback">
-          Button not working? Copy this link into your browser:<br>
-          <a href="{{ payment_link }}">{{ payment_link }}</a>
-        </p>
-      </div>
+{% include "emails/_button.html" with url=payment_link label="Pay and confirm" %}
 
-      <p style="font-size:13px;color:#888;">
-        This payment link expires in 7 days. If you no longer wish to book,
-        you don't need to do anything — we'll release the spot automatically.
-      </p>
-    </div>
-    <div class="footer">
-      <p>
-        Questions? Reply to this email or visit
-        <a href="https://reachswim.co.uk/contact/">reachswim.co.uk/contact</a>.
-        &copy; ReachSwim.
-      </p>
-    </div>
-  </div>
-</body>
-</html>
+<p class="t-muted" style="margin:16px 0 0; font-size:13px; line-height:20px; color:#56707f;">Button not working? Paste this link into your browser:<br><a class="link" href="{{ payment_link }}" style="color:#0a3d62; word-break:break-all;">{{ payment_link }}</a></p>
+
+<p style="margin:24px 0 0;">Changed your mind? You don't need to do anything. The place is released automatically if it isn't paid for.</p>
+{% endblock %}
+{% block reason %}You're getting this email because you started a booking with {{ site.site_name }}.{% endblock %}

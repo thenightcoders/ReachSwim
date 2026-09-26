@@ -1,0 +1,31 @@
+{% extends "emails/base.html" %}
+{% block title %}Messages waiting{% endblock %}
+{% block preheader %}{{ count }} contact message{{ count|pluralize }} {{ count|pluralize:"is,are" }} waiting for the spam check.{% endblock %}
+{% block eyebrow %}Needs a look{% endblock %}
+{% block heading %}{{ count }} message{{ count|pluralize }} waiting.{% endblock %}
+{% block content %}
+<p style="margin:0;">{{ count|pluralize:"A contact form message is,Contact form messages are" }} stuck waiting for the spam check. The oldest came in on {{ oldest|date:"l j F \a\t H:i" }}.</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;">
+  <tr>
+    {% if status.api_ok is False %}
+    <td class="panel" style="background-color:#fdebe0; border-left:4px solid #e88a4e; border-radius:0 16px 16px 0; padding:20px 24px; font-size:15px; line-height:24px; color:#0c2233;">
+      <strong>The spam check service looks down.</strong><br>
+      <span class="t-soft" style="color:#355063;">{{ status.last_error|default:"It isn't answering." }}{% if status.last_ok_at %}<br>It last worked on {{ status.last_ok_at|date:"l j F \a\t H:i" }}.{% endif %}</span>
+    </td>
+    {% else %}
+    <td class="panel" style="background-color:#dff1fb; border-left:4px solid #4fb3d9; border-radius:0 16px 16px 0; padding:20px 24px; font-size:15px; line-height:24px; color:#0c2233;">
+      <strong>The spam check service is up.</strong><br>
+      <span class="t-soft" style="color:#355063;">So the background worker (qcluster) is probably not running.</span>
+    </td>
+    {% endif %}
+  </tr>
+</table>
+
+<p style="margin:20px 0 0;">Nothing is lost. The messages stay in Quarantine and are checked again every 10 minutes, or you can read them now and file them yourself.</p>
+
+{% include "emails/_button.html" with url=review_url label="Review quarantine" %}
+{% endblock %}
+{% block signoff_wrap %}<div style="height:32px; line-height:32px; font-size:0;">&nbsp;</div>{% endblock %}
+{% block help %}{% endblock %}
+{% block reason %}You're getting this because you look after the {{ site.site_name }} website. You'll get at most one of these a day.{% endblock %}

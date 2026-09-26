@@ -1,0 +1,25 @@
+{% comment %}
+  The session as a pool-blue "ticket": date big, then time and pool.
+  Needs booking, session_type_name, location_name, time_str. Pass
+  struck=True to show it as no longer happening.
+{% endcomment %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;">
+  <tr>
+    <td class="{% if not struck %}ticket{% endif %}" bgcolor="{% if struck %}#7d97a8{% else %}#0a3d62{% endif %}" style="background-color:{% if struck %}#7d97a8{% else %}#0a3d62{% endif %}; border-radius:20px; padding:26px 28px;">
+      <p style="margin:0 0 6px; font-family:'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px; line-height:16px; letter-spacing:1.6px; text-transform:uppercase; color:#bfe4f3;">{{ session_type_name }}</p>
+      <p class="ticket-date serif" style="margin:0; font-family:'Instrument Serif', Georgia, 'Times New Roman', serif; font-size:36px; line-height:40px; color:#ffffff;{% if struck %} text-decoration:line-through;{% endif %}">{{ booking.date|date:"l j F" }}</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;">
+        <tr>
+          <td class="stack" width="50%" valign="top" style="padding:0 12px 8px 0; font-family:Manrope, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+            <p style="margin:0; font-size:11px; line-height:16px; letter-spacing:1.2px; text-transform:uppercase; color:#bfe4f3;">Time</p>
+            <p style="margin:2px 0 0; font-size:16px; line-height:22px; font-weight:700; color:#ffffff;">{{ time_str }}</p>
+          </td>
+          <td class="stack" width="50%" valign="top" style="padding:0 0 8px; font-family:Manrope, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+            <p style="margin:0; font-size:11px; line-height:16px; letter-spacing:1.2px; text-transform:uppercase; color:#bfe4f3;">Pool</p>
+            <p style="margin:2px 0 0; font-size:16px; line-height:22px; font-weight:700; color:#ffffff;">{{ location_name }}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+{% comment %}
+  Shared layout for every email. Tables and inline styles on purpose: Gmail,
+  Outlook and Yahoo ignore most modern CSS, so the <style> block below only
+  adds extras (mobile padding, dark mode) where the app supports them.
+
+  Blocks: title, preheader, eyebrow, heading, content, signoff, help, reason.
+  Context comes from apps.pages.mail.brand_context().
+{% endcomment %}
+<html lang="en-GB" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>{% block title %}{{ site.site_name }}{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <style>td, p, a, span, div { font-family: Arial, Helvetica, sans-serif !important; } .serif { font-family: Georgia, serif !important; }</style>
+  <![endif]-->
+  <style>
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table { border-collapse: collapse; mso-table-lspace: 0; mso-table-rspace: 0; }
+    img { border: 0; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+    a { color: #0a3d62; }
+    a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+    u + #body a { color: inherit; text-decoration: none; }
+
+    @media (max-width: 620px) {
+      .shell { width: 100% !important; }
+      .pad { padding-left: 24px !important; padding-right: 24px !important; }
+      .hero-title { font-size: 34px !important; line-height: 38px !important; }
+      .ticket-date { font-size: 30px !important; line-height: 34px !important; }
+      .btn a { display: block !important; }
+      .stack { display: block !important; width: 100% !important; }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .bg-page { background-color: #07141f !important; }
+      .card { background-color: #0f2335 !important; border-color: #1d3a52 !important; }
+      .t-ink { color: #f6f1e6 !important; }
+      .t-soft { color: #c2d2dd !important; }
+      .t-muted { color: #93aabb !important; }
+      .panel { background-color: #14304a !important; }
+      .ticket { background-color: #1b5b8c !important; }
+      .rule { border-color: #24445f !important; }
+      .quote { background-color: #14304a !important; border-color: #4fb3d9 !important; }
+      .btn-bg { background-color: #4fb3d9 !important; }
+      .btn-bg a { color: #07141f !important; }
+      .link { color: #7cc8e6 !important; }
+    }
+  </style>
+</head>
+<body id="body" class="bg-page" style="margin:0; padding:0; background-color:#f6f1e6; word-spacing:normal;">
+  {# Preview line shown next to the subject in the inbox; the padding keeps the body text from leaking in after it. #}
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#f6f1e6; opacity:0;">
+    {% block preheader %}{% endblock %}&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;
+  </div>
+
+  <table role="presentation" class="bg-page" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f6f1e6;">
+    <tr>
+      <td align="center" style="padding:32px 12px 40px;">
+        <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" class="shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; border-collapse:separate;">
+
+          {# ── Card ─────────────────────────────────────────────── #}
+          <tr>
+            <td class="card" style="background-color:#ffffff; border:1px solid #e6dcc6; border-radius:24px; overflow:hidden;">
+
+              {# Lane rope: the site's pool blue with an orange float #}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td height="6" style="height:6px; line-height:6px; font-size:0; background-color:#0a3d62;">&nbsp;</td>
+                  <td height="6" width="18%" style="height:6px; line-height:6px; font-size:0; background-color:#4fb3d9;">&nbsp;</td>
+                  <td height="6" width="6%" style="height:6px; line-height:6px; font-size:0; background-color:#e88a4e;">&nbsp;</td>
+                </tr>
+              </table>
+
+              {# Logo + label #}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="pad" style="padding:28px 44px 0;" valign="middle">
+                    <a href="{{ site_url }}" style="text-decoration:none;">
+                      <img src="{{ logo_url }}" width="64" height="64" alt="{{ site.site_name }}" style="display:block; width:64px; height:64px; border-radius:16px; background-color:#ffffff;">
+                    </a>
+                  </td>
+                  <td class="pad" style="padding:28px 44px 0 0;" align="right" valign="middle">
+                    <span class="t-muted" style="font-family:'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px; line-height:16px; letter-spacing:1.6px; text-transform:uppercase; color:#56707f;">{% block eyebrow %}{% endblock %}</span>
+                  </td>
+                </tr>
+              </table>
+
+              {# Heading #}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="pad" style="padding:28px 44px 8px;">
+                    <h1 class="hero-title t-ink serif" style="margin:0; font-family:'Instrument Serif', Georgia, 'Times New Roman', serif; font-weight:400; font-size:42px; line-height:46px; letter-spacing:-0.5px; color:#0c2233;">{% block heading %}{% endblock %}</h1>
+                  </td>
+                </tr>
+              </table>
+
+              {# Body #}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="pad t-soft" style="padding:12px 44px 8px; font-family:Manrope, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:16px; line-height:26px; color:#355063;">
+                    {% block content %}{% endblock %}
+                  </td>
+                </tr>
+              </table>
+
+              {% block signoff_wrap %}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="pad" style="padding:16px 44px 40px;">
+                    <p class="t-soft" style="margin:0; font-family:Manrope, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:16px; line-height:26px; color:#355063;">{% block signoff %}See you in the water,{% endblock %}</p>
+                    <p class="t-ink serif" style="margin:2px 0 0; font-family:'Instrument Serif', Georgia, 'Times New Roman', serif; font-style:italic; font-size:24px; line-height:30px; color:#0c2233;">{{ site.site_name }}</p>
+                  </td>
+                </tr>
+              </table>
+              {% endblock %}
+            </td>
+          </tr>
+
+          {# ── Footer ───────────────────────────────────────────── #}
+          <tr>
+            <td class="pad t-muted" style="padding:28px 44px 0; font-family:Manrope, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:13px; line-height:20px; color:#56707f;">
+              <p style="margin:0 0 12px;">{% block help %}Questions? Just reply to this email, or <a class="link" href="{{ contact_url }}" style="color:#0a3d62; text-decoration:underline;">get in touch on our website</a>.{% endblock %}</p>
+              <p style="margin:0 0 12px;">
+                <a class="link" href="{{ site_url }}" style="color:#0a3d62; text-decoration:none; font-weight:600;">{{ site_host }}</a>
+                {% if privacy_url %}&nbsp;·&nbsp; <a class="link" href="{{ privacy_url }}" style="color:#0a3d62; text-decoration:none;">Privacy</a>{% endif %}
+                {% if terms_url %}&nbsp;·&nbsp; <a class="link" href="{{ terms_url }}" style="color:#0a3d62; text-decoration:none;">Terms</a>{% endif %}
+              </p>
+              <p style="margin:0 0 12px;">{% block reason %}{% endblock %}</p>
+              {% if site.legal_lines %}<p style="margin:0 0 12px;">{{ site.legal_lines|join:" " }}</p>{% endif %}
+              <p style="margin:0;">&copy; {{ year }} {{ site.legal_name|default:site.site_name }}</p>
+            </td>
+          </tr>
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

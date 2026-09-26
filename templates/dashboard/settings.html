@@ -34,6 +34,11 @@
         <div class="grid-2">{% with field=f.email %}{% include "dashboard/includes/field.html" %}{% endwith %}{% with field=f.phone %}{% include "dashboard/includes/field.html" %}{% endwith %}</div>
         {% with field=f.meta_description %}{% include "dashboard/includes/field.html" %}{% endwith %}
       </div></section>
+      <section class="panel"><div class="panel__head"><h2 class="panel__title">Legal details</h2><p class="panel__desc" style="margin:0">Printed at the bottom of every email the site sends. UK law asks businesses to say who they are and give an address; companies must also give their number and registered office.</p></div><div class="panel__body form-grid">
+        <div class="grid-2">{% with field=f.legal_name %}{% include "dashboard/includes/field.html" %}{% endwith %}{% with field=f.vat_number %}{% include "dashboard/includes/field.html" %}{% endwith %}</div>
+        {% with field=f.business_address %}{% include "dashboard/includes/field.html" %}{% endwith %}
+        <div class="grid-2">{% with field=f.company_number %}{% include "dashboard/includes/field.html" %}{% endwith %}{% with field=f.registered_in %}{% include "dashboard/includes/field.html" %}{% endwith %}</div>
+      </div></section>
       <section class="panel"><div class="panel__head"><h2 class="panel__title">Logo and icon</h2></div><div class="panel__body grid-2">
         {% with field=f.logo %}{% include "dashboard/includes/field.html" %}{% endwith %}{% with field=f.favicon %}{% include "dashboard/includes/field.html" %}{% endwith %}
       </div></section>

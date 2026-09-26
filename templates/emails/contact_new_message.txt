@@ -2,7 +2,7 @@
 
 From:    {{ msg.name }} <{{ msg.email }}>
 {% if msg.subject %}Subject: {{ msg.subject }}
-{% endif %}Sent:    {{ msg.created_at|date:"l j F Y, H:i" }}
+{% endif %}Sent:    {{ sent_str }}
 
 {{ msg.message }}
 

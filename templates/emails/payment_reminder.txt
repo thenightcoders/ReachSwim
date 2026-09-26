@@ -1,18 +1,20 @@
-Hi {{ client_first_name }},
+{% autoescape off %}Hi {{ client_first_name }},
 
-Just a quick nudge — your booking is still waiting for payment.
+We're holding this session for you, but we haven't received payment yet:
 
-  Session:   {{ session_type_name }}
-  Location:  {{ location_name }}
-  Date:      {{ date_str }}
-  Time:      {{ time_str }}
-  Amount:    {{ amount_str }}
+  Session:    {{ session_type_name }}
+  Date:       {{ date_str }}
+  Time:       {{ time_str }}
+  Pool:       {{ location_name }}
+  To pay:     {{ amount_str }}
+  Reference:  {{ reference }}
 
-Complete your payment here:
+Pay now to confirm it:
 {{ payment_link }}
 
-This link expires in 7 days. If you have any questions, just reply to this email.
+Changed your mind? You don't need to do anything. The place is released automatically if it isn't paid for.
 
 See you in the water,
-ReachSwim
-https://reachswim.co.uk
+{{ site.site_name }}
+
+{% include "emails/_footer.txt" with reason="You're getting this email because you started a booking with us." %}{% endautoescape %}

@@ -1,16 +1,17 @@
-Hi {{ client_first_name }},
+{% autoescape off %}Hi {{ client_first_name }},
 
-Your booking is confirmed. Here are the details:
+You're booked in. Here's everything you need for the session:
 
   Session:    {{ session_type_name }}
-  Location:   {{ location_name }}
   Date:       {{ date_str }}
   Time:       {{ time_str }}
-  Amount:     {{ amount_str }}
+  Pool:       {{ location_name }}
+  Paid:       {{ amount_str }}
   Reference:  {{ reference }}
 
-If you need to cancel or have any questions, reply to this email.
+Plans changed? You can cancel free of charge up to {{ cancellation_hours }} hour{{ cancellation_hours|pluralize }} before the session. Just reply to this email.{% if terms_url %} The full cancellation policy is in our terms: {{ terms_url }}{% endif %}
 
 See you in the water,
-ReachSwim
-https://reachswim.co.uk
+{{ site.site_name }}
+
+{% include "emails/_footer.txt" with reason="You're getting this email because you booked a session with us." %}{% endautoescape %}

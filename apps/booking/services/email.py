@@ -9,9 +9,9 @@ Public API:
   send_refund_email(order, refund, *, order_item=None, async_send=False)
 
 All functions:
-  - Render HTML + plain-text templates from templates/emails/
-  - Use EmailMultiAlternatives so clients that can't render HTML still get a
-    readable message
+  - Render HTML + plain-text templates from templates/emails/ on the shared
+    layout (apps.pages.mail.render), so clients that can't render HTML still
+    get a readable message
   - Swallow SMTP exceptions and log them — a broken mail config must never
     kill a booking flow or block an HTTP response
 
@@ -30,8 +30,8 @@ objects or stale in-memory state.
 import logging
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
+
+from apps.pages import mail
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-def _from_email() -> str:
-    return settings.DEFAULT_FROM_EMAIL or "noreply@reachswim.co.uk"
-
 
 def _admin_bcc() -> list[str]:
     """
@@ -54,43 +50,22 @@ def _admin_bcc() -> list[str]:
     return [email] if email else []
 
 
-def _send(
-    *,
-    subject: str,
-    to: str,
-    html_template: str,
-    txt_template: str,
-    context: dict,
-) -> bool:
+def _send(*, subject: str, to: str, template: str, context: dict) -> bool:
     """
-    Render templates, build an EmailMultiAlternatives message, send it.
+    Render emails/<template>.html + .txt (on the shared layout) and send now.
     The owner (ADMIN_EMAIL) is always BCC'd so every outgoing email lands
-    silently in their inbox too.
+    silently in their inbox too, and replies go to the business address.
     Returns True on success.  Never raises — logs the exception and returns
     False on any SMTP or template error.
     """
+    from apps.pages.models import SiteConfig
+
     try:
-        html_body = render_to_string(html_template, context)
-        txt_body  = render_to_string(txt_template,  context)
-
-        bcc = _admin_bcc()
-        msg = EmailMultiAlternatives(
-            subject=subject,
-            body=txt_body,
-            from_email=_from_email(),
-            to=[to],
-            bcc=bcc,
-        )
-        msg.attach_alternative(html_body, "text/html")
-        msg.send(fail_silently=False)
-        return True
-
+        text, html = mail.render(template, context)
     except Exception:
-        logger.exception(
-            "Failed to send '%s' to %s (html_template=%s)",
-            subject, to, html_template,
-        )
+        logger.exception("Failed to render '%s' for %s (template=%s)", subject, to, template)
         return False
+    return mail.send_now(subject, text, [to], _admin_bcc(), html, [SiteConfig.load().email])
 
 
 # ---------------------------------------------------------------------------
@@ -177,8 +152,7 @@ def send_booking_confirmation(booking, *, async_send: bool = False) -> bool | No
     return _send(
         subject=subject,
         to=booking.client_email,
-        html_template="emails/booking_confirmation.html",
-        txt_template="emails/booking_confirmation.txt",
+        template="booking_confirmation",
         context=context,
     )
 
@@ -204,8 +178,7 @@ def send_booking_cancellation(booking, *, async_send: bool = False) -> bool | No
     return _send(
         subject=subject,
         to=booking.client_email,
-        html_template="emails/booking_cancellation.html",
-        txt_template="emails/booking_cancellation.txt",
+        template="booking_cancellation",
         context=context,
     )
 
@@ -265,8 +238,7 @@ def send_refund_email(order, refund, *, order_item=None, async_send: bool = Fals
     return _send(
         subject=subject,
         to=order.client_email,
-        html_template="emails/booking_refund.html",
-        txt_template="emails/booking_refund.txt",
+        template="booking_refund",
         context=context,
     )
 
@@ -300,8 +272,7 @@ def send_payment_reminder(booking, payment_link: str, *, async_send: bool = Fals
     return _send(
         subject=subject,
         to=booking.client_email,
-        html_template="emails/payment_reminder.html",
-        txt_template="emails/payment_reminder.txt",
+        template="payment_reminder",
         context=context,
     )
 
@@ -320,13 +291,17 @@ def _booking_context(booking) -> dict:
     )
 
     date_str  = booking.date.strftime("%A %-d %B %Y")
-    start_str = booking.start_time.strftime("%-I:%M %p")
-    end_str   = booking.end_time.strftime("%-I:%M %p") if booking.end_time else ""
+    # UK style: "7:00am"
+    start_str = booking.start_time.strftime("%-I:%M%p").lower()
+    end_str   = booking.end_time.strftime("%-I:%M%p").lower() if booking.end_time else ""
     time_str  = f"{start_str}–{end_str}" if end_str else start_str
     amount_str = f"£{booking.amount_pence / 100:.2f}"
 
+    from apps.booking.models import BookingSettings
+
     return {
         "booking":            booking,
+        "cancellation_hours": BookingSettings.load().cancellation_hours,
         "client_name":        booking.client_name,
         "client_first_name":  booking.client_name.split()[0] if booking.client_name else "there",
         "session_type_name":  session_type_name,

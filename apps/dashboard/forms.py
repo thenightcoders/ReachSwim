@@ -438,13 +438,15 @@ class SiteConfigForm(forms.ModelForm):
         fields = [
             "site_name", "tagline", "established_year", "currency", "logo", "favicon",
             "email", "phone", "location_text", "meta_description",
+            "legal_name", "business_address", "company_number", "registered_in", "vat_number",
             "whatsapp_url", "instagram_url", "facebook_url", "twitter_url", "linkedin_url",
             "youtube_url", "tiktok_url", "snapchat_url",
         ]
         labels = {"location_text": "Location shown on site", "twitter_url": "X / Twitter URL",
                   "meta_description": "Search engine description"}
         help_texts = {"currency": "Display only. Payments are always taken in GBP."}
-        widgets = {"meta_description": forms.Textarea(attrs={"rows": 2})}
+        widgets = {"meta_description": forms.Textarea(attrs={"rows": 2}),
+                   "business_address": forms.Textarea(attrs={"rows": 3})}
 
 
 class HeroSectionForm(forms.ModelForm):
