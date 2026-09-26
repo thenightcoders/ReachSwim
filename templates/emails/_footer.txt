@@ -1,0 +1,10 @@
+{% autoescape off %}--
+{{ site.site_name }} · {{ site_url }}
+Questions? Reply to this email or visit {{ contact_url }}
+{% if privacy_url %}Privacy: {{ privacy_url }}
+{% endif %}{% if terms_url %}Terms: {{ terms_url }}
+{% endif %}{% if reason %}
+{{ reason }}
+{% endif %}{% if site.legal_lines %}
+{{ site.legal_lines|join:" " }}
+{% endif %}{% endautoescape %}

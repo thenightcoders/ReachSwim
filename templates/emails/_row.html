@@ -1,0 +1,5 @@
+{# One label/value line inside a details panel (see _details_open.html). #}
+<tr>
+  <td class="rule" style="padding:14px 0; border-top:{% if first %}0{% else %}1px dashed #d9ccb0{% endif %}; font-family:'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px; line-height:18px; letter-spacing:1.2px; text-transform:uppercase; color:#56707f; width:130px;" valign="top"><span class="t-muted">{{ label }}</span></td>
+  <td class="rule t-ink" style="padding:14px 0; border-top:{% if first %}0{% else %}1px dashed #d9ccb0{% endif %}; font-family:{% if mono %}'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size:13px{% else %}Manrope, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:15px{% endif %}; line-height:22px; font-weight:600; color:#0c2233; word-break:break-word;" valign="top">{{ value }}</td>
+</tr>

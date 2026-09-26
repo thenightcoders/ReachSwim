@@ -484,7 +484,7 @@ class BookingConfirmationEmailTest(TestCase):
 
         # Patch the underlying send method inside the email service
         with patch(
-            "apps.booking.services.email.EmailMultiAlternatives.send",
+            "apps.pages.mail.EmailMultiAlternatives.send",
             side_effect=Exception("SMTP down"),
         ):
             # Must not raise

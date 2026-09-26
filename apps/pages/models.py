@@ -66,6 +66,26 @@ class SiteConfig(SingletonModel):
     tiktok_url = models.URLField(blank=True)
     snapchat_url = models.URLField(blank=True)
 
+    # Legal identity — UK law wants these on business emails (E-Commerce
+    # Regulations 2002, and the Companies Act trading disclosures when it's a
+    # company). Shown in the footer of every email the site sends.
+    REGISTERED_IN_CHOICES = [
+        ("England and Wales", "England and Wales"),
+        ("Scotland", "Scotland"),
+        ("Northern Ireland", "Northern Ireland"),
+    ]
+    legal_name = models.CharField(
+        max_length=150, blank=True,
+        help_text="The company name (e.g. 'ReachSwim Ltd'), or your own name if you're a sole trader.",
+    )
+    business_address = models.TextField(
+        blank=True,
+        help_text="A postal address people can write to. For a company, the registered office.",
+    )
+    company_number = models.CharField(max_length=20, blank=True, help_text="Leave empty if you're not a company.")
+    registered_in = models.CharField(max_length=20, choices=REGISTERED_IN_CHOICES, default="England and Wales")
+    vat_number = models.CharField(max_length=20, blank=True, help_text="Only if you're VAT registered.")
+
     # Location headline
     location_text = models.CharField(max_length=100, default="London")
     established_year = models.PositiveIntegerField(default=2021)
@@ -79,6 +99,30 @@ class SiteConfig(SingletonModel):
     @property
     def currency_symbol(self) -> str:
         return self.CURRENCY_SYMBOLS.get(self.currency, "£")
+
+    @property
+    def legal_lines(self) -> list[str]:
+        """Who is sending the email, in the words UK law asks for."""
+        address = ", ".join(line.strip() for line in self.business_address.splitlines() if line.strip())
+        name = self.legal_name.strip()
+        lines = []
+        # "ReachSwim Ltd" already says who ReachSwim is; "Jane Doe" doesn't.
+        if name and not name.lower().startswith(self.site_name.lower()):
+            lines.append(f"{self.site_name} is a trading name of {name}.")
+        if self.company_number:
+            lines.append(f"{name or self.site_name} is registered in {self.registered_in}, "
+                         f"company number {self.company_number}.")
+            if address:
+                lines.append(f"Registered office: {address}.")
+        elif address:
+            lines.append(f"{address}.")
+        if self.vat_number:
+            lines.append(f"VAT number {self.vat_number}.")
+        return lines
+
+    @property
+    def legal_details_missing(self) -> bool:
+        return not (self.legal_name and self.business_address)
 
     class Meta:
         verbose_name = "Site Configuration"

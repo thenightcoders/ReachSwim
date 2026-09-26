@@ -1,19 +1,17 @@
-Hi {{ client_first_name }},
+{% autoescape off %}Hi {{ client_first_name }},
 
-Your booking has been cancelled. Here's what was scheduled:
+This booking is now cancelled and your place has been released.
 
   Session:    {{ session_type_name }}
-  Location:   {{ location_name }}
   Date:       {{ date_str }}
   Time:       {{ time_str }}
-  Reference:  {{ reference }}
-{% if cancellation_reason %}
-  Reason:     {{ cancellation_reason }}
-{% endif %}
+  Pool:       {{ location_name }}
+  Reference:  {{ reference }}{% if cancellation_reason %}
+  Reason:     {{ cancellation_reason }}{% endif %}
 
-To book another session, visit: https://reachswim.co.uk/book/
+If a refund is due, we'll send you a separate email once it's been processed.
 
-Questions? Reply to this email.
+All the best,
+{{ site.site_name }}
 
-ReachSwim
-https://reachswim.co.uk
+{% include "emails/_footer.txt" with reason="You're getting this email because you had a booking with us." %}{% endautoescape %}
